@@ -1,2 +1,2 @@
 # HealthControl
-Health Control - Equipo 3
+Health Control - Androides

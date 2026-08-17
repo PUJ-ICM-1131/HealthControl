@@ -50,7 +50,7 @@ seguimiento en el día a día.
 | Integrante |
 |---|
 | **Julian Santiago Leon Perez** |
-| **Integrante 2** |
+| **Marcelo Santiago Zeballos Murillo** |
 | **Integrante 3** |
 | **Integrante 4** |
 

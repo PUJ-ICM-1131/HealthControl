@@ -51,7 +51,7 @@ seguimiento en el día a día.
 |---|
 | **Julian Santiago Leon Perez** |
 | **Marcelo Santiago Zeballos Murillo** |
-| **Integrante 3** |
+| **Santiago Javier Silva Caliman** |
 | **Integrante 4** |
 
 ---

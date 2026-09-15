@@ -110,7 +110,8 @@ fun RegisterScreen(
             Text(
                 text = "Crear cuenta",
                 style = MaterialTheme.typography.displaySmall,
-                color = Blue700
+                color = Blue700,
+                fontWeight = FontWeight.Bold
             )
 
             Spacer(Modifier.height(8.dp))

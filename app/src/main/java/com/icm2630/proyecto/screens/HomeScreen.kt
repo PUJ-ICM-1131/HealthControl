@@ -13,13 +13,16 @@ import androidx.compose.material.icons.filled.Circle
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -32,7 +35,8 @@ import com.icm2630.proyecto.ui.theme.*
 
 @Composable
 fun HomeScreen(
-    onNavigate: (Routes) -> Unit = {}
+    onNavigate: (Routes) -> Unit = {},
+    onCerrarSesion: () -> Unit = {}
 ) {
     Scaffold(
         bottomBar = {
@@ -66,15 +70,8 @@ fun HomeScreen(
                         fontWeight = FontWeight.Bold
                     )
                 }
-                // Foto de perfil (Simulada)
-                Box(
-                    modifier = Modifier
-                        .size(45.dp)
-                        .clip(CircleShape)
-                        .background(Blue100)
-                ) {
-                    Icon(Icons.Outlined.Person, null, modifier = Modifier.align(Alignment.Center), tint = Blue700)
-                }
+
+                PerfilMenu(onCerrarSesion = onCerrarSesion)
             }
 
             Spacer(Modifier.height(24.dp))
@@ -177,6 +174,78 @@ fun HomeScreen(
     }
 }
 
+/**
+ * Ícono de perfil con menú desplegable. "Cerrar sesión" no ejecuta
+ * directamente: primero pide confirmación con un AlertDialog, porque
+ * es una acción destructiva de un solo toque y fácil de disparar
+ * sin querer.
+ */
+@Composable
+private fun PerfilMenu(onCerrarSesion: () -> Unit) {
+    var menuAbierto by remember { mutableStateOf(false) }
+    var mostrarConfirmacion by remember { mutableStateOf(false) }
+
+    Box {
+        Box(
+            modifier = Modifier
+                .size(45.dp)
+                .clip(CircleShape)
+                .background(Blue100)
+                .clickable { menuAbierto = true }
+        ) {
+            Icon(
+                Icons.Outlined.Person,
+                contentDescription = "Menú de perfil",
+                modifier = Modifier.align(Alignment.Center),
+                tint = Blue700
+            )
+        }
+
+        DropdownMenu(
+            expanded = menuAbierto,
+            onDismissRequest = { menuAbierto = false }
+        ) {
+            DropdownMenuItem(
+                text = { Text("Cerrar sesión", color = Color(0xFFEF4444)) },
+                leadingIcon = {
+                    Icon(
+                        Icons.Outlined.Logout,
+                        contentDescription = null,
+                        tint = Color(0xFFEF4444)
+                    )
+                },
+                onClick = {
+                    menuAbierto = false
+                    mostrarConfirmacion = true
+                }
+            )
+        }
+    }
+
+    if (mostrarConfirmacion) {
+        AlertDialog(
+            onDismissRequest = { mostrarConfirmacion = false },
+            title = { Text("¿Cerrar sesión?") },
+            text = { Text("Tendrás que volver a iniciar sesión para acceder a tu cuenta.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        mostrarConfirmacion = false
+                        onCerrarSesion()
+                    }
+                ) {
+                    Text("Cerrar sesión", color = Color(0xFFEF4444))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { mostrarConfirmacion = false }) {
+                    Text("Cancelar", color = TextSecondary)
+                }
+            }
+        )
+    }
+}
+
 @Composable
 private fun LogoSmall() {
     Box(
@@ -215,7 +284,7 @@ private fun ProfileChip(label: String, icon: ImageVector?, isSelected: Boolean, 
                     modifier = Modifier.size(20.dp)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
-                        Text(letter ?: "", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        Text(letter, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     }
                 }
             }

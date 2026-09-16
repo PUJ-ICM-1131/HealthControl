@@ -14,8 +14,13 @@ import androidx.compose.ui.Modifier
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.ui.NavDisplay
 import com.icm2630.proyecto.components.HealthBottomNavigation
+import com.icm2630.proyecto.model.PerfilUsuario
+import com.icm2630.proyecto.model.TipoPerfil
+import com.icm2630.proyecto.repository.SesionRepository
 import com.icm2630.proyecto.screens.HomeScreen
 import com.icm2630.proyecto.screens.LoginScreen
+import com.icm2630.proyecto.screens.ProfileScreen
+import com.icm2630.proyecto.screens.ProfileSetupScreen
 import com.icm2630.proyecto.screens.RegisterScreen
 
 @Composable
@@ -39,7 +44,13 @@ fun AppNavigation() {
                 LoginScreen(
                     onLogin = {
                         backStack.clear()
-                        backStack.add(Routes.Home)
+                        backStack.add(
+                            when {
+                                !SesionRepository.perfilConfigurado -> Routes.ProfileSetup
+                                SesionRepository.perfil?.tipoPerfil == TipoPerfil.ASOCIADO -> Routes.Monitoreo
+                                else -> Routes.Home
+                            }
+                        )
                     },
                     onIrARegister = {
                         backStack.add(Routes.Register)
@@ -49,51 +60,82 @@ fun AppNavigation() {
 
             entry<Routes.Register> {
                 RegisterScreen(
+                    onRegister = { _, _, _ ->
+                        backStack.clear()
+                        backStack.add(Routes.ProfileSetup) // no va a Home todavía
+                    },
                     onIrALogin = {
                         backStack.removeAt(backStack.lastIndex)
                     }
                 )
             }
 
-            entry<Routes.Home> {
-                HomeScreen(
-                    onNavigate = { route ->
-                        if (route != Routes.Home) {
-                            backStack.add(route)
-                        }
+            entry<Routes.ProfileSetup> {
+                ProfileSetupScreen(
+                    onContinuar = { perfil ->
+                        SesionRepository.perfil = perfil
+                        backStack.clear()
+                        backStack.add(
+                            if (perfil.tipoPerfil == TipoPerfil.ASOCIADO) Routes.Monitoreo else Routes.Home
+                        )
+                    },
+                    onCerrarSesion = {
+                        backStack.clear()
+                        backStack.add(Routes.Login)
                     }
                 )
             }
 
-            entry<Routes.Recordatorios> { PlaceholderScreen("Recordatorios", backStack) }
-            entry<Routes.Registrar> { PlaceholderScreen("Registrar", backStack) }
-            entry<Routes.Historial> { PlaceholderScreen("Historial", backStack) }
-            entry<Routes.Perfil> { PlaceholderScreen("Perfil", backStack) }
+            entry<Routes.Home> {
+                HomeScreen(
+                    onNavigate = { route -> navegarATab(backStack, route) },
+                    onCerrarSesion = {
+                        SesionRepository.perfil = null
+                        backStack.clear()
+                        backStack.add(Routes.Login)
+                    }
+                )
+            }
+
+            entry<Routes.Perfil> {
+                ProfileScreen(
+                    perfil = SesionRepository.perfil ?: PerfilUsuario(),
+                    onNavigate = { route -> navegarATab(backStack, route) },
+                    onEditarCampo = { /* TODO: conectar edición real de perfil */ },
+                    onCambiarTipoPerfil = { /* TODO: conectar persistencia real del tipo de perfil */ },
+                    onCerrarSesion = {
+                        SesionRepository.perfil = null
+                        backStack.clear()
+                        backStack.add(Routes.Login)
+                    }
+                )
+            }
+
+            entry<Routes.Recordatorios> { PlaceholderScreen(Routes.Recordatorios, "Recordatorios", backStack) }
+            entry<Routes.Registrar> { PlaceholderScreen(Routes.Registrar, "Registrar", backStack) }
+            entry<Routes.Historial> { PlaceholderScreen(Routes.Historial, "Historial", backStack) }
         }
     )
 }
 
+/**
+ * Las pantallas de la barra inferior son destinos hermanos, no una pila:
+ * cada tap reemplaza el back stack por el destino elegido en vez de apilar.
+ */
+private fun navegarATab(backStack: MutableList<Routes>, destino: Routes) {
+    if (backStack.lastOrNull() != destino) {
+        backStack.clear()
+        backStack.add(destino)
+    }
+}
+
 @Composable
-fun PlaceholderScreen(title: String, backStack: MutableList<Routes>) {
+fun PlaceholderScreen(currentRoute: Routes, title: String, backStack: MutableList<Routes>) {
     Scaffold(
         bottomBar = {
-            val currentRoute = when (title) {
-                "Recordatorios" -> Routes.Recordatorios
-                "Registrar" -> Routes.Registrar
-                "Historial" -> Routes.Historial
-                "Perfil" -> Routes.Perfil
-                else -> Routes.Home
-            }
             HealthBottomNavigation(
                 currentRoute = currentRoute,
-                onNavigate = { route ->
-                    if (route == Routes.Home) {
-                        backStack.clear()
-                        backStack.add(Routes.Home)
-                    } else if (route != currentRoute) {
-                        backStack.add(route)
-                    }
-                }
+                onNavigate = { route -> navegarATab(backStack, route) }
             )
         }
     ) { p ->

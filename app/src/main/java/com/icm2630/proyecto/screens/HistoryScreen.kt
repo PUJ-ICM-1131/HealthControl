@@ -309,6 +309,10 @@ private fun FiltroChip(texto: String, seleccionado: Boolean, onClick: () -> Unit
     }
 }
 
+
+
+
+//El boton filtros aunque no tiene funcionalidad actual ,sera una opcion para filtros avanzado pudiendo tener en cuenta rango de fechas o cosas asi.
 @Composable
 private fun BotonFiltros(onClick: () -> Unit) {
     Box(

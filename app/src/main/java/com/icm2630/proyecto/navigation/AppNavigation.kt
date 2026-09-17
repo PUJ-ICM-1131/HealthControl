@@ -23,6 +23,7 @@ import com.icm2630.proyecto.screens.ProfileScreen
 import com.icm2630.proyecto.screens.ProfileSetupScreen
 import com.icm2630.proyecto.screens.RegisterScreen
 import com.icm2630.proyecto.screens.RemindersScreen
+import com.icm2630.proyecto.screens.HistoryScreen
 @Composable
 fun AppNavigation() {
 
@@ -119,7 +120,13 @@ fun AppNavigation() {
 
 
             entry<Routes.Registrar> { PlaceholderScreen(Routes.Registrar, "Registrar", backStack) }
-            entry<Routes.Historial> { PlaceholderScreen(Routes.Historial, "Historial", backStack) }
+
+
+            entry<Routes.Historial> {
+                HistoryScreen(
+                    onNavigate = { route -> navegarATab(backStack, route) }
+                )
+            }
         }
     )
 }

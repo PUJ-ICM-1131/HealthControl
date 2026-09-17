@@ -8,8 +8,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import com.icm2630.proyecto.R
 
-// Requiere que agregues los .ttf de Poppins a res/font primero
-// (ver INSTRUCCIONES.md)
+
 val PoppinsFamily = FontFamily(
     Font(R.font.poppins_regular, FontWeight.Normal),
     Font(R.font.poppins_medium, FontWeight.Medium),

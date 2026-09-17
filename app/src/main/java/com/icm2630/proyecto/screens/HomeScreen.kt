@@ -32,7 +32,8 @@ import com.icm2630.proyecto.R
 import com.icm2630.proyecto.components.HealthBottomNavigation
 import com.icm2630.proyecto.navigation.Routes
 import com.icm2630.proyecto.ui.theme.*
-
+import androidx.compose.foundation.border
+import androidx.compose.ui.layout.ContentScale
 @Composable
 fun HomeScreen(
     onNavigate: (Routes) -> Unit = {},
@@ -250,15 +251,22 @@ private fun PerfilMenu(onCerrarSesion: () -> Unit) {
 private fun LogoSmall() {
     Box(
         modifier = Modifier
-            .size(40.dp)
-            .shadow(4.dp, RoundedCornerShape(10.dp))
-            .background(Color.White, RoundedCornerShape(10.dp)),
-        contentAlignment = Alignment.Center
+            .size(72.dp)
+            .shadow(
+                elevation = 10.dp,
+                shape = RoundedCornerShape(18.dp),
+                ambientColor = Blue500,
+                spotColor = Blue500
+            )
+            .clip(RoundedCornerShape(18.dp))
+            .background(Color.White)
+            .border(1.dp, Blue100, RoundedCornerShape(18.dp))
     ) {
         Image(
             painter = painterResource(R.drawable.loguitouwu),
             contentDescription = null,
-            modifier = Modifier.size(28.dp)
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop
         )
     }
 }

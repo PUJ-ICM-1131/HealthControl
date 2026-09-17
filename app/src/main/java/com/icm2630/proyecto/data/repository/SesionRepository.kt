@@ -1,6 +1,6 @@
-package com.icm2630.proyecto.repository
+package com.icm2630.proyecto.data.repository
 
-import com.icm2630.proyecto.model.PerfilUsuario
+import com.icm2630.proyecto.data.model.PerfilUsuario
 
 object SesionRepository {
     var perfil: PerfilUsuario? = null

@@ -1,9 +1,9 @@
-package com.icm2630.proyecto.viewmodel
+package com.icm2630.proyecto.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
-import com.icm2630.proyecto.model.Genero
-import com.icm2630.proyecto.model.PerfilUsuario
-import com.icm2630.proyecto.model.TipoPerfil
+import com.icm2630.proyecto.data.model.Genero
+import com.icm2630.proyecto.data.model.PerfilUsuario
+import com.icm2630.proyecto.data.model.TipoPerfil
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow

@@ -1,5 +1,6 @@
-package com.icm2630.proyecto.screens
+package com.icm2630.proyecto.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -32,16 +33,16 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.icm2630.proyecto.model.Genero
-import com.icm2630.proyecto.model.PerfilUsuario
-import com.icm2630.proyecto.model.TipoPerfil
+import com.icm2630.proyecto.data.model.Genero
+import com.icm2630.proyecto.data.model.PerfilUsuario
+import com.icm2630.proyecto.data.model.TipoPerfil
 import com.icm2630.proyecto.ui.theme.Blue100
 import com.icm2630.proyecto.ui.theme.Blue500
 import com.icm2630.proyecto.ui.theme.Blue700
 import com.icm2630.proyecto.ui.theme.HealthControlTheme
 import com.icm2630.proyecto.ui.theme.TextPrimary
 import com.icm2630.proyecto.ui.theme.TextSecondary
-import com.icm2630.proyecto.viewmodel.PerfilSetupViewModel
+import com.icm2630.proyecto.ui.viewmodel.PerfilSetupViewModel
 import java.text.SimpleDateFormat
 import java.util.Locale
 import java.util.TimeZone
@@ -201,7 +202,7 @@ fun ProfileSetupScreen(
                         containerColor = Color.White,
                         contentColor = Blue700
                     ),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Blue700)
+                    border = BorderStroke(1.dp, Blue700)
                 ) {
                     Icon(Icons.Outlined.VpnKey, null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))

@@ -1,5 +1,6 @@
-package com.icm2630.proyecto.screens
+package com.icm2630.proyecto.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -28,7 +29,6 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.icm2630.proyecto.R
 import com.icm2630.proyecto.ui.theme.*
 
@@ -346,7 +346,7 @@ private fun BotonSocial(
         modifier = modifier.height(54.dp),
         shape = FieldShape,
         colors = ButtonDefaults.outlinedButtonColors(containerColor = Color.White),
-        border = androidx.compose.foundation.BorderStroke(1.dp, HairLine)
+        border = BorderStroke(1.dp, HairLine)
     ) {
         Icon(icon, null, modifier = Modifier.size(20.dp), tint = Color.Unspecified)
         Spacer(Modifier.width(8.dp))

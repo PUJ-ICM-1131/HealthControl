@@ -1,5 +1,6 @@
-package com.icm2630.proyecto.screens
+package com.icm2630.proyecto.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -29,7 +30,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.icm2630.proyecto.R
-import com.icm2630.proyecto.components.HealthBottomNavigation
+import com.icm2630.proyecto.ui.components.HealthBottomNavigation
 import com.icm2630.proyecto.navigation.Routes
 import com.icm2630.proyecto.ui.theme.*
 import androidx.compose.foundation.border
@@ -276,7 +277,7 @@ private fun ProfileChip(label: String, icon: ImageVector?, isSelected: Boolean, 
     Surface(
         color = if (isSelected) Color.White else Blue100.copy(alpha = 0.5f),
         shape = RoundedCornerShape(50),
-        border = if (isSelected) androidx.compose.foundation.BorderStroke(1.dp, Blue100) else null,
+        border = if (isSelected) BorderStroke(1.dp, Blue100) else null,
         modifier = Modifier.height(40.dp)
     ) {
         Row(

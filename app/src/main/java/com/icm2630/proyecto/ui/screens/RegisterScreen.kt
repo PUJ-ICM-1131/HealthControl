@@ -1,5 +1,6 @@
-package com.icm2630.proyecto.screens
+package com.icm2630.proyecto.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -387,7 +388,7 @@ private fun BotonSocial(
             containerColor = Color.White,
             contentColor = Blue700
         ),
-        border = androidx.compose.foundation.BorderStroke(1.dp, HairLine)
+        border = BorderStroke(1.dp, HairLine)
     ) {
         Icon(
             imageVector = icon,

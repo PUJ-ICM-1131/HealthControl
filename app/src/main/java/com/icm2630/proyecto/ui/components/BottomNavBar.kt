@@ -1,4 +1,4 @@
-package com.icm2630.proyecto.components
+package com.icm2630.proyecto.ui.components
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.*

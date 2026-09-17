@@ -1,4 +1,4 @@
-package com.icm2630.proyecto.model
+package com.icm2630.proyecto.data.model
 
 /**
  * HU-02: define el rol con el que el usuario usa la app.

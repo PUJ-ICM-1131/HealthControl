@@ -1,4 +1,4 @@
-package com.icm2630.proyecto.model
+package com.icm2630.proyecto.data.model
 
 data class Persona(
     val nombre: String,

@@ -1,4 +1,4 @@
-package com.icm2630.proyecto.screens
+package com.icm2630.proyecto.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -21,9 +21,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.icm2630.proyecto.components.HealthBottomNavigation
-import com.icm2630.proyecto.model.PerfilUsuario
-import com.icm2630.proyecto.model.TipoPerfil
+import com.icm2630.proyecto.ui.components.HealthBottomNavigation
+import com.icm2630.proyecto.data.model.PerfilUsuario
+import com.icm2630.proyecto.data.model.TipoPerfil
 import com.icm2630.proyecto.navigation.Routes
 import com.icm2630.proyecto.ui.theme.Blue100
 import com.icm2630.proyecto.ui.theme.Blue500

@@ -13,17 +13,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.ui.NavDisplay
-import com.icm2630.proyecto.components.HealthBottomNavigation
-import com.icm2630.proyecto.model.PerfilUsuario
-import com.icm2630.proyecto.model.TipoPerfil
-import com.icm2630.proyecto.repository.SesionRepository
-import com.icm2630.proyecto.screens.HomeScreen
-import com.icm2630.proyecto.screens.LoginScreen
-import com.icm2630.proyecto.screens.ProfileScreen
-import com.icm2630.proyecto.screens.ProfileSetupScreen
-import com.icm2630.proyecto.screens.RegisterScreen
-import com.icm2630.proyecto.screens.RemindersScreen
-import com.icm2630.proyecto.screens.HistoryScreen
+import com.icm2630.proyecto.ui.components.HealthBottomNavigation
+import com.icm2630.proyecto.data.model.PerfilUsuario
+import com.icm2630.proyecto.data.model.TipoPerfil
+import com.icm2630.proyecto.data.repository.SesionRepository
+import com.icm2630.proyecto.ui.screens.HomeScreen
+import com.icm2630.proyecto.ui.screens.LoginScreen
+import com.icm2630.proyecto.ui.screens.ProfileScreen
+import com.icm2630.proyecto.ui.screens.ProfileSetupScreen
+import com.icm2630.proyecto.ui.screens.RegisterScreen
+import com.icm2630.proyecto.ui.screens.RemindersScreen
+import com.icm2630.proyecto.ui.screens.HistoryScreen
 @Composable
 fun AppNavigation() {
 

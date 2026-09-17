@@ -1,5 +1,6 @@
-package com.icm2630.proyecto.screens
+package com.icm2630.proyecto.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -26,7 +27,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.icm2630.proyecto.components.HealthBottomNavigation
+import com.icm2630.proyecto.ui.components.HealthBottomNavigation
 import com.icm2630.proyecto.navigation.Routes
 import com.icm2630.proyecto.ui.theme.*
 
@@ -336,7 +337,7 @@ private fun FiltroChip(texto: String, seleccionado: Boolean, onClick: () -> Unit
     Surface(
         color = if (seleccionado) Blue700 else Color.White,
         shape = RoundedCornerShape(50),
-        border = if (!seleccionado) androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE5E7EB)) else null,
+        border = if (!seleccionado) BorderStroke(1.dp, Color(0xFFE5E7EB)) else null,
         onClick = onClick
     ) {
         Text(

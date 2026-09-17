@@ -22,7 +22,7 @@ import com.icm2630.proyecto.screens.LoginScreen
 import com.icm2630.proyecto.screens.ProfileScreen
 import com.icm2630.proyecto.screens.ProfileSetupScreen
 import com.icm2630.proyecto.screens.RegisterScreen
-
+import com.icm2630.proyecto.screens.RemindersScreen
 @Composable
 fun AppNavigation() {
 
@@ -111,7 +111,13 @@ fun AppNavigation() {
                 )
             }
 
-            entry<Routes.Recordatorios> { PlaceholderScreen(Routes.Recordatorios, "Recordatorios", backStack) }
+            entry<Routes.Recordatorios> {
+                RemindersScreen(
+                    onNavigate = { route -> navegarATab(backStack, route) }
+                )
+            }
+
+
             entry<Routes.Registrar> { PlaceholderScreen(Routes.Registrar, "Registrar", backStack) }
             entry<Routes.Historial> { PlaceholderScreen(Routes.Historial, "Historial", backStack) }
         }

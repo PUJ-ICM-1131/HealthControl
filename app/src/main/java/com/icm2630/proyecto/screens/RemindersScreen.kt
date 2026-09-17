@@ -10,8 +10,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Add
-import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -56,6 +55,51 @@ private val pacientesDeEjemplo = listOf(
     PacienteFiltro("Kalel", inicial = "K")
 )
 
+//Para poder filtrar el recordatorio necesitamos tener un estado con variables que definen a un recordatorio.
+private enum class EstadoRecordatorio {
+    TOMADO, TOMAR, PENDIENTE, VER_DETALLES, NINGUNO
+}
+
+private data class Recordatorio(
+    val hora: String,
+    val icono: ImageVector,
+    val titulo: String,
+    val subtitulo: String,
+    val estado: EstadoRecordatorio = EstadoRecordatorio.NINGUNO
+)
+
+private data class GrupoRecordatorios(
+    val fecha: String,
+    val esHoy: Boolean,
+    val items: List<Recordatorio>
+)
+
+
+//A continuacion solo tendremos por el momento datos de prueba para la pantalla.(Luego estos datos se extraeran desde el backend)
+private val recordatoriosDeEjemplo = listOf(
+    GrupoRecordatorios(
+        fecha = "Hoy, 5 de septiembre",
+        esHoy = true,
+        items = listOf(
+            Recordatorio("08:00", Icons.Outlined.Medication, "Metformina 500mg", "1 comprimido", EstadoRecordatorio.TOMADO),
+            Recordatorio("10:30", Icons.Outlined.Medication, "Vitamina D3", "2000 UI", EstadoRecordatorio.TOMAR),
+            Recordatorio("14:00", Icons.Outlined.Medication, "Losartán 50mg", "1 comprimido", EstadoRecordatorio.PENDIENTE),
+            Recordatorio("16:00", Icons.Outlined.MedicalServices, "Dr. García · Cardiología", "Clínica San Rafael", EstadoRecordatorio.VER_DETALLES)
+        )
+    ),
+    GrupoRecordatorios(
+        fecha = "Mañana, 6 de septiembre",
+        esHoy = false,
+        items = listOf(
+            Recordatorio("08:00", Icons.Outlined.Medication, "Metformina 500mg", "1 comprimido"),
+            Recordatorio("09:00", Icons.Outlined.Science, "Examen de sangre", "Laboratorio Central"),
+            Recordatorio("10:30", Icons.Outlined.Medication, "Vitamina D3", "2000 UI")
+        )
+    )
+)
+
+
+
 
 @Composable
 fun RemindersScreen(
@@ -80,7 +124,7 @@ fun RemindersScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(20.dp)
         ) {
-            //Cabeza de pantalla:
+            //encabezado de pagina:
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -142,7 +186,148 @@ fun RemindersScreen(
 
             Spacer(Modifier.height(24.dp))
 
+            recordatoriosDeEjemplo.forEachIndexed { index, grupo ->
+                GrupoRecordatoriosSeccion(grupo)
+                if (index != recordatoriosDeEjemplo.lastIndex) {
+                    Spacer(Modifier.height(24.dp))
+                }
+            }
         }
+    }
+}
+
+@Composable
+private fun GrupoRecordatoriosSeccion(grupo: GrupoRecordatorios) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = grupo.fecha,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            color = Blue700
+        )
+        if (grupo.esHoy) {
+            Text(
+                text = "Hoy",
+                style = MaterialTheme.typography.labelLarge,
+                color = Blue500
+            )
+        }
+    }
+
+    Spacer(Modifier.height(12.dp))
+
+    TarjetaBlanca {
+        grupo.items.forEachIndexed { index, item ->
+            RecordatorioFila(item)
+            if (index != grupo.items.lastIndex) {
+                DivisorFila()
+            }
+        }
+    }
+}
+
+@Composable
+private fun TarjetaBlanca(contenido: @Composable ColumnScope.() -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color.White, RoundedCornerShape(20.dp))
+            .padding(horizontal = 16.dp, vertical = 4.dp),
+        content = contenido
+    )
+}
+
+@Composable
+private fun DivisorFila() {
+    HorizontalDivider(color = Color(0xFFE5E7EB), thickness = 1.dp)
+}
+
+@Composable
+private fun RecordatorioFila(item: Recordatorio) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = item.hora,
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.Bold,
+            color = Blue700,
+            modifier = Modifier.width(52.dp)
+        )
+
+        Surface(
+            color = Blue100.copy(alpha = 0.3f),
+            shape = RoundedCornerShape(12.dp),
+            modifier = Modifier.size(40.dp)
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(item.icono, null, tint = Blue500, modifier = Modifier.size(20.dp))
+            }
+        }
+
+        Spacer(Modifier.width(12.dp))
+
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = item.titulo,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = TextPrimary
+            )
+            Text(
+                text = item.subtitulo,
+                style = MaterialTheme.typography.bodySmall,
+                color = TextSecondary
+            )
+        }
+
+        Spacer(Modifier.width(8.dp))
+
+        EstadoRecordatorioIndicador(item.estado)
+    }
+}
+
+@Composable
+private fun EstadoRecordatorioIndicador(estado: EstadoRecordatorio) {
+    when (estado) {
+        EstadoRecordatorio.TOMADO -> Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Outlined.CheckCircle, null, tint = SuccessGreen, modifier = Modifier.size(16.dp))
+            Spacer(Modifier.width(4.dp))
+            Text("Tomado", style = MaterialTheme.typography.labelSmall, color = SuccessGreen)
+        }
+
+        EstadoRecordatorio.TOMAR -> Button(
+            onClick = { },
+            modifier = Modifier.height(32.dp),
+            contentPadding = PaddingValues(horizontal = 16.dp),
+            shape = RoundedCornerShape(50),
+            colors = ButtonDefaults.buttonColors(containerColor = Blue700)
+        ) {
+            Text("Tomar", style = MaterialTheme.typography.labelMedium, color = Color.White)
+        }
+
+        EstadoRecordatorio.PENDIENTE -> Text(
+            text = "Pendiente",
+            style = MaterialTheme.typography.labelSmall,
+            color = TextSecondary
+        )
+
+        EstadoRecordatorio.VER_DETALLES -> Text(
+            text = "Ver detalles",
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.SemiBold,
+            color = Blue500,
+            modifier = Modifier.clickable { }
+        )
+
+        EstadoRecordatorio.NINGUNO -> Unit
     }
 }
 

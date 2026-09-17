@@ -20,6 +20,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -40,6 +41,78 @@ private enum class FiltroHistorial(val etiqueta: String) {
     MEDICAMENTOS("Medicamentos"),
     EXAMENES("Exámenes")
 }
+
+
+private data class RegistroHistorial(
+    val dia: String,
+    val mes: String,
+    val icono: ImageVector,
+    val colorIcono: Color,
+    val titulo: String,
+    val colorPaciente: Color,
+    val paciente: String,
+    val estado: String,
+    val estadoColor: Color
+)
+
+private data class GrupoHistorial(
+    val mesAnio: String,
+    val items: List<RegistroHistorial>
+)
+
+//Datos de ejemplo (luego se implementara en el backend los datos a extraer)
+private val historialDeEjemplo = listOf(
+    GrupoHistorial(
+        mesAnio = "SEPTIEMBRE 2026",
+        items = listOf(
+            RegistroHistorial(
+                dia = "15", mes = "SEP",
+                icono = Icons.Outlined.MedicalServices, colorIcono = Color(0xFFF59E0B),
+                titulo = "Dr. Alejandro Gómez — Cardiología",
+                colorPaciente = Color(0xFFF59E0B),
+                paciente = "Para Papá (Marcelo)",
+                estado = "Completado", estadoColor = SuccessGreen
+            ),
+            RegistroHistorial(
+                dia = "10", mes = "SEP",
+                icono = Icons.Outlined.Medication, colorIcono = Blue500,
+                titulo = "Metformina 850mg",
+                colorPaciente = Color(0xFF10B981),
+                paciente = "Yo (Santiago)",
+                estado = "Completado a las 10:00 AM", estadoColor = SuccessGreen
+            ),
+            RegistroHistorial(
+                dia = "02", mes = "SEP",
+                icono = Icons.Outlined.Science, colorIcono = ErrorRed,
+                titulo = "Análisis de Sangre Completo",
+                colorPaciente = Color(0xFFEC4899),
+                paciente = "Para Mamá (Andrea)",
+                estado = "Cancelado", estadoColor = ErrorRed
+            )
+        )
+    ),
+    GrupoHistorial(
+        mesAnio = "AGOSTO 2026",
+        items = listOf(
+            RegistroHistorial(
+                dia = "28", mes = "AGO",
+                icono = Icons.Outlined.MedicalServices, colorIcono = Color(0xFF8B5CF6),
+                titulo = "Dra. Laura Soto — Pediatría",
+                colorPaciente = Color(0xFF8B5CF6),
+                paciente = "Kalel",
+                estado = "Completado", estadoColor = SuccessGreen
+            ),
+            RegistroHistorial(
+                dia = "15", mes = "AGO",
+                icono = Icons.Outlined.Medication, colorIcono = Blue500,
+                titulo = "Atorvastatina 20mg",
+                colorPaciente = Color(0xFF10B981),
+                paciente = "Yo (Santiago)",
+                estado = "Pendiente de tomar", estadoColor = Color(0xFFF59E0B)
+            )
+        )
+    )
+)
 
 
 @Composable
@@ -127,7 +200,93 @@ fun HistoryScreen(
 
             Spacer(Modifier.height(24.dp))
 
+            //Lista por mes
+            historialDeEjemplo.forEachIndexed { index, grupo ->
+                GrupoHistorialSeccion(grupo)
+                if (index != historialDeEjemplo.lastIndex) {
+                    Spacer(Modifier.height(24.dp))
+                }
+            }
+        }
+    }
+}
 
+//Titulo del mes con sus tarjetas
+@Composable
+private fun GrupoHistorialSeccion(grupo: GrupoHistorial) {
+    Text(
+        text = grupo.mesAnio,
+        style = MaterialTheme.typography.labelLarge,
+        fontWeight = FontWeight.Bold,
+        color = TextSecondary
+    )
+
+    Spacer(Modifier.height(12.dp))
+
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        grupo.items.forEach { item -> RegistroHistorialTarjeta(item) }
+    }
+}
+
+//Tarjeta de un registro
+@Composable
+private fun RegistroHistorialTarjeta(item: RegistroHistorial) {
+    Surface(
+        color = Color.White,
+        shape = RoundedCornerShape(20.dp),
+        shadowElevation = 2.dp,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.Top
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier
+                    .width(44.dp)
+                    .background(Blue100.copy(alpha = 0.3f), RoundedCornerShape(10.dp))
+                    .padding(vertical = 6.dp)
+            ) {
+                Text(item.dia, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Blue700)
+                Text(item.mes, style = MaterialTheme.typography.labelSmall, color = Blue500)
+            }
+
+            Spacer(Modifier.width(12.dp))
+
+            Surface(
+                color = item.colorIcono.copy(alpha = 0.15f),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.size(40.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(item.icono, null, tint = item.colorIcono, modifier = Modifier.size(20.dp))
+                }
+            }
+
+            Spacer(Modifier.width(12.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = item.titulo,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = TextPrimary
+                )
+                Spacer(Modifier.height(4.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Outlined.Person, null, tint = item.colorPaciente, modifier = Modifier.size(14.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text(item.paciente, style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+                    Text(" • ", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+                    Text(
+                        text = item.estado,
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = item.estadoColor
+                    )
+                }
+            }
         }
     }
 }

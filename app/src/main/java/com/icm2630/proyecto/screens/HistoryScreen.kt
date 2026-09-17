@@ -1,7 +1,7 @@
 package com.icm2630.proyecto.screens
 
-
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -33,12 +33,21 @@ private val Fondo = Color(0xFFF8FAFF)
 private val CampoBg = Color(0xFFEFF5FC)
 private val PlaceholderGris = Color(0xFF9CA9BC)
 
+//Tipo de registro por el que se puede filtrar el historial:
+private enum class FiltroHistorial(val etiqueta: String) {
+    TODOS("Todo"),
+    CITAS("Citas"),
+    MEDICAMENTOS("Medicamentos"),
+    EXAMENES("Exámenes")
+}
+
 
 @Composable
 fun HistoryScreen(
     onNavigate: (Routes) -> Unit = {}
 ) {
     var busqueda by remember { mutableStateOf("") }
+    var filtroSeleccionado by remember { mutableStateOf(FiltroHistorial.TODOS) }
 
     Scaffold(
         bottomBar = {
@@ -56,7 +65,7 @@ fun HistoryScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(20.dp)
         ) {
-            //Cabeza de pagina:
+            //Cabeza de pagina
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -69,7 +78,7 @@ fun HistoryScreen(
                     color = Blue700
                 )
 
-                BotonFiltros(onClick = { /* TODO: abrir opciones de filtro avanzado */ })
+                BotonFiltros(onClick = { })
             }
 
             Spacer(Modifier.height(20.dp))
@@ -100,8 +109,44 @@ fun HistoryScreen(
 
             Spacer(Modifier.height(20.dp))
 
+            //Filtro por tipo:
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                FiltroHistorial.entries.forEach { filtro ->
+                    FiltroChip(
+                        texto = filtro.etiqueta,
+                        seleccionado = filtro == filtroSeleccionado,
+                        onClick = { filtroSeleccionado = filtro }
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(24.dp))
+
 
         }
+    }
+}
+
+@Composable
+private fun FiltroChip(texto: String, seleccionado: Boolean, onClick: () -> Unit) {
+    Surface(
+        color = if (seleccionado) Blue700 else Color.White,
+        shape = RoundedCornerShape(50),
+        border = if (!seleccionado) androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE5E7EB)) else null,
+        onClick = onClick
+    ) {
+        Text(
+            text = texto,
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.SemiBold,
+            color = if (seleccionado) Color.White else TextSecondary,
+            modifier = Modifier.padding(horizontal = 18.dp, vertical = 10.dp)
+        )
     }
 }
 

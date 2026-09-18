@@ -45,7 +45,8 @@ import com.icm2630.proyecto.ui.theme.*
 fun MonitoreoScreen(
     perfil: PerfilUsuario = PerfilUsuario(),
     onNavigate: (Routes) -> Unit = {},
-    onCerrarSesion: () -> Unit = {}
+    onCerrarSesion: () -> Unit = {},
+    onOpenMap: () -> Unit = {}
 ) {
     val vinculo = perfil.personaVinculada
 
@@ -89,14 +90,14 @@ fun MonitoreoScreen(
             if (vinculo == null) {
                 EstadoSinVinculo(onIrAPerfil = { onNavigate(Routes.Perfil) })
             } else {
-                ContenidoMonitoreo(vinculo = vinculo)
+                ContenidoMonitoreo(vinculo = vinculo, onOpenMap = onOpenMap)
             }
         }
     }
 }
 
 @Composable
-private fun ContenidoMonitoreo(vinculo: PersonaVinculada) {
+private fun ContenidoMonitoreo(vinculo: PersonaVinculada, onOpenMap: () -> Unit) {
     Surface(
         color = Blue100.copy(alpha = 0.3f),
         shape = RoundedCornerShape(50)
@@ -205,6 +206,47 @@ private fun ContenidoMonitoreo(vinculo: PersonaVinculada) {
         titulo = "Cita con Dr. Andrés Valenzuela",
         detalle = "Hoy a las 04:30 PM · ${vinculo.nombre}"
     )
+
+    Spacer(Modifier.height(24.dp))
+
+    TarjetaUbicacion(nombre = vinculo.nombre, onClick = onOpenMap)
+}
+
+@Composable
+private fun TarjetaUbicacion(nombre: String, onClick: () -> Unit) {
+    Surface(
+        color = Color.White,
+        shape = RoundedCornerShape(24.dp),
+        shadowElevation = 2.dp,
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier.padding(20.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Surface(
+                color = Blue100.copy(alpha = 0.3f),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.size(56.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(Icons.Outlined.LocationOn, null, tint = Blue500, modifier = Modifier.size(28.dp))
+                }
+            }
+            Spacer(Modifier.width(16.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Ubicación", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Blue700)
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    "Consulta la última ubicación registrada de $nombre",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TextSecondary
+                )
+            }
+            Icon(Icons.Outlined.KeyboardArrowRight, contentDescription = "Ver ubicación", tint = Blue700)
+        }
+    }
 }
 
 @Composable

@@ -1,5 +1,6 @@
 package com.icm2630.proyecto.navigation
 
+import com.icm2630.proyecto.ui.screens.MapScreen
 import com.icm2630.proyecto.ui.screens.RegisterOptionsScreen
 import com.icm2630.proyecto.ui.screens.AppointmentRegisterScreen
 import androidx.compose.foundation.layout.Box
@@ -225,6 +226,14 @@ fun AppNavigation() {
                         backStack.add(
                             Routes.Login
                         )
+                    },
+
+
+                    onOpenMap = {
+
+                        backStack.add(
+                            Routes.Mapa
+                        )
                     }
                 )
             }
@@ -323,6 +332,30 @@ fun AppNavigation() {
 
                             backStack.add(
                                 Routes.Registrar
+                            )
+                        }
+                    }
+                )
+            }
+
+            entry<Routes.Mapa> {
+
+                MapScreen(
+
+                    onBack = {
+
+                        if (backStack.size > 1) {
+
+                            backStack.removeAt(
+                                backStack.lastIndex
+                            )
+
+                        } else {
+
+                            backStack.clear()
+
+                            backStack.add(
+                                Routes.Monitoreo
                             )
                         }
                     }

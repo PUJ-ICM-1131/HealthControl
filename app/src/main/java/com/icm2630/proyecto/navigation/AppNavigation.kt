@@ -1,5 +1,8 @@
 package com.icm2630.proyecto.navigation
 
+import com.icm2630.proyecto.ui.screens.MonitoreoScreen
+import com.icm2630.proyecto.ui.screens.MapScreen
+import com.icm2630.proyecto.ui.screens.MapScreen
 import com.icm2630.proyecto.ui.screens.RegisterOptionsScreen
 import com.icm2630.proyecto.ui.screens.AppointmentRegisterScreen
 import androidx.compose.foundation.layout.Box
@@ -224,15 +227,23 @@ fun AppNavigation() {
 
             entry<Routes.Monitoreo> {
 
-                PlaceholderScreen(
-                    currentRoute =
-                        Routes.Monitoreo,
+                MonitoreoScreen(
 
-                    title =
-                        "Monitoreo",
+                    onNavigate = { route ->
 
-                    backStack =
-                        backStack
+                        navegarATab(
+                            backStack = backStack,
+                            destino = route
+                        )
+                    },
+
+
+                    onOpenMap = {
+
+                        backStack.add(
+                            Routes.Mapa
+                        )
+                    }
                 )
             }
 
@@ -330,6 +341,30 @@ fun AppNavigation() {
 
                             backStack.add(
                                 Routes.Registrar
+                            )
+                        }
+                    }
+                )
+            }
+
+            entry<Routes.Mapa> {
+
+                MapScreen(
+
+                    onBack = {
+
+                        if (backStack.size > 1) {
+
+                            backStack.removeAt(
+                                backStack.lastIndex
+                            )
+
+                        } else {
+
+                            backStack.clear()
+
+                            backStack.add(
+                                Routes.Monitoreo
                             )
                         }
                     }

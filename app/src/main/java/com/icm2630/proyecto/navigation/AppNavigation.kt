@@ -1,5 +1,7 @@
 package com.icm2630.proyecto.navigation
 
+import com.icm2630.proyecto.ui.screens.RegisterOptionsScreen
+import com.icm2630.proyecto.ui.screens.AppointmentRegisterScreen
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -248,15 +250,35 @@ fun AppNavigation() {
                 )
             }
 
+// =================================================
+// REGISTRAR
+// =================================================
+
             entry<Routes.Registrar> {
 
-                MedicationRegisterScreen(
+                RegisterOptionsScreen(
 
-                    onBack = {
+                    onNavigate = { route ->
 
                         navegarATab(
                             backStack = backStack,
-                            destino = Routes.Home
+                            destino = route
+                        )
+                    },
+
+
+                    onRegisterAppointment = {
+
+                        backStack.add(
+                            Routes.RegistrarCita
+                        )
+                    },
+
+
+                    onRegisterMedication = {
+
+                        backStack.add(
+                            Routes.RegistrarMedicamento
                         )
                     }
                 )
@@ -286,21 +308,31 @@ fun AppNavigation() {
                 )
             }
 
+// =================================================
+// REGISTRAR CITA
+// =================================================
+
             entry<Routes.RegistrarCita> {
 
-                PlaceholderScreen(
-                    /*
-                     * Dejamos Registrar como tab seleccionado
-                     * en la barra inferior.
-                     */
-                    currentRoute =
-                        Routes.Registrar,
+                AppointmentRegisterScreen(
 
-                    title =
-                        "Registrar cita",
+                    onBack = {
 
-                    backStack =
-                        backStack
+                        if (backStack.size > 1) {
+
+                            backStack.removeAt(
+                                backStack.lastIndex
+                            )
+
+                        } else {
+
+                            backStack.clear()
+
+                            backStack.add(
+                                Routes.Registrar
+                            )
+                        }
+                    }
                 )
             }
 

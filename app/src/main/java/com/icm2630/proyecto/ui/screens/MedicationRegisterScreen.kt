@@ -79,6 +79,7 @@ import java.util.TimeZone
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MedicationRegisterScreen(
+    medicamentoId: String? = null,
     onBack: () -> Unit,
     viewModel: MedicationRegisterViewModel = viewModel()
 ) {
@@ -92,6 +93,8 @@ fun MedicationRegisterScreen(
     }
 
     val coroutineScope = rememberCoroutineScope()
+
+    val modoEdicion = medicamentoId != null
 
 
     // ---------------------------------------------------------
@@ -110,6 +113,26 @@ fun MedicationRegisterScreen(
         mutableStateOf(false)
     }
 
+
+    // ---------------------------------------------------------
+    // CARGAR MEDICAMENTO A EDITAR (o limpiar el formulario)
+    // ---------------------------------------------------------
+
+    LaunchedEffect(medicamentoId) {
+
+        if (medicamentoId != null) {
+
+            viewModel.cargarMedicamentoParaEditar(
+                medicamentoId
+            )
+
+        } else {
+
+            viewModel.iniciarNuevoMedicamento()
+        }
+    }
+
+
     // ---------------------------------------------------------
     // RESULTADO DE GUARDADO
     // ---------------------------------------------------------
@@ -122,7 +145,12 @@ fun MedicationRegisterScreen(
         if (state.guardadoExitoso) {
 
             snackbarHostState.showSnackbar(
-                message = "Medicamento registrado correctamente"
+                message =
+                    if (modoEdicion) {
+                        "Medicamento actualizado correctamente"
+                    } else {
+                        "Medicamento registrado correctamente"
+                    }
             )
 
             viewModel.consumirGuardadoExitoso()
@@ -227,13 +255,23 @@ fun MedicationRegisterScreen(
                     Column {
 
                         Text(
-                            text = "Registrar medicamento",
+                            text =
+                                if (modoEdicion) {
+                                    "Editar medicamento"
+                                } else {
+                                    "Registrar medicamento"
+                                },
                             color = Blue700,
                             fontWeight = FontWeight.Bold
                         )
 
                         Text(
-                            text = "Agrega la información del tratamiento",
+                            text =
+                                if (modoEdicion) {
+                                    "Actualiza la información del tratamiento"
+                                } else {
+                                    "Agrega la información del tratamiento"
+                                },
                             style = MaterialTheme.typography.bodySmall
                         )
                     }
@@ -315,6 +353,8 @@ fun MedicationRegisterScreen(
                         text =
                             if (state.guardando) {
                                 "Guardando..."
+                            } else if (modoEdicion) {
+                                "Guardar cambios"
                             } else {
                                 "Guardar medicamento"
                             },
@@ -890,10 +930,7 @@ private fun PersonSelectorDialog(
                         }
 
 
-                        if (
-                            index <
-                            personas.lastIndex
-                        ) {
+                        if (index < personas.lastIndex) {
 
                             HorizontalDivider()
                         }

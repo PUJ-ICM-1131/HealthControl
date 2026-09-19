@@ -98,6 +98,59 @@ class AppointmentRegisterViewModel : ViewModel() {
 
 
     // =========================================================
+    // MODO EDICIÓN
+    // =========================================================
+
+
+     //Precarga el formulario con una cita ya registrada para que
+     //como tal la persona pueda modificarla en vez de crear una desde cero.
+
+    fun cargarCitaParaEditar(
+        citaId: String
+    ) {
+
+        val cita =
+            CitaRepository.obtenerPorId(
+                citaId
+            ) ?: return
+
+
+        _uiState.value =
+            _uiState.value.copy(
+                citaId = cita.id,
+                personaSeleccionadaId = cita.personaId,
+                tipoCita = cita.tipo,
+                especialidad = cita.especialidad,
+                motivo = cita.motivo,
+                fechaMillis = cita.fechaMillis,
+                hora = cita.hora,
+                minuto = cita.minuto,
+                modalidad = cita.modalidad,
+                institucion = cita.institucion,
+                direccion = cita.direccion,
+                enlaceVirtual = cita.enlaceVirtual,
+                nombreMedico = cita.nombreMedico,
+                notas = cita.notas,
+                soporteUri = cita.soporteUri
+            )
+    }
+
+
+
+    fun iniciarNuevaCita() {
+
+        val estadoActual =
+            _uiState.value
+
+        _uiState.value =
+            AppointmentRegisterUiState(
+                perfilUsuario = estadoActual.perfilUsuario,
+                personasAsociadas = estadoActual.personasAsociadas
+            )
+    }
+
+
+    // =========================================================
     // TIPO DE CITA
     // =========================================================
 
@@ -373,9 +426,10 @@ class AppointmentRegisterViewModel : ViewModel() {
             Cita(
 
                 id =
-                    UUID
-                        .randomUUID()
-                        .toString(),
+                    estado.citaId
+                        ?: UUID
+                            .randomUUID()
+                            .toString(),
 
                 /*
                  * null = cita del propio usuario.
@@ -435,13 +489,23 @@ class AppointmentRegisterViewModel : ViewModel() {
             )
 
 
-        CitaRepository.registrar(
-            cita
-        )
+        if (estado.citaId != null) {
+
+            CitaRepository.actualizar(
+                cita
+            )
+
+        } else {
+
+            CitaRepository.registrar(
+                cita
+            )
+        }
 
 
         _uiState.value =
             _uiState.value.copy(
+                citaId = cita.id,
                 guardando = false,
                 guardadoExitoso = true
             )

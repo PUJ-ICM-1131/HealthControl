@@ -68,6 +68,25 @@ object CitaRepository {
 
 
     // =========================================================
+    // ACTUALIZAR CITA
+    // =========================================================
+
+    fun actualizar(
+        cita: Cita
+    ) {
+
+        val indice =
+            citas.indexOfFirst { existente ->
+                existente.id == cita.id
+            }
+
+        if (indice >= 0) {
+            citas[indice] = cita
+        }
+    }
+
+
+    // =========================================================
     // OBTENER TODAS
     // =========================================================
 

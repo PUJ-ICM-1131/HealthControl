@@ -19,4 +19,6 @@ sealed interface Routes : NavKey {
     data object RegistrarMedicamento : Routes
     data object RegistrarCita : Routes
 
+    data object Mapa : Routes
+
 }

@@ -13,6 +13,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.Groups
@@ -35,11 +36,15 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.icm2630.proyecto.data.model.Genero
 import com.icm2630.proyecto.data.model.PerfilUsuario
+import com.icm2630.proyecto.data.model.PersonaVinculada
 import com.icm2630.proyecto.data.model.TipoPerfil
 import com.icm2630.proyecto.ui.theme.Blue100
 import com.icm2630.proyecto.ui.theme.Blue500
 import com.icm2630.proyecto.ui.theme.Blue700
+import com.icm2630.proyecto.ui.theme.ErrorRed
 import com.icm2630.proyecto.ui.theme.HealthControlTheme
+import com.icm2630.proyecto.ui.theme.SuccessGreen
+import com.icm2630.proyecto.ui.theme.SuccessGreenBg
 import com.icm2630.proyecto.ui.theme.TextPrimary
 import com.icm2630.proyecto.ui.theme.TextSecondary
 import com.icm2630.proyecto.ui.viewmodel.PerfilSetupViewModel
@@ -172,66 +177,41 @@ fun ProfileSetupScreen(
 
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 TarjetaTipoPerfil(
-                    tipo = TipoPerfil.INDIVIDUAL,
+                    tipo = TipoPerfil.TITULAR,
                     icon = Icons.Outlined.FavoriteBorder,
-                    seleccionado = state.tipoPerfil == TipoPerfil.INDIVIDUAL,
-                    onClick = { viewModel.onTipoPerfilChange(TipoPerfil.INDIVIDUAL) },
+                    seleccionado = state.tipoPerfil == TipoPerfil.TITULAR,
+                    onClick = { viewModel.onTipoPerfilChange(TipoPerfil.TITULAR) },
                     modifier = Modifier.weight(1f)
                 )
                 TarjetaTipoPerfil(
-                    tipo = TipoPerfil.ASOCIADO,
+                    tipo = TipoPerfil.ACOMPANANTE,
                     icon = Icons.Outlined.Groups,
-                    seleccionado = state.tipoPerfil == TipoPerfil.ASOCIADO,
-                    onClick = { viewModel.onTipoPerfilChange(TipoPerfil.ASOCIADO) },
+                    seleccionado = state.tipoPerfil == TipoPerfil.ACOMPANANTE,
+                    onClick = { viewModel.onTipoPerfilChange(TipoPerfil.ACOMPANANTE) },
                     modifier = Modifier.weight(1f)
                 )
             }
 
             Spacer(Modifier.height(20.dp))
 
-            // ---------- Vinculación, condición y permisos ----------
+            // ---------- Vinculación (HU-03) ----------
             TarjetaBlanca {
-                // HU-03: el titular genera el código, el acompañante lo ingresa.
-                OutlinedButton(
-                    onClick = { viewModel.generarCodigoInvitacion() },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(52.dp),
-                    shape = CampoShape,
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        containerColor = Color.White,
-                        contentColor = Blue700
-                    ),
-                    border = BorderStroke(1.dp, Blue700)
-                ) {
-                    Icon(Icons.Outlined.VpnKey, null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text(
-                        text = if (state.tipoPerfil == TipoPerfil.INDIVIDUAL)
-                            "Generar código de invitación"
-                        else
-                            "Ingresar código de invitación",
-                        style = MaterialTheme.typography.titleMedium
+                if (state.tipoPerfil == TipoPerfil.TITULAR) {
+                    SeccionVinculacionTitular(
+                        codigo = state.codigoGenerado,
+                        onGenerar = { viewModel.generarCodigoInvitacion() }
                     )
-                }
-
-                state.codigoInvitacion?.let { codigo ->
-                    Spacer(Modifier.height(12.dp))
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(Blue100.copy(alpha = 0.4f), CampoShape)
-                            .padding(vertical = 12.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = codigo,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = Blue700,
-                            fontSize = 22.sp
-                        )
-                    }
+                } else {
+                    SeccionVinculacionAcompanante(
+                        codigoIngresado = state.codigoIngresado,
+                        onCodigoChange = viewModel::onCodigoIngresadoChange,
+                        relacion = state.relacionConTitular,
+                        onRelacionChange = viewModel::onRelacionChange,
+                        personaVinculada = state.personaVinculada,
+                        error = state.errorCodigo,
+                        onVincular = { viewModel.vincularConCodigo() },
+                        onCambiarCodigo = { viewModel.quitarVinculacion() }
+                    )
                 }
 
                 Spacer(Modifier.height(20.dp))
@@ -571,6 +551,157 @@ private fun TarjetaTipoPerfil(
             color = colorTexto,
             lineHeight = 16.sp
         )
+    }
+}
+
+@Composable
+private fun SeccionVinculacionTitular(
+    codigo: String?,
+    onGenerar: () -> Unit
+) {
+    Text(
+        text = "Comparte este código con un familiar o cuidador para que pueda ver tu salud",
+        style = MaterialTheme.typography.bodySmall,
+        color = TextSecondary
+    )
+
+    Spacer(Modifier.height(12.dp))
+
+    OutlinedButton(
+        onClick = onGenerar,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(52.dp),
+        shape = CampoShape,
+        colors = ButtonDefaults.outlinedButtonColors(
+            containerColor = Color.White,
+            contentColor = Blue700
+        ),
+        border = BorderStroke(1.dp, Blue700)
+    ) {
+        Icon(Icons.Outlined.VpnKey, null, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(8.dp))
+        Text(
+            text = if (codigo == null) "Generar código de invitación" else "Generar otro código",
+            style = MaterialTheme.typography.titleMedium
+        )
+    }
+
+    codigo?.let {
+        Spacer(Modifier.height(12.dp))
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Blue100.copy(alpha = 0.4f), CampoShape)
+                .padding(vertical = 12.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = it,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = Blue700,
+                fontSize = 22.sp,
+                letterSpacing = 4.sp
+            )
+        }
+    }
+}
+
+@Composable
+private fun SeccionVinculacionAcompanante(
+    codigoIngresado: String,
+    onCodigoChange: (String) -> Unit,
+    relacion: String,
+    onRelacionChange: (String) -> Unit,
+    personaVinculada: PersonaVinculada?,
+    error: String?,
+    onVincular: () -> Unit,
+    onCambiarCodigo: () -> Unit
+) {
+    if (personaVinculada != null) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(SuccessGreenBg, CampoShape)
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(Icons.Outlined.CheckCircle, null, tint = SuccessGreen, modifier = Modifier.size(22.dp))
+            Spacer(Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Vinculado con ${personaVinculada.nombre}",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = SuccessGreen
+                )
+                Text(
+                    text = "Como ${personaVinculada.relacion.ifBlank { "acompañante" }} · código ${personaVinculada.codigo}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TextSecondary
+                )
+            }
+            TextButton(onClick = onCambiarCodigo) {
+                Text("Cambiar", color = Blue700)
+            }
+        }
+        return
+    }
+
+    Text(
+        text = "Ingresa el código de invitación que te compartió la persona a la que darás seguimiento",
+        style = MaterialTheme.typography.bodySmall,
+        color = TextSecondary
+    )
+
+    Spacer(Modifier.height(16.dp))
+
+    CampoPerfil(
+        label = "Código de invitación",
+        value = codigoIngresado,
+        onValueChange = onCodigoChange,
+        placeholder = "Ej. 7K3PQ9"
+    )
+
+    Spacer(Modifier.height(16.dp))
+
+    CampoPerfil(
+        label = "Tu relación con esa persona",
+        value = relacion,
+        onValueChange = onRelacionChange,
+        placeholder = "Ej. Hija, cuidador, vecino de confianza",
+        imeAction = ImeAction.Done
+    )
+
+    Spacer(Modifier.height(4.dp))
+
+    error?.let {
+        Text(
+            text = it,
+            style = MaterialTheme.typography.bodySmall,
+            color = ErrorRed,
+            modifier = Modifier.padding(start = 4.dp, bottom = 12.dp)
+        )
+    }
+
+    Button(
+        onClick = onVincular,
+        enabled = codigoIngresado.isNotBlank() && relacion.isNotBlank(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(52.dp),
+        shape = CampoShape,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = Blue700,
+            contentColor = Color.White,
+            disabledContainerColor = Blue700.copy(alpha = 0.35f),
+            disabledContentColor = Color.White
+        )
+    ) {
+        Icon(Icons.Outlined.VpnKey, null, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(8.dp))
+        Text("Vincular cuenta", style = MaterialTheme.typography.titleMedium)
     }
 }
 

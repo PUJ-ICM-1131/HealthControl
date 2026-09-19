@@ -19,6 +19,7 @@ import com.icm2630.proyecto.data.model.TipoPerfil
 import com.icm2630.proyecto.data.repository.SesionRepository
 import com.icm2630.proyecto.ui.screens.HomeScreen
 import com.icm2630.proyecto.ui.screens.LoginScreen
+import com.icm2630.proyecto.ui.screens.MonitoreoScreen
 import com.icm2630.proyecto.ui.screens.ProfileScreen
 import com.icm2630.proyecto.ui.screens.ProfileSetupScreen
 import com.icm2630.proyecto.ui.screens.RegisterScreen
@@ -48,7 +49,7 @@ fun AppNavigation() {
                         backStack.add(
                             when {
                                 !SesionRepository.perfilConfigurado -> Routes.ProfileSetup
-                                SesionRepository.perfil?.tipoPerfil == TipoPerfil.ASOCIADO -> Routes.Monitoreo
+                                SesionRepository.perfil?.tipoPerfil == TipoPerfil.ACOMPANANTE -> Routes.Monitoreo
                                 else -> Routes.Home
                             }
                         )
@@ -77,7 +78,7 @@ fun AppNavigation() {
                         SesionRepository.perfil = perfil
                         backStack.clear()
                         backStack.add(
-                            if (perfil.tipoPerfil == TipoPerfil.ASOCIADO) Routes.Monitoreo else Routes.Home
+                            if (perfil.tipoPerfil == TipoPerfil.ACOMPANANTE) Routes.Monitoreo else Routes.Home
                         )
                     },
                     onCerrarSesion = {
@@ -89,6 +90,19 @@ fun AppNavigation() {
 
             entry<Routes.Home> {
                 HomeScreen(
+                    perfil = SesionRepository.perfil ?: PerfilUsuario(),
+                    onNavigate = { route -> navegarATab(backStack, route) },
+                    onCerrarSesion = {
+                        SesionRepository.perfil = null
+                        backStack.clear()
+                        backStack.add(Routes.Login)
+                    }
+                )
+            }
+
+            entry<Routes.Monitoreo> {
+                MonitoreoScreen(
+                    perfil = SesionRepository.perfil ?: PerfilUsuario(),
                     onNavigate = { route -> navegarATab(backStack, route) },
                     onCerrarSesion = {
                         SesionRepository.perfil = null
@@ -103,7 +117,17 @@ fun AppNavigation() {
                     perfil = SesionRepository.perfil ?: PerfilUsuario(),
                     onNavigate = { route -> navegarATab(backStack, route) },
                     onEditarCampo = { /* TODO: conectar edición real de perfil */ },
-                    onCambiarTipoPerfil = { /* TODO: conectar persistencia real del tipo de perfil */ },
+                    onCambiarTipoPerfil = { nuevoTipo, vinculo ->
+                        val actual = SesionRepository.perfil ?: PerfilUsuario()
+                        SesionRepository.perfil = actual.copy(
+                            tipoPerfil = nuevoTipo,
+                            personaVinculada = if (nuevoTipo == TipoPerfil.ACOMPANANTE) vinculo else null
+                        )
+                        backStack.clear()
+                        backStack.add(
+                            if (nuevoTipo == TipoPerfil.ACOMPANANTE) Routes.Monitoreo else Routes.Home
+                        )
+                    },
                     onCerrarSesion = {
                         SesionRepository.perfil = null
                         backStack.clear()

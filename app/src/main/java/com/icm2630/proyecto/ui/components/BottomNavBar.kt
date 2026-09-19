@@ -10,17 +10,23 @@ import com.icm2630.proyecto.navigation.Routes
 import com.icm2630.proyecto.ui.theme.Blue700
 import com.icm2630.proyecto.ui.theme.TextSecondary
 
+/**
+ * [rutaInicio] es a qué destino lleva y qué resalta la pestaña "Inicio".
+ * Un titular usa [Routes.Home]; un acompañante usa [Routes.Monitoreo], que
+ * es su propia home (HU-25) pero comparte esta misma barra inferior.
+ */
 @Composable
 fun HealthBottomNavigation(
     currentRoute: Routes,
-    onNavigate: (Routes) -> Unit
+    onNavigate: (Routes) -> Unit,
+    rutaInicio: Routes = Routes.Home
 ) {
     NavigationBar(
         containerColor = MaterialTheme.colorScheme.surface,
         tonalElevation = 8.dp
     ) {
         val items = listOf(
-            BottomNavItem("Inicio", Icons.Outlined.Home, Routes.Home),
+            BottomNavItem("Inicio", Icons.Outlined.Home, rutaInicio),
             BottomNavItem("Recordatorios", Icons.Outlined.Notifications, Routes.Recordatorios),
             BottomNavItem("Registrar", Icons.Outlined.Add, Routes.Registrar),
             BottomNavItem("Historial", Icons.Outlined.Schedule, Routes.Historial),

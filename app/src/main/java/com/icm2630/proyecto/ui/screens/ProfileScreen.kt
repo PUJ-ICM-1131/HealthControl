@@ -23,7 +23,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.icm2630.proyecto.ui.components.HealthBottomNavigation
 import com.icm2630.proyecto.data.model.PerfilUsuario
+import com.icm2630.proyecto.data.model.PersonaVinculada
 import com.icm2630.proyecto.data.model.TipoPerfil
+import com.icm2630.proyecto.data.repository.VinculacionSimulator
 import com.icm2630.proyecto.navigation.Routes
 import com.icm2630.proyecto.ui.theme.Blue100
 import com.icm2630.proyecto.ui.theme.Blue500
@@ -31,6 +33,8 @@ import com.icm2630.proyecto.ui.theme.Blue700
 import com.icm2630.proyecto.ui.theme.ErrorRed
 import com.icm2630.proyecto.ui.theme.ErrorRedBg
 import com.icm2630.proyecto.ui.theme.HealthControlTheme
+import com.icm2630.proyecto.ui.theme.SuccessGreen
+import com.icm2630.proyecto.ui.theme.SuccessGreenBg
 import com.icm2630.proyecto.ui.theme.TextPrimary
 import com.icm2630.proyecto.ui.theme.TextSecondary
 import java.text.SimpleDateFormat
@@ -56,14 +60,20 @@ fun ProfileScreen(
     perfil: PerfilUsuario = PerfilUsuario(),
     onNavigate: (Routes) -> Unit = {},
     onEditarCampo: (CampoPerfilEditable) -> Unit = {},
-    onCambiarTipoPerfil: (TipoPerfil) -> Unit = {},
+    onCambiarTipoPerfil: (TipoPerfil, PersonaVinculada?) -> Unit = { _, _ -> },
     onCerrarSesion: () -> Unit = {}
 ) {
     var mostrarConfirmacionCierre by remember { mutableStateOf(false) }
 
     // Estado visual local para que la selección responda al tacto ya
-    // mismo; la fuente de verdad real se conectará más adelante.
+    // mismo; la fuente de verdad real (SesionRepository) se actualiza
+    // recién cuando la persona confirma el cambio de rol.
     var tipoSeleccionado by remember(perfil.tipoPerfil) { mutableStateOf(perfil.tipoPerfil) }
+
+    // Cambiar de rol no es un simple toggle: pasar a Acompañante exige un
+    // código válido y pasar a Titular implica perder la vinculación actual,
+    // así que ambos casos se confirman en un diálogo antes de aplicarse.
+    var pedirConfirmacionCambioA by remember { mutableStateOf<TipoPerfil?>(null) }
 
     Scaffold(
         bottomBar = {
@@ -168,7 +178,7 @@ fun ProfileScreen(
             Spacer(Modifier.height(12.dp))
             TarjetaBlanca {
                 Text(
-                    text = "Define si usas HealthControl para ti o para acompañar a alguien más.",
+                    text = "Define si usas HealthControl para ti o para dar seguimiento a alguien más.",
                     style = MaterialTheme.typography.bodySmall,
                     color = TextSecondary
                 )
@@ -177,25 +187,46 @@ fun ProfileScreen(
 
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     SelectorTipoPerfil(
-                        tipo = TipoPerfil.INDIVIDUAL,
+                        tipo = TipoPerfil.TITULAR,
                         icon = Icons.Outlined.FavoriteBorder,
-                        seleccionado = tipoSeleccionado == TipoPerfil.INDIVIDUAL,
+                        seleccionado = tipoSeleccionado == TipoPerfil.TITULAR,
                         onClick = {
-                            tipoSeleccionado = TipoPerfil.INDIVIDUAL
-                            onCambiarTipoPerfil(TipoPerfil.INDIVIDUAL)
+                            if (tipoSeleccionado != TipoPerfil.TITULAR) {
+                                pedirConfirmacionCambioA = TipoPerfil.TITULAR
+                            }
                         },
                         modifier = Modifier.weight(1f)
                     )
                     SelectorTipoPerfil(
-                        tipo = TipoPerfil.ASOCIADO,
+                        tipo = TipoPerfil.ACOMPANANTE,
                         icon = Icons.Outlined.Groups,
-                        seleccionado = tipoSeleccionado == TipoPerfil.ASOCIADO,
+                        seleccionado = tipoSeleccionado == TipoPerfil.ACOMPANANTE,
                         onClick = {
-                            tipoSeleccionado = TipoPerfil.ASOCIADO
-                            onCambiarTipoPerfil(TipoPerfil.ASOCIADO)
+                            if (tipoSeleccionado != TipoPerfil.ACOMPANANTE) {
+                                pedirConfirmacionCambioA = TipoPerfil.ACOMPANANTE
+                            }
                         },
                         modifier = Modifier.weight(1f)
                     )
+                }
+
+                when (tipoSeleccionado) {
+                    TipoPerfil.TITULAR -> perfil.codigoVinculacion?.let { codigo ->
+                        Spacer(Modifier.height(16.dp))
+                        InfoVinculacion(
+                            texto = "Tu código de invitación es $codigo. Compártelo con quien quieras que te acompañe.",
+                            colorFondo = Blue100.copy(alpha = 0.4f),
+                            colorTexto = Blue700
+                        )
+                    }
+                    TipoPerfil.ACOMPANANTE -> perfil.personaVinculada?.let { vinculo ->
+                        Spacer(Modifier.height(16.dp))
+                        InfoVinculacion(
+                            texto = "Estás dando seguimiento a ${vinculo.nombre} (${vinculo.relacion.ifBlank { "acompañante" }}).",
+                            colorFondo = SuccessGreenBg,
+                            colorTexto = SuccessGreen
+                        )
+                    }
                 }
             }
 
@@ -259,6 +290,47 @@ fun ProfileScreen(
                 }
             }
         )
+    }
+
+    when (pedirConfirmacionCambioA) {
+        TipoPerfil.TITULAR -> {
+            AlertDialog(
+                onDismissRequest = { pedirConfirmacionCambioA = null },
+                title = { Text("¿Pasar a Titular?") },
+                text = {
+                    val nombreVinculo = perfil.personaVinculada?.nombre
+                    Text(
+                        if (nombreVinculo != null)
+                            "Dejarás de ver la salud de $nombreVinculo y empezarás a gestionar la tuya propia."
+                        else
+                            "Empezarás a gestionar tu propia salud en vez de acompañar a alguien más."
+                    )
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        tipoSeleccionado = TipoPerfil.TITULAR
+                        onCambiarTipoPerfil(TipoPerfil.TITULAR, null)
+                        pedirConfirmacionCambioA = null
+                    }) { Text("Confirmar", color = Blue700) }
+                },
+                dismissButton = {
+                    TextButton(onClick = { pedirConfirmacionCambioA = null }) {
+                        Text("Cancelar", color = TextSecondary)
+                    }
+                }
+            )
+        }
+        TipoPerfil.ACOMPANANTE -> {
+            DialogoVincularAcompanante(
+                onConfirmar = { vinculo ->
+                    tipoSeleccionado = TipoPerfil.ACOMPANANTE
+                    onCambiarTipoPerfil(TipoPerfil.ACOMPANANTE, vinculo)
+                    pedirConfirmacionCambioA = null
+                },
+                onCancelar = { pedirConfirmacionCambioA = null }
+            )
+        }
+        null -> Unit
     }
 }
 
@@ -421,6 +493,92 @@ private fun SelectorTipoPerfil(
             lineHeight = 14.sp
         )
     }
+}
+
+@Composable
+private fun InfoVinculacion(texto: String, colorFondo: Color, colorTexto: Color) {
+    Surface(
+        color = colorFondo,
+        shape = RoundedCornerShape(14.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Text(
+            text = texto,
+            modifier = Modifier.padding(12.dp),
+            style = MaterialTheme.typography.bodySmall,
+            fontWeight = FontWeight.Medium,
+            color = colorTexto
+        )
+    }
+}
+
+/**
+ * Pasar a Acompañante exige un código de invitación válido: se pide y se
+ * valida aquí mismo antes de aplicar el cambio de rol.
+ */
+@Composable
+private fun DialogoVincularAcompanante(
+    onConfirmar: (PersonaVinculada) -> Unit,
+    onCancelar: () -> Unit
+) {
+    var codigo by remember { mutableStateOf("") }
+    var relacion by remember { mutableStateOf("") }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    AlertDialog(
+        onDismissRequest = onCancelar,
+        title = { Text("Vincularte como acompañante") },
+        text = {
+            Column {
+                Text(
+                    "Ingresa el código que te compartió la persona a la que darás seguimiento.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TextSecondary
+                )
+                Spacer(Modifier.height(12.dp))
+                OutlinedTextField(
+                    value = codigo,
+                    onValueChange = {
+                        codigo = it.uppercase().filter { c -> c.isLetterOrDigit() }.take(6)
+                        error = null
+                    },
+                    label = { Text("Código de invitación") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = relacion,
+                    onValueChange = { relacion = it; error = null },
+                    label = { Text("Tu relación con esa persona") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                error?.let {
+                    Spacer(Modifier.height(8.dp))
+                    Text(it, color = ErrorRed, style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                when {
+                    codigo.length != 6 -> error = "El código debe tener 6 caracteres"
+                    relacion.isBlank() -> error = "Indica tu relación con esa persona"
+                    else -> onConfirmar(
+                        PersonaVinculada(
+                            nombre = VinculacionSimulator.nombreParaCodigo(codigo),
+                            relacion = relacion.trim(),
+                            codigo = codigo
+                        )
+                    )
+                }
+            }) { Text("Vincular", color = Blue700) }
+        },
+        dismissButton = {
+            TextButton(onClick = onCancelar) { Text("Cancelar", color = TextSecondary) }
+        }
+    )
 }
 
 private fun formatearFecha(millis: Long?): String {

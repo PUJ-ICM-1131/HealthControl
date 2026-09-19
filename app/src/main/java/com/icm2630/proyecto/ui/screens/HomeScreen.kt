@@ -30,13 +30,17 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.icm2630.proyecto.R
+import com.icm2630.proyecto.data.model.PerfilUsuario
 import com.icm2630.proyecto.ui.components.HealthBottomNavigation
 import com.icm2630.proyecto.navigation.Routes
 import com.icm2630.proyecto.ui.theme.*
 import androidx.compose.foundation.border
 import androidx.compose.ui.layout.ContentScale
+
+/** Home del rol Titular (HU-02): siempre es la salud de la propia persona. */
 @Composable
 fun HomeScreen(
+    perfil: PerfilUsuario = PerfilUsuario(),
     onNavigate: (Routes) -> Unit = {},
     onCerrarSesion: () -> Unit = {}
 ) {
@@ -79,18 +83,34 @@ fun HomeScreen(
             Spacer(Modifier.height(24.dp))
 
             Text(
-                text = "Hola, María",
+                text = "Hola, ${perfil.nombreCompleto.substringBefore(" ").ifBlank { "de nuevo" }}",
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
                 color = Blue700
             )
 
-            Spacer(Modifier.height(16.dp))
-
-            // Chips de perfiles
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                ProfileChip(label = "Mi Salud", icon = Icons.Outlined.Person, isSelected = true)
-                ProfileChip(label = "Mamá Elena", icon = null, isSelected = false, letter = "E")
+            perfil.acompanantes.takeIf { it.isNotEmpty() }?.let { acompanantes ->
+                Spacer(Modifier.height(12.dp))
+                Surface(
+                    color = Blue100.copy(alpha = 0.3f),
+                    shape = RoundedCornerShape(50)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Outlined.Group, null, modifier = Modifier.size(16.dp), tint = Blue500)
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            text = if (acompanantes.size == 1)
+                                "${acompanantes.first().nombre} también da seguimiento a tu salud"
+                            else
+                                "${acompanantes.size} acompañantes dan seguimiento a tu salud",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Blue700
+                        )
+                    }
+                }
             }
 
             Spacer(Modifier.height(32.dp))
@@ -131,8 +151,9 @@ fun HomeScreen(
                 Spacer(Modifier.width(16.dp))
                 QuickActionCard(
                     icon = Icons.Outlined.Group,
-                    title = "Asociar Pers...",
-                    subtitle = "Familia / Tutor",
+                    title = "Compartir seguimiento",
+                    subtitle = "Invitar acompañante",
+                    onClick = { onNavigate(Routes.Perfil) },
                     modifier = Modifier.weight(1f)
                 )
             }
@@ -273,47 +294,19 @@ private fun LogoSmall() {
 }
 
 @Composable
-private fun ProfileChip(label: String, icon: ImageVector?, isSelected: Boolean, letter: String? = null) {
-    Surface(
-        color = if (isSelected) Color.White else Blue100.copy(alpha = 0.5f),
-        shape = RoundedCornerShape(50),
-        border = if (isSelected) BorderStroke(1.dp, Blue100) else null,
-        modifier = Modifier.height(40.dp)
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            if (icon != null) {
-                Icon(icon, null, modifier = Modifier.size(18.dp), tint = Blue500)
-            } else if (letter != null) {
-                Surface(
-                    color = Blue500,
-                    shape = CircleShape,
-                    modifier = Modifier.size(20.dp)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Text(letter, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                    }
-                }
-            }
-            Spacer(Modifier.width(8.dp))
-            Text(label, style = MaterialTheme.typography.labelLarge, color = if (isSelected) Blue700 else TextSecondary)
-            if (!isSelected) {
-                Spacer(Modifier.width(6.dp))
-                Icon(Icons.Filled.Circle, null, modifier = Modifier.size(8.dp), tint = Blue500)
-            }
-        }
-    }
-}
-
-@Composable
-private fun QuickActionCard(icon: ImageVector, title: String, subtitle: String, modifier: Modifier = Modifier) {
+private fun QuickActionCard(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit = {}
+) {
     Surface(
         modifier = modifier.height(90.dp),
         color = Color.White,
         shape = RoundedCornerShape(20.dp),
-        shadowElevation = 2.dp
+        shadowElevation = 2.dp,
+        onClick = onClick
     ) {
         Row(
             modifier = Modifier.padding(12.dp),
@@ -367,14 +360,6 @@ private fun MedicationReminderCard() {
                     }
                     Spacer(Modifier.height(8.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Surface(color = Blue100.copy(alpha = 0.3f), shape = RoundedCornerShape(4.dp)) {
-                            Row(modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Outlined.Group, null, modifier = Modifier.size(14.dp), tint = Blue500)
-                                Spacer(Modifier.width(4.dp))
-                                Text("Para: Mamá Elena", fontSize = 12.sp, color = Blue700)
-                            }
-                        }
-                        Spacer(Modifier.weight(1f))
                         Icon(Icons.Outlined.Schedule, null, modifier = Modifier.size(16.dp), tint = TextSecondary)
                         Spacer(Modifier.width(4.dp))
                         Text("08:00 AM", fontSize = 14.sp, color = Blue700, fontWeight = FontWeight.Bold)

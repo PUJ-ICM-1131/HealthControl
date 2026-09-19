@@ -69,7 +69,7 @@ data class MapUiState(
                 perfilUsuario?.tipoPerfil
             ) {
 
-                TipoPerfil.INDIVIDUAL -> {
+                TipoPerfil.TITULAR -> {
 
                     perfilUsuario
                         ?.nombreCompleto
@@ -80,7 +80,7 @@ data class MapUiState(
                 }
 
 
-                TipoPerfil.ASOCIADO -> {
+                TipoPerfil.ACOMPANANTE -> {
 
                     personaSeleccionada
                         ?.nombreCompleto
@@ -107,10 +107,10 @@ data class MapUiState(
                 perfilUsuario?.tipoPerfil
             ) {
 
-                TipoPerfil.ASOCIADO ->
+                TipoPerfil.ACOMPANANTE ->
                     "Persona asociada"
 
-                TipoPerfil.INDIVIDUAL ->
+                TipoPerfil.TITULAR ->
                     "Perfil personal"
 
                 null ->
@@ -126,7 +126,7 @@ data class MapUiState(
     val puedeCambiarPersona: Boolean
         get() =
             perfilUsuario?.tipoPerfil ==
-                    TipoPerfil.ASOCIADO &&
+                    TipoPerfil.ACOMPANANTE &&
                     personasAsociadas.isNotEmpty()
 
 

@@ -53,7 +53,7 @@ class MedicationRegisterViewModel : ViewModel() {
         val personas =
             if (
                 perfilUsuario.tipoPerfil ==
-                TipoPerfil.ASOCIADO
+                TipoPerfil.ACOMPANANTE
             ) {
 
                 PersonaRepository
@@ -396,7 +396,7 @@ class MedicationRegisterViewModel : ViewModel() {
                 personaId =
                     if (
                         estado.perfilUsuario?.tipoPerfil ==
-                        TipoPerfil.ASOCIADO
+                        TipoPerfil.ACOMPANANTE
                     ) {
                         estado.personaSeleccionadaId
                     } else {

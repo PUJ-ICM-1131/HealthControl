@@ -52,7 +52,7 @@ class AppointmentRegisterViewModel : ViewModel() {
         val personas =
             if (
                 perfilUsuario.tipoPerfil ==
-                TipoPerfil.ASOCIADO
+                TipoPerfil.ACOMPANANTE
             ) {
 
                 PersonaRepository
@@ -384,7 +384,7 @@ class AppointmentRegisterViewModel : ViewModel() {
                 personaId =
                     if (
                         estado.perfilUsuario?.tipoPerfil ==
-                        TipoPerfil.ASOCIADO
+                        TipoPerfil.ACOMPANANTE
                     ) {
 
                         estado.personaSeleccionadaId

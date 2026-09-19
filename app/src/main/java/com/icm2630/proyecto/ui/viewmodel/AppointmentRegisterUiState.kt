@@ -106,11 +106,11 @@ data class AppointmentRegisterUiState(
                 perfilUsuario?.tipoPerfil
             ) {
 
-                TipoPerfil.INDIVIDUAL -> {
+                TipoPerfil.TITULAR -> {
                     true
                 }
 
-                TipoPerfil.ASOCIADO -> {
+                TipoPerfil.ACOMPANANTE -> {
                     personaSeleccionadaId != null
                 }
 

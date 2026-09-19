@@ -173,7 +173,7 @@ fun MedicationRegisterScreen(
     val nombrePersona =
         when (state.perfilUsuario?.tipoPerfil) {
 
-            TipoPerfil.INDIVIDUAL -> {
+            TipoPerfil.TITULAR -> {
                 state.perfilUsuario
                     ?.nombreCompleto
                     ?.ifBlank {
@@ -182,7 +182,7 @@ fun MedicationRegisterScreen(
                     ?: "Mi perfil"
             }
 
-            TipoPerfil.ASOCIADO -> {
+            TipoPerfil.ACOMPANANTE -> {
                 state.personaSeleccionada
                     ?.nombreCompleto
                     ?: "Selecciona una persona"
@@ -197,7 +197,7 @@ fun MedicationRegisterScreen(
     val tipoPersona =
         if (
             state.perfilUsuario?.tipoPerfil ==
-            TipoPerfil.ASOCIADO
+            TipoPerfil.ACOMPANANTE
         ) {
 
             "Persona asociada"
@@ -362,7 +362,7 @@ fun MedicationRegisterScreen(
 
                 canChangePerson =
                     state.perfilUsuario?.tipoPerfil ==
-                            TipoPerfil.ASOCIADO,
+                            TipoPerfil.ACOMPANANTE,
 
                 onChangePerson = {
                     showPersonDialog = true

@@ -161,7 +161,7 @@ fun AppointmentRegisterScreen(
     val nombrePersona =
         when (state.perfilUsuario?.tipoPerfil) {
 
-            TipoPerfil.INDIVIDUAL -> {
+            TipoPerfil.TITULAR -> {
 
                 state.perfilUsuario
                     ?.nombreCompleto
@@ -171,7 +171,7 @@ fun AppointmentRegisterScreen(
                     ?: "Mi perfil"
             }
 
-            TipoPerfil.ASOCIADO -> {
+            TipoPerfil.ACOMPANANTE -> {
 
                 state.personaSeleccionada
                     ?.nombreCompleto
@@ -187,7 +187,7 @@ fun AppointmentRegisterScreen(
     val tipoPersona =
         if (
             state.perfilUsuario?.tipoPerfil ==
-            TipoPerfil.ASOCIADO
+            TipoPerfil.ACOMPANANTE
         ) {
 
             "Persona asociada"
@@ -351,7 +351,7 @@ fun AppointmentRegisterScreen(
 
                 canChangePerson =
                     state.perfilUsuario?.tipoPerfil ==
-                            TipoPerfil.ASOCIADO,
+                            TipoPerfil.ACOMPANANTE,
 
                 onChangePerson = {
                     showPersonDialog = true

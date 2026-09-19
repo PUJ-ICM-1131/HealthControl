@@ -20,6 +20,8 @@ import com.icm2630.proyecto.data.model.PerfilUsuario
 import com.icm2630.proyecto.data.model.TipoPerfil
 import com.icm2630.proyecto.data.repository.SesionRepository
 import com.icm2630.proyecto.ui.components.HealthBottomNavigation
+import com.icm2630.proyecto.ui.screens.DetalleCitaScreen
+import com.icm2630.proyecto.ui.screens.DetalleMedicamentoScreen
 import com.icm2630.proyecto.ui.screens.HistoryScreen
 import com.icm2630.proyecto.ui.screens.HomeScreen
 import com.icm2630.proyecto.ui.screens.LoginScreen
@@ -248,6 +250,17 @@ fun AppNavigation() {
                             backStack = backStack,
                             destino = route
                         )
+                    },
+
+
+                    // HU-06 / HU-21: al tocar un registro, se apila (no se
+                    // reemplaza) la pantalla de detalle correspondiente,
+                    // para poder volver con el botón Atrás.
+                    onVerDetalle = { route ->
+
+                        backStack.add(
+                            route
+                        )
                     }
                 )
             }
@@ -272,7 +285,7 @@ fun AppNavigation() {
                     onRegisterAppointment = {
 
                         backStack.add(
-                            Routes.RegistrarCita
+                            Routes.RegistrarCita()
                         )
                     },
 
@@ -280,15 +293,17 @@ fun AppNavigation() {
                     onRegisterMedication = {
 
                         backStack.add(
-                            Routes.RegistrarMedicamento
+                            Routes.RegistrarMedicamento()
                         )
                     }
                 )
             }
 
-            entry<Routes.RegistrarMedicamento> {
+            entry<Routes.RegistrarMedicamento> { key ->
 
                 MedicationRegisterScreen(
+
+                    medicamentoId = key.medicamentoId,
 
                     onBack = {
 
@@ -314,9 +329,11 @@ fun AppNavigation() {
 // REGISTRAR CITA
 // =================================================
 
-            entry<Routes.RegistrarCita> {
+            entry<Routes.RegistrarCita> { key ->
 
                 AppointmentRegisterScreen(
+
+                    citaId = key.citaId,
 
                     onBack = {
 
@@ -332,6 +349,92 @@ fun AppNavigation() {
 
                             backStack.add(
                                 Routes.Registrar
+                            )
+                        }
+                    }
+                )
+            }
+
+// =================================================
+// DETALLE DE CITA (HU-06)
+// =================================================
+
+            entry<Routes.DetalleCita> { key ->
+
+                DetalleCitaScreen(
+
+                    citaId = key.citaId,
+
+                    onBack = {
+
+                        if (backStack.size > 1) {
+
+                            backStack.removeAt(
+                                backStack.lastIndex
+                            )
+                        }
+                    },
+
+
+                    onEditar = {
+
+                        backStack.add(
+                            Routes.RegistrarCita(
+                                citaId = key.citaId
+                            )
+                        )
+                    },
+
+
+                    onEliminar = {
+
+                        if (backStack.size > 1) {
+
+                            backStack.removeAt(
+                                backStack.lastIndex
+                            )
+                        }
+                    }
+                )
+            }
+
+// =================================================
+// DETALLE DE MEDICAMENTO (HU-21)
+// =================================================
+
+            entry<Routes.DetalleMedicamento> { key ->
+
+                DetalleMedicamentoScreen(
+
+                    medicamentoId = key.medicamentoId,
+
+                    onBack = {
+
+                        if (backStack.size > 1) {
+
+                            backStack.removeAt(
+                                backStack.lastIndex
+                            )
+                        }
+                    },
+
+
+                    onEditar = {
+
+                        backStack.add(
+                            Routes.RegistrarMedicamento(
+                                medicamentoId = key.medicamentoId
+                            )
+                        )
+                    },
+
+
+                    onEliminar = {
+
+                        if (backStack.size > 1) {
+
+                            backStack.removeAt(
+                                backStack.lastIndex
                             )
                         }
                     }

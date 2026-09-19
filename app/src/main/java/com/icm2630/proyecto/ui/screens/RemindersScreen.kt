@@ -27,9 +27,18 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.icm2630.proyecto.data.model.ModalidadCita
+import com.icm2630.proyecto.data.model.TipoCita
+import com.icm2630.proyecto.data.repository.CitaRepository
+import com.icm2630.proyecto.data.repository.MedicamentoRepository
 import com.icm2630.proyecto.ui.components.HealthBottomNavigation
 import com.icm2630.proyecto.navigation.Routes
 import com.icm2630.proyecto.ui.theme.*
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
+import java.util.TimeZone
 
 private val Fondo = Color(0xFFF8FAFF)
 
@@ -49,6 +58,7 @@ private data class PacienteFiltro(
     val pendientes: Int = 0
 )
 
+
 private val pacientesDeEjemplo = listOf(
     PacienteFiltro("Yo", icon = Icons.Outlined.Person),
     PacienteFiltro("Mamá", inicial = "M", pendientes = 3),
@@ -56,58 +66,44 @@ private val pacientesDeEjemplo = listOf(
     PacienteFiltro("Kalel", inicial = "K")
 )
 
-//Para poder filtrar el recordatorio necesitamos tener un estado con variables que definen a un recordatorio.
-private enum class EstadoRecordatorio {
-    TOMADO, TOMAR, PENDIENTE, VER_DETALLES, NINGUNO
+
+
+
+private enum class TipoRecordatorio {
+    CITA,
+    MEDICAMENTO
 }
 
 private data class Recordatorio(
-    val hora: String,
+    val tipo: TipoRecordatorio,
+    val id: String,
+    val tipoCita: TipoCita?,
+    val horaOrden: Int,
+    val minutoOrden: Int,
+    val horaTexto: String,
     val icono: ImageVector,
     val titulo: String,
-    val subtitulo: String,
-    val estado: EstadoRecordatorio = EstadoRecordatorio.NINGUNO
+    val subtitulo: String
 )
 
 private data class GrupoRecordatorios(
-    val fecha: String,
+    val fechaMillis: Long,
+    val etiqueta: String,
     val esHoy: Boolean,
     val items: List<Recordatorio>
 )
 
 
-//A continuacion solo tendremos por el momento datos de prueba para la pantalla.(Luego estos datos se extraeran desde el backend)
-private val recordatoriosDeEjemplo = listOf(
-    GrupoRecordatorios(
-        fecha = "Hoy, 5 de septiembre",
-        esHoy = true,
-        items = listOf(
-            Recordatorio("08:00", Icons.Outlined.Medication, "Metformina 500mg", "1 comprimido", EstadoRecordatorio.TOMADO),
-            Recordatorio("10:30", Icons.Outlined.Medication, "Vitamina D3", "2000 UI", EstadoRecordatorio.TOMAR),
-            Recordatorio("14:00", Icons.Outlined.Medication, "Losartán 50mg", "1 comprimido", EstadoRecordatorio.PENDIENTE),
-            Recordatorio("16:00", Icons.Outlined.MedicalServices, "Dr. García · Cardiología", "Clínica San Rafael", EstadoRecordatorio.VER_DETALLES)
-        )
-    ),
-    GrupoRecordatorios(
-        fecha = "Mañana, 6 de septiembre",
-        esHoy = false,
-        items = listOf(
-            Recordatorio("08:00", Icons.Outlined.Medication, "Metformina 500mg", "1 comprimido"),
-            Recordatorio("09:00", Icons.Outlined.Science, "Examen de sangre", "Laboratorio Central"),
-            Recordatorio("10:30", Icons.Outlined.Medication, "Vitamina D3", "2000 UI")
-        )
-    )
-)
-
-
-
-
 @Composable
 fun RemindersScreen(
-    onNavigate: (Routes) -> Unit = {}
+    onNavigate: (Routes) -> Unit = {},
+    onVerDetalle: (Routes) -> Unit = {}
 ) {
     var filtroSeleccionado by remember { mutableStateOf(FiltroTipo.TODOS) }
     var pacienteSeleccionado by remember { mutableStateOf(pacientesDeEjemplo.first().nombre) }
+
+
+    val grupos = construirRecordatorios(filtroSeleccionado)
 
     Scaffold(
         bottomBar = {
@@ -132,7 +128,7 @@ fun RemindersScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Recordatorios",
+                    text = "Pendientes",
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold,
                     color = Blue700
@@ -187,10 +183,17 @@ fun RemindersScreen(
 
             Spacer(Modifier.height(24.dp))
 
-            recordatoriosDeEjemplo.forEachIndexed { index, grupo ->
-                GrupoRecordatoriosSeccion(grupo)
-                if (index != recordatoriosDeEjemplo.lastIndex) {
-                    Spacer(Modifier.height(24.dp))
+            if (grupos.isEmpty()) {
+                EstadoVacio()
+            } else {
+                grupos.forEachIndexed { index, grupo ->
+                    GrupoRecordatoriosSeccion(
+                        grupo = grupo,
+                        onVerDetalle = onVerDetalle
+                    )
+                    if (index != grupos.lastIndex) {
+                        Spacer(Modifier.height(24.dp))
+                    }
                 }
             }
         }
@@ -198,14 +201,49 @@ fun RemindersScreen(
 }
 
 @Composable
-private fun GrupoRecordatoriosSeccion(grupo: GrupoRecordatorios) {
+private fun EstadoVacio() {
+    TarjetaBlanca {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 28.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.StickyNote2,
+                contentDescription = null,
+                tint = Blue100,
+                modifier = Modifier.size(40.dp)
+            )
+            Spacer(Modifier.height(10.dp))
+            Text(
+                text = "No tienes pendientes por ahora",
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = TextPrimary
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = "Tus próximas citas y medicamentos aparecerán aquí",
+                style = MaterialTheme.typography.bodySmall,
+                color = TextSecondary
+            )
+        }
+    }
+}
+
+@Composable
+private fun GrupoRecordatoriosSeccion(
+    grupo: GrupoRecordatorios,
+    onVerDetalle: (Routes) -> Unit
+) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
-            text = grupo.fecha,
+            text = grupo.etiqueta,
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
             color = Blue700
@@ -223,7 +261,17 @@ private fun GrupoRecordatoriosSeccion(grupo: GrupoRecordatorios) {
 
     TarjetaBlanca {
         grupo.items.forEachIndexed { index, item ->
-            RecordatorioFila(item)
+            RecordatorioFila(
+                item = item,
+                onClick = {
+                    val destino = if (item.tipo == TipoRecordatorio.CITA) {
+                        Routes.DetalleCita(citaId = item.id)
+                    } else {
+                        Routes.DetalleMedicamento(medicamentoId = item.id)
+                    }
+                    onVerDetalle(destino)
+                }
+            )
             if (index != grupo.items.lastIndex) {
                 DivisorFila()
             }
@@ -248,19 +296,23 @@ private fun DivisorFila() {
 }
 
 @Composable
-private fun RecordatorioFila(item: Recordatorio) {
+private fun RecordatorioFila(
+    item: Recordatorio,
+    onClick: () -> Unit
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .clickable(onClick = onClick)
             .padding(vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
-            text = item.hora,
+            text = item.horaTexto,
             style = MaterialTheme.typography.labelLarge,
             fontWeight = FontWeight.Bold,
             color = Blue700,
-            modifier = Modifier.width(52.dp)
+            modifier = Modifier.widthIn(min = 52.dp)
         )
 
         Surface(
@@ -291,44 +343,11 @@ private fun RecordatorioFila(item: Recordatorio) {
 
         Spacer(Modifier.width(8.dp))
 
-        EstadoRecordatorioIndicador(item.estado)
-    }
-}
-
-@Composable
-private fun EstadoRecordatorioIndicador(estado: EstadoRecordatorio) {
-    when (estado) {
-        EstadoRecordatorio.TOMADO -> Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Outlined.CheckCircle, null, tint = SuccessGreen, modifier = Modifier.size(16.dp))
-            Spacer(Modifier.width(4.dp))
-            Text("Tomado", style = MaterialTheme.typography.labelSmall, color = SuccessGreen)
-        }
-
-        EstadoRecordatorio.TOMAR -> Button(
-            onClick = { },
-            modifier = Modifier.height(32.dp),
-            contentPadding = PaddingValues(horizontal = 16.dp),
-            shape = RoundedCornerShape(50),
-            colors = ButtonDefaults.buttonColors(containerColor = Blue700)
-        ) {
-            Text("Tomar", style = MaterialTheme.typography.labelMedium, color = Color.White)
-        }
-
-        EstadoRecordatorio.PENDIENTE -> Text(
-            text = "Pendiente",
-            style = MaterialTheme.typography.labelSmall,
-            color = TextSecondary
+        Icon(
+            imageVector = Icons.Outlined.KeyboardArrowRight,
+            contentDescription = "Ver detalle",
+            tint = TextSecondary
         )
-
-        EstadoRecordatorio.VER_DETALLES -> Text(
-            text = "Ver detalles",
-            style = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.SemiBold,
-            color = Blue500,
-            modifier = Modifier.clickable { }
-        )
-
-        EstadoRecordatorio.NINGUNO -> Unit
     }
 }
 
@@ -426,6 +445,208 @@ private fun BotonAgregar(onClick: () -> Unit) {
         }
     }
 }
+
+
+
+
+private fun construirRecordatorios(
+    filtro: FiltroTipo
+): List<GrupoRecordatorios> {
+
+    val hoyMillis = obtenerHoyUtcMillis()
+
+    val itemsCitas = CitaRepository.obtenerPropias()
+        .filter { cita ->
+            when (filtro) {
+                FiltroTipo.TODOS -> true
+                FiltroTipo.CITAS -> cita.tipo != TipoCita.EXAMENES
+                FiltroTipo.EXAMENES -> cita.tipo == TipoCita.EXAMENES
+                FiltroTipo.MEDICAMENTOS -> false
+            }
+        }
+        .map { cita ->
+            val subtitulo = when {
+                cita.modalidad == ModalidadCita.VIRTUAL && cita.nombreMedico.isNotBlank() ->
+                    "Virtual · ${cita.nombreMedico}"
+
+                cita.modalidad == ModalidadCita.VIRTUAL ->
+                    "Cita virtual"
+
+                cita.institucion.isNotBlank() ->
+                    cita.institucion
+
+                else ->
+                    cita.motivo
+            }
+
+            RecordatorioConFecha(
+                fechaMillis = cita.fechaMillis,
+                recordatorio = Recordatorio(
+                    tipo = TipoRecordatorio.CITA,
+                    id = cita.id,
+                    tipoCita = cita.tipo,
+                    horaOrden = cita.hora,
+                    minutoOrden = cita.minuto,
+                    horaTexto = formatearHoraRecordatorio(cita.hora, cita.minuto),
+                    icono = if (cita.tipo == TipoCita.EXAMENES) {
+                        Icons.Outlined.Science
+                    } else {
+                        Icons.Outlined.MedicalServices
+                    },
+                    titulo = if (cita.especialidad.isNotBlank()) {
+                        cita.especialidad
+                    } else {
+                        cita.tipo.titulo
+                    },
+                    subtitulo = subtitulo
+                )
+            )
+        }
+
+    val itemsMedicamentos = if (filtro == FiltroTipo.TODOS || filtro == FiltroTipo.MEDICAMENTOS) {
+
+        MedicamentoRepository.obtenerPropios().flatMap { medicamento ->
+
+            val horarios = medicamento.horarios.ifEmpty { listOf("") }
+
+            horarios.map { horario ->
+                val (horaOrden, minutoOrden) = parsearHorario(horario)
+
+                val subtitulo = if (medicamento.cantidadPorToma.isNotBlank()) {
+                    "${medicamento.cantidadPorToma} · ${medicamento.dosis}${medicamento.unidad}"
+                } else {
+                    "${medicamento.dosis}${medicamento.unidad}"
+                }
+
+                RecordatorioConFecha(
+                    // Los medicamentos son recurrentes (no tienen una fecha
+                    // puntual como las citas), así que se agrupan bajo "Hoy".
+                    fechaMillis = hoyMillis,
+                    recordatorio = Recordatorio(
+                        tipo = TipoRecordatorio.MEDICAMENTO,
+                        id = medicamento.id,
+                        tipoCita = null,
+                        horaOrden = horaOrden,
+                        minutoOrden = minutoOrden,
+                        horaTexto = horario.ifBlank { "--:--" },
+                        icono = Icons.Outlined.Medication,
+                        titulo = medicamento.nombre,
+                        subtitulo = subtitulo
+                    )
+                )
+            }
+        }
+
+    } else {
+        emptyList()
+    }
+
+    return (itemsCitas + itemsMedicamentos)
+        .groupBy { it.fechaMillis }
+        .toSortedMap()
+        .map { (fechaMillis, envolturas) ->
+            GrupoRecordatorios(
+                fechaMillis = fechaMillis,
+                etiqueta = etiquetaParaFecha(fechaMillis, hoyMillis),
+                esHoy = fechaMillis == hoyMillis,
+                items = envolturas
+                    .map { it.recordatorio }
+                    .sortedWith(compareBy({ it.horaOrden }, { it.minutoOrden }))
+            )
+        }
+}
+
+private data class RecordatorioConFecha(
+    val fechaMillis: Long,
+    val recordatorio: Recordatorio
+)
+
+
+
+private fun obtenerHoyUtcMillis(): Long {
+
+    val hoyLocal = Calendar.getInstance()
+
+    val hoyUtc = Calendar.getInstance(TimeZone.getTimeZone("UTC"))
+    hoyUtc.set(
+        hoyLocal.get(Calendar.YEAR),
+        hoyLocal.get(Calendar.MONTH),
+        hoyLocal.get(Calendar.DAY_OF_MONTH),
+        0,
+        0,
+        0
+    )
+    hoyUtc.set(Calendar.MILLISECOND, 0)
+
+    return hoyUtc.timeInMillis
+}
+
+private fun etiquetaParaFecha(
+    fechaMillis: Long,
+    hoyMillis: Long
+): String {
+
+    val unDiaMillis = 24L * 60L * 60L * 1000L
+
+    return when (fechaMillis) {
+
+        hoyMillis ->
+            "Hoy, ${formatearFechaLarga(fechaMillis)}"
+
+        hoyMillis + unDiaMillis ->
+            "Mañana, ${formatearFechaLarga(fechaMillis)}"
+
+        else ->
+            formatearFechaLarga(fechaMillis).replaceFirstChar { primero -> primero.uppercase() }
+    }
+}
+
+private fun formatearFechaLarga(millis: Long): String {
+
+    val formatter = SimpleDateFormat("d 'de' MMMM", Locale("es", "ES"))
+    formatter.timeZone = TimeZone.getTimeZone("UTC")
+
+    return formatter.format(Date(millis))
+}
+
+private fun formatearHoraRecordatorio(hora: Int, minuto: Int): String {
+
+    val amPm = if (hora < 12) "AM" else "PM"
+
+    val hora12 = when {
+        hora == 0 -> 12
+        hora > 12 -> hora - 12
+        else -> hora
+    }
+
+    return String.format(Locale.getDefault(), "%d:%02d %s", hora12, minuto, amPm)
+}
+
+/**
+ * Convierte un horario con formato "8:00 AM" en un par
+ * (hora24, minuto) para poder ordenar los recordatorios del día.
+ * Si el formato no es reconocido, se ubica al inicio (0, 0).
+ */
+private fun parsearHorario(horario: String): Pair<Int, Int> {
+
+    if (horario.isBlank()) {
+        return 0 to 0
+    }
+
+    return try {
+        val formato = SimpleDateFormat("h:mm a", Locale.US)
+        val fecha = formato.parse(horario) ?: return 0 to 0
+
+        val calendar = Calendar.getInstance()
+        calendar.time = fecha
+
+        calendar.get(Calendar.HOUR_OF_DAY) to calendar.get(Calendar.MINUTE)
+
+    } catch (e: Exception) {
+        0 to 0
+    }
+}
+
 
 @Preview(showBackground = true, showSystemUi = true)
 @Composable

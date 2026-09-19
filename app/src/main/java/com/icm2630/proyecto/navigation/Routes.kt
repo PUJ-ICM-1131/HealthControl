@@ -16,4 +16,7 @@ sealed interface Routes : NavKey {
     data object Historial : Routes
     data object Perfil : Routes
 
+    data object RegistrarMedicamento : Routes
+    data object RegistrarCita : Routes
+
 }

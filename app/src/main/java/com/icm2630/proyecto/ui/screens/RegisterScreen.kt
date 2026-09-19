@@ -27,7 +27,6 @@ import androidx.compose.material.icons.outlined.Cancel
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.MailOutline
 import androidx.compose.material.icons.outlined.Person
-import androidx.compose.material.icons.outlined.PhoneIphone
 import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material.icons.outlined.VisibilityOff
@@ -77,7 +76,6 @@ private val HairLine = Color(0xFFE5E7EB)
 fun RegisterScreen(
     onRegister: (nombre: String, correo: String, password: String) -> Unit = { _, _, _ -> },
     onGoogleClick: () -> Unit = {},
-    onAppleClick: () -> Unit = {},
     onIrALogin: () -> Unit = {}
 ) {
     var nombre by rememberSaveable { mutableStateOf("") }
@@ -196,25 +194,13 @@ fun RegisterScreen(
 
             Spacer(Modifier.height(24.dp))
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                BotonSocial(
-                    texto = "Google",
-                    // Reemplaza por painterResource(R.drawable.ic_google) cuando agregues el asset oficial
-                    icon = Icons.Outlined.Cancel,
-                    onClick = onGoogleClick,
-                    modifier = Modifier.weight(1f)
-                )
-                BotonSocial(
-                    texto = "Apple",
-                    // Reemplaza por painterResource(R.drawable.ic_apple)
-                    icon = Icons.Outlined.PhoneIphone,
-                    onClick = onAppleClick,
-                    modifier = Modifier.weight(1f)
-                )
-            }
+            BotonSocial(
+                texto = "Google",
+                // Reemplaza por painterResource(R.drawable.ic_google) cuando agregues el asset oficial
+                icon = Icons.Outlined.Cancel,
+                onClick = onGoogleClick,
+                modifier = Modifier.fillMaxWidth()
+            )
 
             Spacer(Modifier.height(28.dp))
         }
@@ -253,20 +239,20 @@ fun RegisterScreen(
 private fun Logo() {
     Box(
         modifier = Modifier
-            .size(80.dp)
+            .size(130.dp)
             .shadow(
                 elevation = 8.dp,
-                shape = RoundedCornerShape(22.dp),
+                shape = RoundedCornerShape(32.dp),
                 ambientColor = Blue500,
                 spotColor = Blue500
             )
-            .background(Color.White, RoundedCornerShape(22.dp)),
+            .background(Color.White, RoundedCornerShape(32.dp)),
         contentAlignment = Alignment.Center
     ) {
         Image(
             painter = painterResource(R.drawable.loguitouwu),
             contentDescription = "Logo de Health Control",
-            modifier = Modifier.size(54.dp)
+            modifier = Modifier.size(94.dp)
         )
     }
 }

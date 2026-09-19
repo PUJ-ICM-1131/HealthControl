@@ -1,5 +1,7 @@
 package com.icm2630.proyecto.navigation
 
+import com.icm2630.proyecto.ui.screens.RegisterOptionsScreen
+import com.icm2630.proyecto.ui.screens.AppointmentRegisterScreen
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -13,171 +15,479 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.ui.NavDisplay
-import com.icm2630.proyecto.ui.components.HealthBottomNavigation
 import com.icm2630.proyecto.data.model.PerfilUsuario
 import com.icm2630.proyecto.data.model.TipoPerfil
 import com.icm2630.proyecto.data.repository.SesionRepository
+import com.icm2630.proyecto.ui.components.HealthBottomNavigation
+import com.icm2630.proyecto.ui.screens.HistoryScreen
 import com.icm2630.proyecto.ui.screens.HomeScreen
 import com.icm2630.proyecto.ui.screens.LoginScreen
+import com.icm2630.proyecto.ui.screens.MedicationRegisterScreen
 import com.icm2630.proyecto.ui.screens.MonitoreoScreen
 import com.icm2630.proyecto.ui.screens.ProfileScreen
 import com.icm2630.proyecto.ui.screens.ProfileSetupScreen
 import com.icm2630.proyecto.ui.screens.RegisterScreen
 import com.icm2630.proyecto.ui.screens.RemindersScreen
-import com.icm2630.proyecto.ui.screens.HistoryScreen
+
+
 @Composable
 fun AppNavigation() {
 
-    // Lista que guarda las pantallas por las que vamos navegando.
+    /*
+     * Pila de navegación de la aplicación.
+     *
+     * La aplicación inicia en Login.
+     */
     val backStack = remember {
-        mutableStateListOf<Routes>(Routes.Login)
+        mutableStateListOf<Routes>(
+            Routes.Login
+        )
     }
 
-    // Se encarga de mostrar la pantalla correspondiente
+
     NavDisplay(
+
         backStack = backStack,
+
+        /*
+         * Comportamiento general del botón Atrás.
+         */
         onBack = {
+
             if (backStack.size > 1) {
-                backStack.removeAt(backStack.lastIndex)
+
+                backStack.removeAt(
+                    backStack.lastIndex
+                )
             }
         },
+
         entryProvider = entryProvider {
+
+
+            // =================================================
+            // LOGIN
+            // =================================================
+
             entry<Routes.Login> {
+
                 LoginScreen(
+
                     onLogin = {
+
                         backStack.clear()
+
+                        val destino = when {
+                            !SesionRepository.perfilConfigurado -> Routes.ProfileSetup
+                            SesionRepository.perfil?.tipoPerfil == TipoPerfil.ACOMPANANTE -> Routes.Monitoreo
+                            else -> Routes.Home
+                        }
+
                         backStack.add(
-                            when {
-                                !SesionRepository.perfilConfigurado -> Routes.ProfileSetup
-                                SesionRepository.perfil?.tipoPerfil == TipoPerfil.ACOMPANANTE -> Routes.Monitoreo
-                                else -> Routes.Home
-                            }
+                            destino
                         )
                     },
+
+
                     onIrARegister = {
-                        backStack.add(Routes.Register)
+
+                        backStack.add(
+                            Routes.Register
+                        )
                     }
                 )
             }
 
+
+            // =================================================
+            // REGISTRO DE USUARIO
+            // =================================================
+
             entry<Routes.Register> {
+
                 RegisterScreen(
+
                     onRegister = { _, _, _ ->
+
                         backStack.clear()
-                        backStack.add(Routes.ProfileSetup) // no va a Home todavía
+
+                        backStack.add(
+                            Routes.ProfileSetup
+                        )
                     },
+
+
                     onIrALogin = {
-                        backStack.removeAt(backStack.lastIndex)
+
+                        if (backStack.size > 1) {
+
+                            backStack.removeAt(
+                                backStack.lastIndex
+                            )
+                        }
                     }
                 )
             }
 
             entry<Routes.ProfileSetup> {
+
                 ProfileSetupScreen(
+
                     onContinuar = { perfil ->
-                        SesionRepository.perfil = perfil
+
+                        SesionRepository.perfil =
+                            perfil
+
+
                         backStack.clear()
+
+                        val destino = if (perfil.tipoPerfil == TipoPerfil.ACOMPANANTE) {
+                            Routes.Monitoreo
+                        } else {
+                            Routes.Home
+                        }
+
                         backStack.add(
-                            if (perfil.tipoPerfil == TipoPerfil.ACOMPANANTE) Routes.Monitoreo else Routes.Home
+                            destino
                         )
                     },
+
+
                     onCerrarSesion = {
+
+                        SesionRepository
+                            .cerrarSesion()
+
+
                         backStack.clear()
-                        backStack.add(Routes.Login)
+
+                        backStack.add(
+                            Routes.Login
+                        )
                     }
                 )
             }
 
             entry<Routes.Home> {
+
                 HomeScreen(
-                    perfil = SesionRepository.perfil ?: PerfilUsuario(),
-                    onNavigate = { route -> navegarATab(backStack, route) },
-                    onCerrarSesion = {
-                        SesionRepository.perfil = null
-                        backStack.clear()
-                        backStack.add(Routes.Login)
-                    }
-                )
-            }
 
-            entry<Routes.Monitoreo> {
-                MonitoreoScreen(
                     perfil = SesionRepository.perfil ?: PerfilUsuario(),
-                    onNavigate = { route -> navegarATab(backStack, route) },
-                    onCerrarSesion = {
-                        SesionRepository.perfil = null
-                        backStack.clear()
-                        backStack.add(Routes.Login)
-                    }
-                )
-            }
 
-            entry<Routes.Perfil> {
-                ProfileScreen(
-                    perfil = SesionRepository.perfil ?: PerfilUsuario(),
-                    onNavigate = { route -> navegarATab(backStack, route) },
-                    onEditarCampo = { /* TODO: conectar edición real de perfil */ },
-                    onCambiarTipoPerfil = { nuevoTipo, vinculo ->
-                        val actual = SesionRepository.perfil ?: PerfilUsuario()
-                        SesionRepository.perfil = actual.copy(
-                            tipoPerfil = nuevoTipo,
-                            personaVinculada = if (nuevoTipo == TipoPerfil.ACOMPANANTE) vinculo else null
-                        )
-                        backStack.clear()
-                        backStack.add(
-                            if (nuevoTipo == TipoPerfil.ACOMPANANTE) Routes.Monitoreo else Routes.Home
+                    onNavigate = { route ->
+
+                        navegarATab(
+                            backStack = backStack,
+                            destino = route
                         )
                     },
+
+
                     onCerrarSesion = {
-                        SesionRepository.perfil = null
+
+                        SesionRepository
+                            .cerrarSesion()
+
+
                         backStack.clear()
-                        backStack.add(Routes.Login)
+
+                        backStack.add(
+                            Routes.Login
+                        )
+                    }
+                )
+            }
+
+            // HU-25: home del rol Acompañante, ve la salud del titular vinculado.
+            entry<Routes.Monitoreo> {
+
+                MonitoreoScreen(
+
+                    perfil = SesionRepository.perfil ?: PerfilUsuario(),
+
+                    onNavigate = { route ->
+
+                        navegarATab(
+                            backStack = backStack,
+                            destino = route
+                        )
+                    },
+
+
+                    onCerrarSesion = {
+
+                        SesionRepository
+                            .cerrarSesion()
+
+
+                        backStack.clear()
+
+                        backStack.add(
+                            Routes.Login
+                        )
                     }
                 )
             }
 
             entry<Routes.Recordatorios> {
+
                 RemindersScreen(
-                    onNavigate = { route -> navegarATab(backStack, route) }
+
+                    onNavigate = { route ->
+
+                        navegarATab(
+                            backStack = backStack,
+                            destino = route
+                        )
+                    }
                 )
             }
 
+// =================================================
+// REGISTRAR
+// =================================================
 
-            entry<Routes.Registrar> { PlaceholderScreen(Routes.Registrar, "Registrar", backStack) }
+            entry<Routes.Registrar> {
 
+                RegisterOptionsScreen(
+
+                    onNavigate = { route ->
+
+                        navegarATab(
+                            backStack = backStack,
+                            destino = route
+                        )
+                    },
+
+
+                    onRegisterAppointment = {
+
+                        backStack.add(
+                            Routes.RegistrarCita
+                        )
+                    },
+
+
+                    onRegisterMedication = {
+
+                        backStack.add(
+                            Routes.RegistrarMedicamento
+                        )
+                    }
+                )
+            }
+
+            entry<Routes.RegistrarMedicamento> {
+
+                MedicationRegisterScreen(
+
+                    onBack = {
+
+                        if (backStack.size > 1) {
+
+                            backStack.removeAt(
+                                backStack.lastIndex
+                            )
+
+                        } else {
+
+                            backStack.clear()
+
+                            backStack.add(
+                                Routes.Registrar
+                            )
+                        }
+                    }
+                )
+            }
+
+// =================================================
+// REGISTRAR CITA
+// =================================================
+
+            entry<Routes.RegistrarCita> {
+
+                AppointmentRegisterScreen(
+
+                    onBack = {
+
+                        if (backStack.size > 1) {
+
+                            backStack.removeAt(
+                                backStack.lastIndex
+                            )
+
+                        } else {
+
+                            backStack.clear()
+
+                            backStack.add(
+                                Routes.Registrar
+                            )
+                        }
+                    }
+                )
+            }
 
             entry<Routes.Historial> {
+
                 HistoryScreen(
-                    onNavigate = { route -> navegarATab(backStack, route) }
+
+                    onNavigate = { route ->
+
+                        navegarATab(
+                            backStack = backStack,
+                            destino = route
+                        )
+                    }
+                )
+            }
+
+            entry<Routes.Perfil> {
+
+                ProfileScreen(
+
+                    perfil = SesionRepository.perfil ?: PerfilUsuario(),
+
+                    onNavigate = { route ->
+
+                        navegarATab(
+                            backStack = backStack,
+                            destino = route
+                        )
+                    },
+
+
+                    onEditarCampo = {
+
+                        /*
+                         * TODO:
+                         * Conectar edición real del perfil.
+                         */
+                    },
+
+
+                    // Cambiar de rol no es un simple toggle: pasar a Acompañante
+                    // exige un código válido (resuelto dentro de ProfileScreen);
+                    // aquí solo persistimos el resultado y navegamos al home
+                    // correcto para el nuevo rol.
+                    onCambiarTipoPerfil = { nuevoTipo, vinculo ->
+
+                        val actual = SesionRepository.perfil ?: PerfilUsuario()
+
+                        SesionRepository.perfil = actual.copy(
+                            tipoPerfil = nuevoTipo,
+                            personaVinculada = if (nuevoTipo == TipoPerfil.ACOMPANANTE) vinculo else null
+                        )
+
+                        backStack.clear()
+
+                        backStack.add(
+                            if (nuevoTipo == TipoPerfil.ACOMPANANTE) Routes.Monitoreo else Routes.Home
+                        )
+                    },
+
+
+                    onCerrarSesion = {
+
+                        SesionRepository
+                            .cerrarSesion()
+
+
+                        backStack.clear()
+
+                        backStack.add(
+                            Routes.Login
+                        )
+                    }
                 )
             }
         }
     )
 }
 
+
 /**
- * Las pantallas de la barra inferior son destinos hermanos, no una pila:
- * cada tap reemplaza el back stack por el destino elegido en vez de apilar.
+ * Las pantallas principales de la barra inferior
+ * son destinos hermanos.
+ *
+ * Cuando el usuario cambia de pestaña,
+ * reemplazamos el destino actual para evitar:
+ *
+ * Home -> Recordatorios -> Registrar -> Historial...
+ *
+ * acumulándose en el backStack.
  */
-private fun navegarATab(backStack: MutableList<Routes>, destino: Routes) {
-    if (backStack.lastOrNull() != destino) {
+private fun navegarATab(
+    backStack: MutableList<Routes>,
+    destino: Routes
+) {
+
+    if (
+        backStack.lastOrNull() !=
+        destino
+    ) {
+
         backStack.clear()
-        backStack.add(destino)
+
+        backStack.add(
+            destino
+        )
     }
 }
 
+
+// =============================================================
+// PLACEHOLDER
+// =============================================================
+
 @Composable
-fun PlaceholderScreen(currentRoute: Routes, title: String, backStack: MutableList<Routes>) {
+fun PlaceholderScreen(
+    currentRoute: Routes,
+    title: String,
+    backStack: MutableList<Routes>
+) {
+
     Scaffold(
+
         bottomBar = {
+
             HealthBottomNavigation(
-                currentRoute = currentRoute,
-                onNavigate = { route -> navegarATab(backStack, route) }
+
+                currentRoute =
+                    currentRoute,
+
+                onNavigate = { route ->
+
+                    navegarATab(
+                        backStack = backStack,
+                        destino = route
+                    )
+                }
             )
         }
-    ) { p ->
-        Box(Modifier.fillMaxSize().padding(p), contentAlignment = Alignment.Center) {
-            Text(title, style = MaterialTheme.typography.headlineLarge)
+
+    ) { paddingValues ->
+
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(
+                    paddingValues
+                ),
+
+            contentAlignment =
+                Alignment.Center
+        ) {
+
+            Text(
+                text = title,
+
+                style =
+                    MaterialTheme
+                        .typography
+                        .headlineLarge
+            )
         }
     }
 }

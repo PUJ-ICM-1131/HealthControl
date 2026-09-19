@@ -31,6 +31,7 @@ import com.icm2630.proyecto.data.model.ModalidadCita
 import com.icm2630.proyecto.data.model.TipoCita
 import com.icm2630.proyecto.data.repository.CitaRepository
 import com.icm2630.proyecto.data.repository.MedicamentoRepository
+import com.icm2630.proyecto.data.repository.PersonaRepository
 import com.icm2630.proyecto.ui.components.HealthBottomNavigation
 import com.icm2630.proyecto.navigation.Routes
 import com.icm2630.proyecto.ui.theme.*
@@ -51,19 +52,13 @@ private enum class FiltroTipo(val etiqueta: String) {
 }
 
 
+
 private data class PacienteFiltro(
+    val personaId: String?,
     val nombre: String,
     val icon: ImageVector? = null,
     val inicial: String? = null,
     val pendientes: Int = 0
-)
-
-
-private val pacientesDeEjemplo = listOf(
-    PacienteFiltro("Yo", icon = Icons.Outlined.Person),
-    PacienteFiltro("Mamá", inicial = "M", pendientes = 3),
-    PacienteFiltro("Papá", inicial = "P", pendientes = 1),
-    PacienteFiltro("Kalel", inicial = "K")
 )
 
 
@@ -100,10 +95,16 @@ fun RemindersScreen(
     onVerDetalle: (Routes) -> Unit = {}
 ) {
     var filtroSeleccionado by remember { mutableStateOf(FiltroTipo.TODOS) }
-    var pacienteSeleccionado by remember { mutableStateOf(pacientesDeEjemplo.first().nombre) }
 
 
-    val grupos = construirRecordatorios(filtroSeleccionado)
+    var pacienteSeleccionado by remember { mutableStateOf<String?>(null) }
+
+
+    val pacientes = construirPacientes()
+    val grupos = construirRecordatorios(
+        filtro = filtroSeleccionado,
+        personaId = pacienteSeleccionado
+    )
 
     Scaffold(
         bottomBar = {
@@ -172,11 +173,11 @@ fun RemindersScreen(
                     .horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                pacientesDeEjemplo.forEach { paciente ->
+                pacientes.forEach { paciente ->
                     PacienteChip(
                         paciente = paciente,
-                        seleccionado = paciente.nombre == pacienteSeleccionado,
-                        onClick = { pacienteSeleccionado = paciente.nombre }
+                        seleccionado = paciente.personaId == pacienteSeleccionado,
+                        onClick = { pacienteSeleccionado = paciente.personaId }
                     )
                 }
             }
@@ -448,14 +449,71 @@ private fun BotonAgregar(onClick: () -> Unit) {
 
 
 
+private fun construirPacientes(): List<PacienteFiltro> {
+
+    val propio = PacienteFiltro(
+        personaId = null,
+        nombre = "Yo",
+        icon = Icons.Outlined.Person,
+        pendientes = contarPendientes(null)
+    )
+
+    val asociados = PersonaRepository.obtenerPersonasAsociadas().map { persona ->
+        PacienteFiltro(
+            personaId = persona.id,
+            nombre = persona.nombre,
+            inicial = persona.nombre.firstOrNull()?.uppercase() ?: "?",
+            pendientes = contarPendientes(persona.id)
+        )
+    }
+
+    return listOf(propio) + asociados
+}
+
+private fun contarPendientes(personaId: String?): Int {
+
+    val citas = if (personaId == null) {
+        CitaRepository.obtenerPropias()
+    } else {
+        CitaRepository.obtenerPorPersona(personaId)
+    }
+
+    val medicamentos = if (personaId == null) {
+        MedicamentoRepository.obtenerPropios()
+    } else {
+        MedicamentoRepository.obtenerPorPersona(personaId)
+    }
+
+    val tomasDeMedicamento = medicamentos.sumOf { medicamento ->
+        medicamento.horarios.ifEmpty { listOf("") }.size
+    }
+
+    return citas.size + tomasDeMedicamento
+}
+
+
+
 
 private fun construirRecordatorios(
-    filtro: FiltroTipo
+    filtro: FiltroTipo,
+    personaId: String?
 ): List<GrupoRecordatorios> {
 
     val hoyMillis = obtenerHoyUtcMillis()
 
-    val itemsCitas = CitaRepository.obtenerPropias()
+    val citasBase = if (personaId == null) {
+        CitaRepository.obtenerPropias()
+    } else {
+        CitaRepository.obtenerPorPersona(personaId)
+    }
+
+    val medicamentosBase = if (personaId == null) {
+        MedicamentoRepository.obtenerPropios()
+    } else {
+        MedicamentoRepository.obtenerPorPersona(personaId)
+    }
+
+    val itemsCitas = citasBase
         .filter { cita ->
             when (filtro) {
                 FiltroTipo.TODOS -> true
@@ -505,7 +563,7 @@ private fun construirRecordatorios(
 
     val itemsMedicamentos = if (filtro == FiltroTipo.TODOS || filtro == FiltroTipo.MEDICAMENTOS) {
 
-        MedicamentoRepository.obtenerPropios().flatMap { medicamento ->
+        medicamentosBase.flatMap { medicamento ->
 
             val horarios = medicamento.horarios.ifEmpty { listOf("") }
 
@@ -622,11 +680,7 @@ private fun formatearHoraRecordatorio(hora: Int, minuto: Int): String {
     return String.format(Locale.getDefault(), "%d:%02d %s", hora12, minuto, amPm)
 }
 
-/**
- * Convierte un horario con formato "8:00 AM" en un par
- * (hora24, minuto) para poder ordenar los recordatorios del día.
- * Si el formato no es reconocido, se ubica al inicio (0, 0).
- */
+
 private fun parsearHorario(horario: String): Pair<Int, Int> {
 
     if (horario.isBlank()) {

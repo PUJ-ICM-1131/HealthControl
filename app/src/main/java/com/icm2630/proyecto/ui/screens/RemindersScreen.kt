@@ -47,8 +47,7 @@ private val Fondo = Color(0xFFF8FAFF)
 private enum class FiltroTipo(val etiqueta: String) {
     TODOS("Todos"),
     MEDICAMENTOS("Medicamentos"),
-    CITAS("Citas"),
-    EXAMENES("Exámenes")
+    CITAS("Citas")
 }
 
 
@@ -62,7 +61,9 @@ private data class PacienteFiltro(
 )
 
 
-
+// =================================================================
+// MODELOS INTERNOS DE PANTALLA
+// =================================================================
 
 private enum class TipoRecordatorio {
     CITA,
@@ -85,8 +86,33 @@ private data class GrupoRecordatorios(
     val fechaMillis: Long,
     val etiqueta: String,
     val esHoy: Boolean,
+    val urgencia: NivelUrgencia,
     val items: List<Recordatorio>
 )
+
+/**
+ * Prioridad visual de un grupo de recordatorios según qué tan
+ * cerca está su fecha. Se usa para la franja de color de cada
+ * tarjeta y el color del encabezado del grupo.
+ */
+private enum class NivelUrgencia(val color: Color, val etiqueta: String?) {
+    HOY(Color(0xFFEF4444), "Hoy"),
+    PRONTO(Color(0xFFF59E0B), "Pronto"),
+    FUTURO(Blue500, null)
+}
+
+
+private fun calcularUrgencia(fechaMillis: Long, hoyMillis: Long): NivelUrgencia {
+
+    val unDiaMillis = 24L * 60L * 60L * 1000L
+    val diasRestantes = (fechaMillis - hoyMillis) / unDiaMillis
+
+    return when {
+        diasRestantes <= 0 -> NivelUrgencia.HOY
+        diasRestantes <= 3 -> NivelUrgencia.PRONTO
+        else -> NivelUrgencia.FUTURO
+    }
+}
 
 
 @Composable
@@ -243,18 +269,39 @@ private fun GrupoRecordatoriosSeccion(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(
-            text = grupo.etiqueta,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            color = Blue700
-        )
-        if (grupo.esHoy) {
-            Text(
-                text = "Hoy",
-                style = MaterialTheme.typography.labelLarge,
-                color = Blue500
+        Row(verticalAlignment = Alignment.CenterVertically) {
+
+            // Punto de color: prioridad visual del grupo según su fecha
+            // (rojo = hoy o vencido, ámbar = próximos 3 días, azul = más adelante).
+            Box(
+                modifier = Modifier
+                    .size(8.dp)
+                    .background(grupo.urgencia.color, CircleShape)
             )
+
+            Spacer(Modifier.width(8.dp))
+
+            Text(
+                text = grupo.etiqueta,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = grupo.urgencia.color
+            )
+        }
+
+        grupo.urgencia.etiqueta?.let { etiquetaUrgencia ->
+            Surface(
+                color = grupo.urgencia.color.copy(alpha = 0.12f),
+                shape = RoundedCornerShape(50)
+            ) {
+                Text(
+                    text = etiquetaUrgencia,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = grupo.urgencia.color,
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                )
+            }
         }
     }
 
@@ -264,6 +311,7 @@ private fun GrupoRecordatoriosSeccion(
         grupo.items.forEachIndexed { index, item ->
             RecordatorioFila(
                 item = item,
+                colorPrioridad = grupo.urgencia.color,
                 onClick = {
                     val destino = if (item.tipo == TipoRecordatorio.CITA) {
                         Routes.DetalleCita(citaId = item.id)
@@ -299,6 +347,7 @@ private fun DivisorFila() {
 @Composable
 private fun RecordatorioFila(
     item: Recordatorio,
+    colorPrioridad: Color,
     onClick: () -> Unit
 ) {
     Row(
@@ -308,6 +357,18 @@ private fun RecordatorioFila(
             .padding(vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        // Franja de color a la izquierda: misma prioridad que el
+        // grupo (rojo = hoy/vencido, ámbar = pronto, azul = futuro),
+        // para poder distinguir la urgencia de un vistazo.
+        Box(
+            modifier = Modifier
+                .width(4.dp)
+                .height(40.dp)
+                .background(colorPrioridad, RoundedCornerShape(2.dp))
+        )
+
+        Spacer(Modifier.width(10.dp))
+
         Text(
             text = item.horaTexto,
             style = MaterialTheme.typography.labelLarge,
@@ -448,6 +509,10 @@ private fun BotonAgregar(onClick: () -> Unit) {
 }
 
 
+// =================================================================
+// CONSTRUCCIÓN DE LA LISTA DE PACIENTES (HU-25: monitoreo familiar)
+// =================================================================
+
 
 private fun construirPacientes(): List<PacienteFiltro> {
 
@@ -492,7 +557,9 @@ private fun contarPendientes(personaId: String?): Int {
 }
 
 
-
+// =================================================================
+// CONSTRUCCIÓN DE LOS RECORDATORIOS A PARTIR DE LOS REPOSITORIOS
+// =================================================================
 
 private fun construirRecordatorios(
     filtro: FiltroTipo,
@@ -517,8 +584,7 @@ private fun construirRecordatorios(
         .filter { cita ->
             when (filtro) {
                 FiltroTipo.TODOS -> true
-                FiltroTipo.CITAS -> cita.tipo != TipoCita.EXAMENES
-                FiltroTipo.EXAMENES -> cita.tipo == TipoCita.EXAMENES
+                FiltroTipo.CITAS -> true
                 FiltroTipo.MEDICAMENTOS -> false
             }
         }
@@ -607,6 +673,7 @@ private fun construirRecordatorios(
                 fechaMillis = fechaMillis,
                 etiqueta = etiquetaParaFecha(fechaMillis, hoyMillis),
                 esHoy = fechaMillis == hoyMillis,
+                urgencia = calcularUrgencia(fechaMillis, hoyMillis),
                 items = envolturas
                     .map { it.recordatorio }
                     .sortedWith(compareBy({ it.horaOrden }, { it.minutoOrden }))
@@ -620,7 +687,15 @@ private data class RecordatorioConFecha(
 )
 
 
+// =================================================================
+// UTILIDADES DE FECHA / HORA
+// =================================================================
 
+/**
+ * Medianoche de "hoy" expresada en UTC, para que sea comparable
+ * con los `fechaMillis` guardados desde el DatePicker (Material3
+ * trabaja siempre en UTC).
+ */
 private fun obtenerHoyUtcMillis(): Long {
 
     val hoyLocal = Calendar.getInstance()

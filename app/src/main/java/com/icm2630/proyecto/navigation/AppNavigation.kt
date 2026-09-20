@@ -356,7 +356,7 @@ fun AppNavigation() {
             }
 
 // =================================================
-// DETALLE DE CITA (HU-06)
+// DETALLE DE CITA
 // =================================================
 
             entry<Routes.DetalleCita> { key ->
@@ -399,7 +399,7 @@ fun AppNavigation() {
             }
 
 // =================================================
-// DETALLE DE MEDICAMENTO (HU-21)
+// DETALLE DE MEDICAMENTO
 // =================================================
 
             entry<Routes.DetalleMedicamento> { key ->
@@ -475,6 +475,17 @@ fun AppNavigation() {
                             backStack = backStack,
                             destino = route
                         )
+                    },
+
+
+                    // Igual que en Pendientes: al tocar un registro del
+                    // historial se apila la pantalla de detalle
+                    // correspondiente (cita o medicamento).
+                    onVerDetalle = { route ->
+
+                        backStack.add(
+                            route
+                        )
                     }
                 )
             }
@@ -543,17 +554,7 @@ fun AppNavigation() {
 }
 
 
-/**
- * Las pantallas principales de la barra inferior
- * son destinos hermanos.
- *
- * Cuando el usuario cambia de pestaña,
- * reemplazamos el destino actual para evitar:
- *
- * Home -> Recordatorios -> Registrar -> Historial...
- *
- * acumulándose en el backStack.
- */
+
 private fun navegarATab(
     backStack: MutableList<Routes>,
     destino: Routes

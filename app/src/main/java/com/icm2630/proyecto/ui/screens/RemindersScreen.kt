@@ -47,8 +47,7 @@ private val Fondo = Color(0xFFF8FAFF)
 private enum class FiltroTipo(val etiqueta: String) {
     TODOS("Todos"),
     MEDICAMENTOS("Medicamentos"),
-    CITAS("Citas"),
-    EXAMENES("Exámenes")
+    CITAS("Citas")
 }
 
 
@@ -60,8 +59,6 @@ private data class PacienteFiltro(
     val inicial: String? = null,
     val pendientes: Int = 0
 )
-
-
 
 
 private enum class TipoRecordatorio {
@@ -96,7 +93,8 @@ fun RemindersScreen(
 ) {
     var filtroSeleccionado by remember { mutableStateOf(FiltroTipo.TODOS) }
 
-
+    // null = "Yo" (el propio usuario). Con valor = id real de una
+    // persona asociada (HU: monitoreo de familiares).
     var pacienteSeleccionado by remember { mutableStateOf<String?>(null) }
 
 
@@ -492,7 +490,9 @@ private fun contarPendientes(personaId: String?): Int {
 }
 
 
-
+// =================================================================
+// CONSTRUCCIÓN DE LOS RECORDATORIOS A PARTIR DE LOS REPOSITORIOS
+// =================================================================
 
 private fun construirRecordatorios(
     filtro: FiltroTipo,
@@ -517,8 +517,7 @@ private fun construirRecordatorios(
         .filter { cita ->
             when (filtro) {
                 FiltroTipo.TODOS -> true
-                FiltroTipo.CITAS -> cita.tipo != TipoCita.EXAMENES
-                FiltroTipo.EXAMENES -> cita.tipo == TipoCita.EXAMENES
+                FiltroTipo.CITAS -> true
                 FiltroTipo.MEDICAMENTOS -> false
             }
         }
@@ -620,7 +619,15 @@ private data class RecordatorioConFecha(
 )
 
 
+// =================================================================
+// UTILIDADES DE FECHA / HORA
+// =================================================================
 
+/**
+ * Medianoche de "hoy" expresada en UTC, para que sea comparable
+ * con los `fechaMillis` guardados desde el DatePicker (Material3
+ * trabaja siempre en UTC).
+ */
 private fun obtenerHoyUtcMillis(): Long {
 
     val hoyLocal = Calendar.getInstance()
@@ -680,7 +687,11 @@ private fun formatearHoraRecordatorio(hora: Int, minuto: Int): String {
     return String.format(Locale.getDefault(), "%d:%02d %s", hora12, minuto, amPm)
 }
 
-
+/**
+ * Convierte un horario con formato "8:00 AM" en un par
+ * (hora24, minuto) para poder ordenar los recordatorios del día.
+ * Si el formato no es reconocido, se ubica al inicio (0, 0).
+ */
 private fun parsearHorario(horario: String): Pair<Int, Int> {
 
     if (horario.isBlank()) {

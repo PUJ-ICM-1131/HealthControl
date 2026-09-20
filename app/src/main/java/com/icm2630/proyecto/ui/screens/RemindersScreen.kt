@@ -51,11 +51,7 @@ private enum class FiltroTipo(val etiqueta: String) {
 }
 
 
-/**
- * personaId == null representa al propio usuario (dueño de la
- * cuenta). Un personaId no nulo corresponde a un id real de
- * [PersonaRepository].
- */
+
 private data class PacienteFiltro(
     val personaId: String?,
     val nombre: String,
@@ -105,10 +101,7 @@ private enum class NivelUrgencia(val color: Color, val etiqueta: String?) {
     FUTURO(Blue500, null)
 }
 
-/**
- * Hoy o fechas ya pasadas = HOY (máxima prioridad); dentro de los
- * próximos 3 días = PRONTO; el resto = FUTURO.
- */
+
 private fun calcularUrgencia(fechaMillis: Long, hoyMillis: Long): NivelUrgencia {
 
     val unDiaMillis = 24L * 60L * 60L * 1000L
@@ -129,16 +122,10 @@ fun RemindersScreen(
 ) {
     var filtroSeleccionado by remember { mutableStateOf(FiltroTipo.TODOS) }
 
-    // null = "Yo" (el propio usuario). Con valor = id real de una
-    // persona asociada (HU: monitoreo de familiares).
+
     var pacienteSeleccionado by remember { mutableStateOf<String?>(null) }
 
-    /*
-     * Se recalculan en cada recomposición (sin remember) para que,
-     * al volver desde una edición o eliminación en las pantallas
-     * de detalle, o al registrar una persona nueva, la lista
-     * siempre refleje el estado actual de los repositorios.
-     */
+
     val pacientes = construirPacientes()
     val grupos = construirRecordatorios(
         filtro = filtroSeleccionado,
@@ -526,12 +513,7 @@ private fun BotonAgregar(onClick: () -> Unit) {
 // CONSTRUCCIÓN DE LA LISTA DE PACIENTES (HU-25: monitoreo familiar)
 // =================================================================
 
-/**
- * "Yo" (personaId null) + cada persona asociada real de
- * [PersonaRepository]. El badge de cada chip muestra cuántos
- * recordatorios (citas + tomas de medicamento) tiene esa persona
- * en total, sin importar el filtro de tipo seleccionado.
- */
+
 private fun construirPacientes(): List<PacienteFiltro> {
 
     val propio = PacienteFiltro(
@@ -773,11 +755,7 @@ private fun formatearHoraRecordatorio(hora: Int, minuto: Int): String {
     return String.format(Locale.getDefault(), "%d:%02d %s", hora12, minuto, amPm)
 }
 
-/**
- * Convierte un horario con formato "8:00 AM" en un par
- * (hora24, minuto) para poder ordenar los recordatorios del día.
- * Si el formato no es reconocido, se ubica al inicio (0, 0).
- */
+
 private fun parsearHorario(horario: String): Pair<Int, Int> {
 
     if (horario.isBlank()) {

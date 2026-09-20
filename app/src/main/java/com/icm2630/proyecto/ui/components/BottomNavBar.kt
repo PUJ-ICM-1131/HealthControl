@@ -30,7 +30,7 @@ fun HealthBottomNavigation(
             BottomNavItem("Pendientes", Icons.Outlined.StickyNote2, Routes.Recordatorios),
             BottomNavItem("Registrar", Icons.Outlined.Add, Routes.Registrar),
             BottomNavItem("Historial", Icons.Outlined.Schedule, Routes.Historial),
-            BottomNavItem("Perfil", Icons.Outlined.Person, Routes.Perfil)
+            BottomNavItem("Mapa", Icons.Outlined.Map, Routes.Mapa)
         )
 
         items.forEach { item ->

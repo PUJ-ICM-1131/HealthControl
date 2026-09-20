@@ -183,20 +183,6 @@ fun AppNavigation() {
                             backStack = backStack,
                             destino = route
                         )
-                    },
-
-
-                    onCerrarSesion = {
-
-                        SesionRepository
-                            .cerrarSesion()
-
-
-                        backStack.clear()
-
-                        backStack.add(
-                            Routes.Login
-                        )
                     }
                 )
             }

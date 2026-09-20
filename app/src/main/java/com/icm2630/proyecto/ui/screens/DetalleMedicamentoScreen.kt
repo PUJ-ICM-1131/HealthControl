@@ -30,6 +30,7 @@ import com.icm2630.proyecto.ui.theme.ErrorRed
 import com.icm2630.proyecto.ui.theme.TextPrimary
 import com.icm2630.proyecto.ui.theme.TextSecondary
 import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
@@ -110,6 +111,12 @@ fun DetalleMedicamentoScreen(
             }
 
         } else {
+
+
+            val hoyMillis = obtenerHoyUtcMillisMedicamento()
+            val esHistorico = !medicamento.tratamientoPermanente &&
+                    medicamento.fechaFinMillis != null &&
+                    medicamento.fechaFinMillis < hoyMillis
 
             Column(
                 modifier = Modifier
@@ -221,39 +228,48 @@ fun DetalleMedicamentoScreen(
 
                 Spacer(Modifier.height(28.dp))
 
-                OutlinedButton(
-                    onClick = onEditar,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(52.dp),
-                    shape = RoundedCornerShape(16.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.Edit,
-                        contentDescription = null,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    Text("Editar medicamento")
-                }
+                if (esHistorico) {
 
-                Spacer(Modifier.height(12.dp))
-
-                Button(
-                    onClick = { mostrarDialogoEliminar = true },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(52.dp),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = ErrorRed)
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.Delete,
-                        contentDescription = null,
-                        modifier = Modifier.size(20.dp)
+                    AvisoSoloLecturaMedicamento(
+                        mensaje = "Este tratamiento ya finalizó, por lo que queda como registro del historial y no se puede editar ni eliminar."
                     )
-                    Spacer(Modifier.width(8.dp))
-                    Text("Eliminar medicamento")
+
+                } else {
+
+                    OutlinedButton(
+                        onClick = onEditar,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(52.dp),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Edit,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text("Editar medicamento")
+                    }
+
+                    Spacer(Modifier.height(12.dp))
+
+                    Button(
+                        onClick = { mostrarDialogoEliminar = true },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(52.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = ErrorRed)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Delete,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text("Eliminar medicamento")
+                    }
                 }
 
                 Spacer(Modifier.height(20.dp))
@@ -410,9 +426,58 @@ private fun DetalleCampoMedicamento(
 }
 
 
+
+@Composable
+private fun AvisoSoloLecturaMedicamento(mensaje: String) {
+
+    Surface(
+        color = Blue100.copy(alpha = 0.25f),
+        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.Info,
+                contentDescription = null,
+                tint = Blue700,
+                modifier = Modifier.size(20.dp)
+            )
+            Spacer(Modifier.width(10.dp))
+            Text(
+                text = mensaje,
+                style = MaterialTheme.typography.bodySmall,
+                color = TextSecondary
+            )
+        }
+    }
+}
+
+
 // =================================================================
 // FORMATO DE FECHA
 // =================================================================
+
+
+private fun obtenerHoyUtcMillisMedicamento(): Long {
+
+    val hoyLocal = Calendar.getInstance()
+
+    val hoyUtc = Calendar.getInstance(TimeZone.getTimeZone("UTC"))
+    hoyUtc.set(
+        hoyLocal.get(Calendar.YEAR),
+        hoyLocal.get(Calendar.MONTH),
+        hoyLocal.get(Calendar.DAY_OF_MONTH),
+        0,
+        0,
+        0
+    )
+    hoyUtc.set(Calendar.MILLISECOND, 0)
+
+    return hoyUtc.timeInMillis
+}
 
 private fun formatearFechaMedicamento(millis: Long?): String {
 

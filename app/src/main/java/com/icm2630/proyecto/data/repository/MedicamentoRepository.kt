@@ -1,3 +1,4 @@
+
 package com.icm2630.proyecto.data.repository
 
 import com.icm2630.proyecto.data.model.FormaMedicamento
@@ -64,6 +65,25 @@ object MedicamentoRepository {
         medicamento: Medicamento
     ) {
         medicamentos.add(medicamento)
+    }
+
+
+    // =========================================================
+    // ACTUALIZAR MEDICAMENTO
+    // =========================================================
+
+    fun actualizar(
+        medicamento: Medicamento
+    ) {
+
+        val indice =
+            medicamentos.indexOfFirst { existente ->
+                existente.id == medicamento.id
+            }
+
+        if (indice >= 0) {
+            medicamentos[indice] = medicamento
+        }
     }
 
 

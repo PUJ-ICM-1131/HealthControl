@@ -3,15 +3,14 @@ package com.icm2630.proyecto.ui.viewmodel
 import androidx.lifecycle.ViewModel
 import com.icm2630.proyecto.data.model.FormaMedicamento
 import com.icm2630.proyecto.data.model.Medicamento
-import com.icm2630.proyecto.data.model.PerfilUsuario
 import com.icm2630.proyecto.data.model.TipoPerfil
 import com.icm2630.proyecto.data.repository.MedicamentoRepository
 import com.icm2630.proyecto.data.repository.PersonaRepository
+import com.icm2630.proyecto.data.repository.SesionRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.util.UUID
-import com.icm2630.proyecto.data.repository.SesionRepository
 
 
 class MedicationRegisterViewModel : ViewModel() {
@@ -53,7 +52,7 @@ class MedicationRegisterViewModel : ViewModel() {
         val personas =
             if (
                 perfilUsuario.tipoPerfil ==
-                TipoPerfil.ASOCIADO
+                TipoPerfil.ACOMPANANTE
             ) {
 
                 PersonaRepository
@@ -98,6 +97,63 @@ class MedicationRegisterViewModel : ViewModel() {
         _uiState.value =
             _uiState.value.copy(
                 personaSeleccionadaId = personaId
+            )
+    }
+
+
+    // =========================================================
+    // MODO EDICIÓN (HU-06 aplicado también a medicamentos)
+    // =========================================================
+
+    /**
+     * Precarga el formulario con un medicamento ya registrado
+     * para que la persona pueda modificarlo en vez de crear
+     * uno desde cero.
+     */
+    fun cargarMedicamentoParaEditar(
+        medicamentoId: String
+    ) {
+
+        val medicamento =
+            MedicamentoRepository.obtenerPorId(
+                medicamentoId
+            ) ?: return
+
+
+        _uiState.value =
+            _uiState.value.copy(
+                medicamentoId = medicamento.id,
+                personaSeleccionadaId = medicamento.personaId,
+                nombre = medicamento.nombre,
+                forma = medicamento.forma,
+                dosis = medicamento.dosis,
+                unidad = medicamento.unidad,
+                cantidadPorToma = medicamento.cantidadPorToma,
+                horarios = medicamento.horarios,
+                fechaInicioMillis = medicamento.fechaInicioMillis,
+                fechaFinMillis = medicamento.fechaFinMillis,
+                tratamientoPermanente = medicamento.tratamientoPermanente,
+                indicaciones = medicamento.indicaciones,
+                ordenMedicaUri = medicamento.ordenMedicaUri
+            )
+    }
+
+
+    /**
+     * El ViewModel de esta pantalla se reutiliza tanto para crear
+     * como para editar. Si se entra a "registrar" después de haber
+     * editado algo, hay que limpiar el formulario para no arrastrar
+     * esos datos.
+     */
+    fun iniciarNuevoMedicamento() {
+
+        val estadoActual =
+            _uiState.value
+
+        _uiState.value =
+            MedicationRegisterUiState(
+                perfilUsuario = estadoActual.perfilUsuario,
+                personasAsociadas = estadoActual.personasAsociadas
             )
     }
 
@@ -384,9 +440,10 @@ class MedicationRegisterViewModel : ViewModel() {
             Medicamento(
 
                 id =
-                    UUID
-                        .randomUUID()
-                        .toString(),
+                    estado.medicamentoId
+                        ?: UUID
+                            .randomUUID()
+                            .toString(),
 
                 /*
                  * null = propio usuario
@@ -396,7 +453,7 @@ class MedicationRegisterViewModel : ViewModel() {
                 personaId =
                     if (
                         estado.perfilUsuario?.tipoPerfil ==
-                        TipoPerfil.ASOCIADO
+                        TipoPerfil.ACOMPANANTE
                     ) {
                         estado.personaSeleccionadaId
                     } else {
@@ -444,13 +501,23 @@ class MedicationRegisterViewModel : ViewModel() {
             )
 
 
-        MedicamentoRepository.registrar(
-            medicamento
-        )
+        if (estado.medicamentoId != null) {
+
+            MedicamentoRepository.actualizar(
+                medicamento
+            )
+
+        } else {
+
+            MedicamentoRepository.registrar(
+                medicamento
+            )
+        }
 
 
         _uiState.value =
             _uiState.value.copy(
+                medicamentoId = medicamento.id,
                 guardando = false,
                 guardadoExitoso = true
             )

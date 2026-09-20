@@ -9,6 +9,18 @@ import com.icm2630.proyecto.data.model.TipoPerfil
 data class MedicationRegisterUiState(
 
     // =========================================================
+    // MODO EDICIÓN (HU-06 aplicado también a medicamentos)
+    // =========================================================
+
+    /**
+     * null = se está registrando un medicamento nuevo.
+     * con id = se está editando el existente con ese id;
+     * al guardar se actualiza en vez de crear uno nuevo.
+     */
+    val medicamentoId: String? = null,
+
+
+    // =========================================================
     // PERFIL Y PERSONA
     // =========================================================
 
@@ -128,10 +140,10 @@ data class MedicationRegisterUiState(
             val personaValida =
                 when (perfilUsuario?.tipoPerfil) {
 
-                    TipoPerfil.INDIVIDUAL ->
+                    TipoPerfil.TITULAR ->
                         true
 
-                    TipoPerfil.ASOCIADO ->
+                    TipoPerfil.ACOMPANANTE ->
                         personaSeleccionadaId != null
 
                     null ->

@@ -63,7 +63,7 @@ class MapViewModel : ViewModel() {
 
         if (
             perfil.tipoPerfil ==
-            TipoPerfil.INDIVIDUAL
+            TipoPerfil.TITULAR
         ) {
 
             val ubicacion =
@@ -205,14 +205,14 @@ class MapViewModel : ViewModel() {
                     ?.tipoPerfil
             ) {
 
-                TipoPerfil.INDIVIDUAL -> {
+                TipoPerfil.TITULAR -> {
 
                     UbicacionRepository
                         .obtenerUbicacionPropia()
                 }
 
 
-                TipoPerfil.ASOCIADO -> {
+                TipoPerfil.ACOMPANANTE -> {
 
                     estadoActual
                         .personaSeleccionadaId

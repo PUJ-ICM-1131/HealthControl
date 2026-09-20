@@ -27,9 +27,19 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.icm2630.proyecto.data.model.ModalidadCita
+import com.icm2630.proyecto.data.model.TipoCita
+import com.icm2630.proyecto.data.repository.CitaRepository
+import com.icm2630.proyecto.data.repository.MedicamentoRepository
+import com.icm2630.proyecto.data.repository.PersonaRepository
 import com.icm2630.proyecto.ui.components.HealthBottomNavigation
 import com.icm2630.proyecto.navigation.Routes
 import com.icm2630.proyecto.ui.theme.*
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
+import java.util.TimeZone
 
 private val Fondo = Color(0xFFF8FAFF)
 
@@ -37,77 +47,90 @@ private val Fondo = Color(0xFFF8FAFF)
 private enum class FiltroTipo(val etiqueta: String) {
     TODOS("Todos"),
     MEDICAMENTOS("Medicamentos"),
-    CITAS("Citas"),
-    EXAMENES("Exámenes")
+    CITAS("Citas")
 }
 
 
+
 private data class PacienteFiltro(
+    val personaId: String?,
     val nombre: String,
     val icon: ImageVector? = null,
     val inicial: String? = null,
     val pendientes: Int = 0
 )
 
-private val pacientesDeEjemplo = listOf(
-    PacienteFiltro("Yo", icon = Icons.Outlined.Person),
-    PacienteFiltro("Mamá", inicial = "M", pendientes = 3),
-    PacienteFiltro("Papá", inicial = "P", pendientes = 1),
-    PacienteFiltro("Kalel", inicial = "K")
-)
 
-//Para poder filtrar el recordatorio necesitamos tener un estado con variables que definen a un recordatorio.
-private enum class EstadoRecordatorio {
-    TOMADO, TOMAR, PENDIENTE, VER_DETALLES, NINGUNO
+// =================================================================
+// MODELOS INTERNOS DE PANTALLA
+// =================================================================
+
+private enum class TipoRecordatorio {
+    CITA,
+    MEDICAMENTO
 }
 
 private data class Recordatorio(
-    val hora: String,
+    val tipo: TipoRecordatorio,
+    val id: String,
+    val tipoCita: TipoCita?,
+    val horaOrden: Int,
+    val minutoOrden: Int,
+    val horaTexto: String,
     val icono: ImageVector,
     val titulo: String,
-    val subtitulo: String,
-    val estado: EstadoRecordatorio = EstadoRecordatorio.NINGUNO
+    val subtitulo: String
 )
 
 private data class GrupoRecordatorios(
-    val fecha: String,
+    val fechaMillis: Long,
+    val etiqueta: String,
     val esHoy: Boolean,
+    val urgencia: NivelUrgencia,
     val items: List<Recordatorio>
 )
 
-
-//A continuacion solo tendremos por el momento datos de prueba para la pantalla.(Luego estos datos se extraeran desde el backend)
-private val recordatoriosDeEjemplo = listOf(
-    GrupoRecordatorios(
-        fecha = "Hoy, 5 de septiembre",
-        esHoy = true,
-        items = listOf(
-            Recordatorio("08:00", Icons.Outlined.Medication, "Metformina 500mg", "1 comprimido", EstadoRecordatorio.TOMADO),
-            Recordatorio("10:30", Icons.Outlined.Medication, "Vitamina D3", "2000 UI", EstadoRecordatorio.TOMAR),
-            Recordatorio("14:00", Icons.Outlined.Medication, "Losartán 50mg", "1 comprimido", EstadoRecordatorio.PENDIENTE),
-            Recordatorio("16:00", Icons.Outlined.MedicalServices, "Dr. García · Cardiología", "Clínica San Rafael", EstadoRecordatorio.VER_DETALLES)
-        )
-    ),
-    GrupoRecordatorios(
-        fecha = "Mañana, 6 de septiembre",
-        esHoy = false,
-        items = listOf(
-            Recordatorio("08:00", Icons.Outlined.Medication, "Metformina 500mg", "1 comprimido"),
-            Recordatorio("09:00", Icons.Outlined.Science, "Examen de sangre", "Laboratorio Central"),
-            Recordatorio("10:30", Icons.Outlined.Medication, "Vitamina D3", "2000 UI")
-        )
-    )
-)
+/**
+ * Prioridad visual de un grupo de recordatorios según qué tan
+ * cerca está su fecha. Se usa para la franja de color de cada
+ * tarjeta y el color del encabezado del grupo.
+ */
+private enum class NivelUrgencia(val color: Color, val etiqueta: String?) {
+    HOY(Color(0xFFEF4444), "Hoy"),
+    PRONTO(Color(0xFFF59E0B), "Pronto"),
+    FUTURO(Blue500, null)
+}
 
 
+private fun calcularUrgencia(fechaMillis: Long, hoyMillis: Long): NivelUrgencia {
+
+    val unDiaMillis = 24L * 60L * 60L * 1000L
+    val diasRestantes = (fechaMillis - hoyMillis) / unDiaMillis
+
+    return when {
+        diasRestantes <= 0 -> NivelUrgencia.HOY
+        diasRestantes <= 3 -> NivelUrgencia.PRONTO
+        else -> NivelUrgencia.FUTURO
+    }
+}
 
 
 @Composable
 fun RemindersScreen(
-    onNavigate: (Routes) -> Unit = {}
+    onNavigate: (Routes) -> Unit = {},
+    onVerDetalle: (Routes) -> Unit = {}
 ) {
     var filtroSeleccionado by remember { mutableStateOf(FiltroTipo.TODOS) }
-    var pacienteSeleccionado by remember { mutableStateOf(pacientesDeEjemplo.first().nombre) }
+
+
+    var pacienteSeleccionado by remember { mutableStateOf<String?>(null) }
+
+
+    val pacientes = construirPacientes()
+    val grupos = construirRecordatorios(
+        filtro = filtroSeleccionado,
+        personaId = pacienteSeleccionado
+    )
 
     Scaffold(
         bottomBar = {
@@ -132,7 +155,7 @@ fun RemindersScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Recordatorios",
+                    text = "Pendientes",
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold,
                     color = Blue700
@@ -176,21 +199,28 @@ fun RemindersScreen(
                     .horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                pacientesDeEjemplo.forEach { paciente ->
+                pacientes.forEach { paciente ->
                     PacienteChip(
                         paciente = paciente,
-                        seleccionado = paciente.nombre == pacienteSeleccionado,
-                        onClick = { pacienteSeleccionado = paciente.nombre }
+                        seleccionado = paciente.personaId == pacienteSeleccionado,
+                        onClick = { pacienteSeleccionado = paciente.personaId }
                     )
                 }
             }
 
             Spacer(Modifier.height(24.dp))
 
-            recordatoriosDeEjemplo.forEachIndexed { index, grupo ->
-                GrupoRecordatoriosSeccion(grupo)
-                if (index != recordatoriosDeEjemplo.lastIndex) {
-                    Spacer(Modifier.height(24.dp))
+            if (grupos.isEmpty()) {
+                EstadoVacio()
+            } else {
+                grupos.forEachIndexed { index, grupo ->
+                    GrupoRecordatoriosSeccion(
+                        grupo = grupo,
+                        onVerDetalle = onVerDetalle
+                    )
+                    if (index != grupos.lastIndex) {
+                        Spacer(Modifier.height(24.dp))
+                    }
                 }
             }
         }
@@ -198,24 +228,80 @@ fun RemindersScreen(
 }
 
 @Composable
-private fun GrupoRecordatoriosSeccion(grupo: GrupoRecordatorios) {
+private fun EstadoVacio() {
+    TarjetaBlanca {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 28.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.StickyNote2,
+                contentDescription = null,
+                tint = Blue100,
+                modifier = Modifier.size(40.dp)
+            )
+            Spacer(Modifier.height(10.dp))
+            Text(
+                text = "No tienes pendientes por ahora",
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = TextPrimary
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = "Tus próximas citas y medicamentos aparecerán aquí",
+                style = MaterialTheme.typography.bodySmall,
+                color = TextSecondary
+            )
+        }
+    }
+}
+
+@Composable
+private fun GrupoRecordatoriosSeccion(
+    grupo: GrupoRecordatorios,
+    onVerDetalle: (Routes) -> Unit
+) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(
-            text = grupo.fecha,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            color = Blue700
-        )
-        if (grupo.esHoy) {
-            Text(
-                text = "Hoy",
-                style = MaterialTheme.typography.labelLarge,
-                color = Blue500
+        Row(verticalAlignment = Alignment.CenterVertically) {
+
+            // Punto de color: prioridad visual del grupo según su fecha
+            // (rojo = hoy o vencido, ámbar = próximos 3 días, azul = más adelante).
+            Box(
+                modifier = Modifier
+                    .size(8.dp)
+                    .background(grupo.urgencia.color, CircleShape)
             )
+
+            Spacer(Modifier.width(8.dp))
+
+            Text(
+                text = grupo.etiqueta,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = grupo.urgencia.color
+            )
+        }
+
+        grupo.urgencia.etiqueta?.let { etiquetaUrgencia ->
+            Surface(
+                color = grupo.urgencia.color.copy(alpha = 0.12f),
+                shape = RoundedCornerShape(50)
+            ) {
+                Text(
+                    text = etiquetaUrgencia,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = grupo.urgencia.color,
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                )
+            }
         }
     }
 
@@ -223,7 +309,18 @@ private fun GrupoRecordatoriosSeccion(grupo: GrupoRecordatorios) {
 
     TarjetaBlanca {
         grupo.items.forEachIndexed { index, item ->
-            RecordatorioFila(item)
+            RecordatorioFila(
+                item = item,
+                colorPrioridad = grupo.urgencia.color,
+                onClick = {
+                    val destino = if (item.tipo == TipoRecordatorio.CITA) {
+                        Routes.DetalleCita(citaId = item.id)
+                    } else {
+                        Routes.DetalleMedicamento(medicamentoId = item.id)
+                    }
+                    onVerDetalle(destino)
+                }
+            )
             if (index != grupo.items.lastIndex) {
                 DivisorFila()
             }
@@ -248,19 +345,36 @@ private fun DivisorFila() {
 }
 
 @Composable
-private fun RecordatorioFila(item: Recordatorio) {
+private fun RecordatorioFila(
+    item: Recordatorio,
+    colorPrioridad: Color,
+    onClick: () -> Unit
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .clickable(onClick = onClick)
             .padding(vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        // Franja de color a la izquierda: misma prioridad que el
+        // grupo (rojo = hoy/vencido, ámbar = pronto, azul = futuro),
+        // para poder distinguir la urgencia de un vistazo.
+        Box(
+            modifier = Modifier
+                .width(4.dp)
+                .height(40.dp)
+                .background(colorPrioridad, RoundedCornerShape(2.dp))
+        )
+
+        Spacer(Modifier.width(10.dp))
+
         Text(
-            text = item.hora,
+            text = item.horaTexto,
             style = MaterialTheme.typography.labelLarge,
             fontWeight = FontWeight.Bold,
             color = Blue700,
-            modifier = Modifier.width(52.dp)
+            modifier = Modifier.widthIn(min = 52.dp)
         )
 
         Surface(
@@ -291,44 +405,11 @@ private fun RecordatorioFila(item: Recordatorio) {
 
         Spacer(Modifier.width(8.dp))
 
-        EstadoRecordatorioIndicador(item.estado)
-    }
-}
-
-@Composable
-private fun EstadoRecordatorioIndicador(estado: EstadoRecordatorio) {
-    when (estado) {
-        EstadoRecordatorio.TOMADO -> Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Outlined.CheckCircle, null, tint = SuccessGreen, modifier = Modifier.size(16.dp))
-            Spacer(Modifier.width(4.dp))
-            Text("Tomado", style = MaterialTheme.typography.labelSmall, color = SuccessGreen)
-        }
-
-        EstadoRecordatorio.TOMAR -> Button(
-            onClick = { },
-            modifier = Modifier.height(32.dp),
-            contentPadding = PaddingValues(horizontal = 16.dp),
-            shape = RoundedCornerShape(50),
-            colors = ButtonDefaults.buttonColors(containerColor = Blue700)
-        ) {
-            Text("Tomar", style = MaterialTheme.typography.labelMedium, color = Color.White)
-        }
-
-        EstadoRecordatorio.PENDIENTE -> Text(
-            text = "Pendiente",
-            style = MaterialTheme.typography.labelSmall,
-            color = TextSecondary
+        Icon(
+            imageVector = Icons.Outlined.KeyboardArrowRight,
+            contentDescription = "Ver detalle",
+            tint = TextSecondary
         )
-
-        EstadoRecordatorio.VER_DETALLES -> Text(
-            text = "Ver detalles",
-            style = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.SemiBold,
-            color = Blue500,
-            modifier = Modifier.clickable { }
-        )
-
-        EstadoRecordatorio.NINGUNO -> Unit
     }
 }
 
@@ -426,6 +507,275 @@ private fun BotonAgregar(onClick: () -> Unit) {
         }
     }
 }
+
+
+// =================================================================
+// CONSTRUCCIÓN DE LA LISTA DE PACIENTES (HU-25: monitoreo familiar)
+// =================================================================
+
+
+private fun construirPacientes(): List<PacienteFiltro> {
+
+    val propio = PacienteFiltro(
+        personaId = null,
+        nombre = "Yo",
+        icon = Icons.Outlined.Person,
+        pendientes = contarPendientes(null)
+    )
+
+    val asociados = PersonaRepository.obtenerPersonasAsociadas().map { persona ->
+        PacienteFiltro(
+            personaId = persona.id,
+            nombre = persona.nombre,
+            inicial = persona.nombre.firstOrNull()?.uppercase() ?: "?",
+            pendientes = contarPendientes(persona.id)
+        )
+    }
+
+    return listOf(propio) + asociados
+}
+
+private fun contarPendientes(personaId: String?): Int {
+
+    val citas = if (personaId == null) {
+        CitaRepository.obtenerPropias()
+    } else {
+        CitaRepository.obtenerPorPersona(personaId)
+    }
+
+    val medicamentos = if (personaId == null) {
+        MedicamentoRepository.obtenerPropios()
+    } else {
+        MedicamentoRepository.obtenerPorPersona(personaId)
+    }
+
+    val tomasDeMedicamento = medicamentos.sumOf { medicamento ->
+        medicamento.horarios.ifEmpty { listOf("") }.size
+    }
+
+    return citas.size + tomasDeMedicamento
+}
+
+
+// =================================================================
+// CONSTRUCCIÓN DE LOS RECORDATORIOS A PARTIR DE LOS REPOSITORIOS
+// =================================================================
+
+private fun construirRecordatorios(
+    filtro: FiltroTipo,
+    personaId: String?
+): List<GrupoRecordatorios> {
+
+    val hoyMillis = obtenerHoyUtcMillis()
+
+    val citasBase = if (personaId == null) {
+        CitaRepository.obtenerPropias()
+    } else {
+        CitaRepository.obtenerPorPersona(personaId)
+    }
+
+    val medicamentosBase = if (personaId == null) {
+        MedicamentoRepository.obtenerPropios()
+    } else {
+        MedicamentoRepository.obtenerPorPersona(personaId)
+    }
+
+    val itemsCitas = citasBase
+        .filter { cita ->
+            when (filtro) {
+                FiltroTipo.TODOS -> true
+                FiltroTipo.CITAS -> true
+                FiltroTipo.MEDICAMENTOS -> false
+            }
+        }
+        .map { cita ->
+            val subtitulo = when {
+                cita.modalidad == ModalidadCita.VIRTUAL && cita.nombreMedico.isNotBlank() ->
+                    "Virtual · ${cita.nombreMedico}"
+
+                cita.modalidad == ModalidadCita.VIRTUAL ->
+                    "Cita virtual"
+
+                cita.institucion.isNotBlank() ->
+                    cita.institucion
+
+                else ->
+                    cita.motivo
+            }
+
+            RecordatorioConFecha(
+                fechaMillis = cita.fechaMillis,
+                recordatorio = Recordatorio(
+                    tipo = TipoRecordatorio.CITA,
+                    id = cita.id,
+                    tipoCita = cita.tipo,
+                    horaOrden = cita.hora,
+                    minutoOrden = cita.minuto,
+                    horaTexto = formatearHoraRecordatorio(cita.hora, cita.minuto),
+                    icono = if (cita.tipo == TipoCita.EXAMENES) {
+                        Icons.Outlined.Science
+                    } else {
+                        Icons.Outlined.MedicalServices
+                    },
+                    titulo = if (cita.especialidad.isNotBlank()) {
+                        cita.especialidad
+                    } else {
+                        cita.tipo.titulo
+                    },
+                    subtitulo = subtitulo
+                )
+            )
+        }
+
+    val itemsMedicamentos = if (filtro == FiltroTipo.TODOS || filtro == FiltroTipo.MEDICAMENTOS) {
+
+        medicamentosBase.flatMap { medicamento ->
+
+            val horarios = medicamento.horarios.ifEmpty { listOf("") }
+
+            horarios.map { horario ->
+                val (horaOrden, minutoOrden) = parsearHorario(horario)
+
+                val subtitulo = if (medicamento.cantidadPorToma.isNotBlank()) {
+                    "${medicamento.cantidadPorToma} · ${medicamento.dosis}${medicamento.unidad}"
+                } else {
+                    "${medicamento.dosis}${medicamento.unidad}"
+                }
+
+                RecordatorioConFecha(
+                    // Los medicamentos son recurrentes (no tienen una fecha
+                    // puntual como las citas), así que se agrupan bajo "Hoy".
+                    fechaMillis = hoyMillis,
+                    recordatorio = Recordatorio(
+                        tipo = TipoRecordatorio.MEDICAMENTO,
+                        id = medicamento.id,
+                        tipoCita = null,
+                        horaOrden = horaOrden,
+                        minutoOrden = minutoOrden,
+                        horaTexto = horario.ifBlank { "--:--" },
+                        icono = Icons.Outlined.Medication,
+                        titulo = medicamento.nombre,
+                        subtitulo = subtitulo
+                    )
+                )
+            }
+        }
+
+    } else {
+        emptyList()
+    }
+
+    return (itemsCitas + itemsMedicamentos)
+        .groupBy { it.fechaMillis }
+        .toSortedMap()
+        .map { (fechaMillis, envolturas) ->
+            GrupoRecordatorios(
+                fechaMillis = fechaMillis,
+                etiqueta = etiquetaParaFecha(fechaMillis, hoyMillis),
+                esHoy = fechaMillis == hoyMillis,
+                urgencia = calcularUrgencia(fechaMillis, hoyMillis),
+                items = envolturas
+                    .map { it.recordatorio }
+                    .sortedWith(compareBy({ it.horaOrden }, { it.minutoOrden }))
+            )
+        }
+}
+
+private data class RecordatorioConFecha(
+    val fechaMillis: Long,
+    val recordatorio: Recordatorio
+)
+
+
+// =================================================================
+// UTILIDADES DE FECHA / HORA
+// =================================================================
+
+/**
+ * Medianoche de "hoy" expresada en UTC, para que sea comparable
+ * con los `fechaMillis` guardados desde el DatePicker (Material3
+ * trabaja siempre en UTC).
+ */
+private fun obtenerHoyUtcMillis(): Long {
+
+    val hoyLocal = Calendar.getInstance()
+
+    val hoyUtc = Calendar.getInstance(TimeZone.getTimeZone("UTC"))
+    hoyUtc.set(
+        hoyLocal.get(Calendar.YEAR),
+        hoyLocal.get(Calendar.MONTH),
+        hoyLocal.get(Calendar.DAY_OF_MONTH),
+        0,
+        0,
+        0
+    )
+    hoyUtc.set(Calendar.MILLISECOND, 0)
+
+    return hoyUtc.timeInMillis
+}
+
+private fun etiquetaParaFecha(
+    fechaMillis: Long,
+    hoyMillis: Long
+): String {
+
+    val unDiaMillis = 24L * 60L * 60L * 1000L
+
+    return when (fechaMillis) {
+
+        hoyMillis ->
+            "Hoy, ${formatearFechaLarga(fechaMillis)}"
+
+        hoyMillis + unDiaMillis ->
+            "Mañana, ${formatearFechaLarga(fechaMillis)}"
+
+        else ->
+            formatearFechaLarga(fechaMillis).replaceFirstChar { primero -> primero.uppercase() }
+    }
+}
+
+private fun formatearFechaLarga(millis: Long): String {
+
+    val formatter = SimpleDateFormat("d 'de' MMMM", Locale("es", "ES"))
+    formatter.timeZone = TimeZone.getTimeZone("UTC")
+
+    return formatter.format(Date(millis))
+}
+
+private fun formatearHoraRecordatorio(hora: Int, minuto: Int): String {
+
+    val amPm = if (hora < 12) "AM" else "PM"
+
+    val hora12 = when {
+        hora == 0 -> 12
+        hora > 12 -> hora - 12
+        else -> hora
+    }
+
+    return String.format(Locale.getDefault(), "%d:%02d %s", hora12, minuto, amPm)
+}
+
+
+private fun parsearHorario(horario: String): Pair<Int, Int> {
+
+    if (horario.isBlank()) {
+        return 0 to 0
+    }
+
+    return try {
+        val formato = SimpleDateFormat("h:mm a", Locale.US)
+        val fecha = formato.parse(horario) ?: return 0 to 0
+
+        val calendar = Calendar.getInstance()
+        calendar.time = fecha
+
+        calendar.get(Calendar.HOUR_OF_DAY) to calendar.get(Calendar.MINUTE)
+
+    } catch (e: Exception) {
+        0 to 0
+    }
+}
+
 
 @Preview(showBackground = true, showSystemUi = true)
 @Composable

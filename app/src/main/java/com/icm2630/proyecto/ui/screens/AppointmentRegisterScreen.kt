@@ -77,6 +77,7 @@ import java.util.TimeZone
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppointmentRegisterScreen(
+    citaId: String? = null,
     onBack: () -> Unit,
     viewModel: AppointmentRegisterViewModel = viewModel()
 ) {
@@ -97,6 +98,27 @@ fun AppointmentRegisterScreen(
         mutableStateOf(false)
     }
 
+    val modoEdicion = citaId != null
+
+
+    // =========================================================
+    // CARGAR CITA A EDITAR (o limpiar el formulario si es nueva)
+    // =========================================================
+
+    LaunchedEffect(citaId) {
+
+        if (citaId != null) {
+
+            viewModel.cargarCitaParaEditar(
+                citaId
+            )
+
+        } else {
+
+            viewModel.iniciarNuevaCita()
+        }
+    }
+
 
     // =========================================================
     // MENSAJES DE GUARDADO / ERROR
@@ -110,7 +132,12 @@ fun AppointmentRegisterScreen(
         if (state.guardadoExitoso) {
 
             snackbarHostState.showSnackbar(
-                message = "Cita registrada correctamente"
+                message =
+                    if (modoEdicion) {
+                        "Cita actualizada correctamente"
+                    } else {
+                        "Cita registrada correctamente"
+                    }
             )
 
             viewModel.consumirGuardadoExitoso()
@@ -161,7 +188,7 @@ fun AppointmentRegisterScreen(
     val nombrePersona =
         when (state.perfilUsuario?.tipoPerfil) {
 
-            TipoPerfil.INDIVIDUAL -> {
+            TipoPerfil.TITULAR -> {
 
                 state.perfilUsuario
                     ?.nombreCompleto
@@ -171,7 +198,7 @@ fun AppointmentRegisterScreen(
                     ?: "Mi perfil"
             }
 
-            TipoPerfil.ASOCIADO -> {
+            TipoPerfil.ACOMPANANTE -> {
 
                 state.personaSeleccionada
                     ?.nombreCompleto
@@ -187,7 +214,7 @@ fun AppointmentRegisterScreen(
     val tipoPersona =
         if (
             state.perfilUsuario?.tipoPerfil ==
-            TipoPerfil.ASOCIADO
+            TipoPerfil.ACOMPANANTE
         ) {
 
             "Persona asociada"
@@ -217,13 +244,23 @@ fun AppointmentRegisterScreen(
                     Column {
 
                         Text(
-                            text = "Registrar cita",
+                            text =
+                                if (modoEdicion) {
+                                    "Editar cita"
+                                } else {
+                                    "Registrar cita"
+                                },
                             color = Blue700,
                             fontWeight = FontWeight.Bold
                         )
 
                         Text(
-                            text = "Agrega la información de la cita médica",
+                            text =
+                                if (modoEdicion) {
+                                    "Actualiza la información de la cita médica"
+                                } else {
+                                    "Agrega la información de la cita médica"
+                                },
                             style = MaterialTheme.typography.bodySmall
                         )
                     }
@@ -305,6 +342,8 @@ fun AppointmentRegisterScreen(
                         text =
                             if (state.guardando) {
                                 "Guardando..."
+                            } else if (modoEdicion) {
+                                "Guardar cambios"
                             } else {
                                 "Guardar cita"
                             },
@@ -351,7 +390,7 @@ fun AppointmentRegisterScreen(
 
                 canChangePerson =
                     state.perfilUsuario?.tipoPerfil ==
-                            TipoPerfil.ASOCIADO,
+                            TipoPerfil.ACOMPANANTE,
 
                 onChangePerson = {
                     showPersonDialog = true
@@ -879,10 +918,7 @@ private fun AppointmentPersonSelectorDialog(
                         }
 
 
-                        if (
-                            index <
-                            personas.lastIndex
-                        ) {
+                        if (index < personas.lastIndex) {
 
                             HorizontalDivider()
                         }

@@ -17,9 +17,11 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -30,6 +32,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.icm2630.proyecto.R
+import com.icm2630.proyecto.data.repository.SesionRepository
 import com.icm2630.proyecto.ui.theme.*
 
 private val FieldShape = RoundedCornerShape(50)
@@ -47,6 +50,9 @@ fun LoginScreen(
     var password by rememberSaveable { mutableStateOf("") }
     var verPassword by rememberSaveable { mutableStateOf(false) }
     var recordar by rememberSaveable { mutableStateOf(false) }
+
+    // Estado para errores de validación
+    var errorTexto by remember { mutableStateOf<String?>(null) }
 
     Column(
         modifier = Modifier
@@ -98,8 +104,11 @@ fun LoginScreen(
                 CampoTexto(
                     label = "Correo Electrónico",
                     value = correo,
-                    onValueChange = { correo = it },
-                    placeholder = "ejemplo@correo.com",
+                    onValueChange = { 
+                        correo = it
+                        errorTexto = null 
+                    },
+                    placeholder = "test@gmail.com",
                     leadingIcon = Icons.Outlined.MailOutline,
                     keyboardType = KeyboardType.Email
                 )
@@ -127,13 +136,16 @@ fun LoginScreen(
 
                 TextField(
                     value = password,
-                    onValueChange = { password = it },
+                    onValueChange = { 
+                        password = it
+                        errorTexto = null 
+                    },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                     shape = FieldShape,
                     textStyle = MaterialTheme.typography.bodyLarge,
                     placeholder = {
-                        Text(text = "••••••••••••", color = PlaceholderBlue)
+                        Text(text = "12345678", color = PlaceholderBlue)
                     },
                     leadingIcon = {
                         Icon(Icons.Outlined.Lock, null, tint = Blue700, modifier = Modifier.size(22.dp))
@@ -159,6 +171,15 @@ fun LoginScreen(
                     )
                 )
 
+                if (errorTexto != null) {
+                    Text(
+                        text = errorTexto!!,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(start = 4.dp, top = 4.dp)
+                    )
+                }
+
                 Spacer(Modifier.height(16.dp))
 
                 Row(
@@ -180,7 +201,15 @@ fun LoginScreen(
                 Spacer(Modifier.height(24.dp))
 
                 Button(
-                    onClick = { onLogin() },
+                    onClick = { 
+                        if (correo.isBlank() || password.isBlank()) {
+                            errorTexto = "Por favor, completa todos los campos"
+                        } else if (SesionRepository.validarCredenciales(correo, password)) {
+                            onLogin()
+                        } else {
+                            errorTexto = "Credenciales incorrectas"
+                        }
+                    },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(58.dp),
@@ -215,12 +244,6 @@ fun LoginScreen(
                     onClick = onGoogleClick,
                     modifier = Modifier.weight(1f)
                 )
-                BotonSocial(
-                    texto = "Apple ID",
-                    icon = Icons.Outlined.PhoneIphone,
-                    onClick = onAppleClick,
-                    modifier = Modifier.weight(1f)
-                )
             }
 
             Spacer(Modifier.height(32.dp))
@@ -253,24 +276,14 @@ fun LoginScreen(
 
 @Composable
 private fun Logo() {
-    Box(
+    Image(
+        painter = painterResource(R.drawable.loguitouwu),
+        contentDescription = "Logo de Health Control",
         modifier = Modifier
-            .size(80.dp)
-            .shadow(
-                elevation = 8.dp,
-                shape = RoundedCornerShape(22.dp),
-                ambientColor = Blue500,
-                spotColor = Blue500
-            )
-            .background(Color.White, RoundedCornerShape(22.dp)),
-        contentAlignment = Alignment.Center
-    ) {
-        Image(
-            painter = painterResource(R.drawable.loguitouwu),
-            contentDescription = "Logo de Health Control",
-            modifier = Modifier.size(54.dp)
-        )
-    }
+            .size(150.dp)
+            .clip(RoundedCornerShape(32.dp)),
+        contentScale = ContentScale.Crop
+    )
 }
 
 @Composable
@@ -345,12 +358,22 @@ private fun BotonSocial(
         onClick = onClick,
         modifier = modifier.height(54.dp),
         shape = FieldShape,
-        colors = ButtonDefaults.outlinedButtonColors(containerColor = Color.White),
+        colors = ButtonDefaults.outlinedButtonColors(
+            containerColor = Color.White,
+            contentColor = Blue700
+        ),
         border = BorderStroke(1.dp, HairLine)
     ) {
-        Icon(icon, null, modifier = Modifier.size(20.dp), tint = Color.Unspecified)
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            modifier = Modifier.size(20.dp)
+        )
         Spacer(Modifier.width(8.dp))
-        Text(texto, style = MaterialTheme.typography.titleMedium, color = TextPrimary)
+        Text(
+            text = texto,
+            style = MaterialTheme.typography.titleMedium
+        )
     }
 }
 

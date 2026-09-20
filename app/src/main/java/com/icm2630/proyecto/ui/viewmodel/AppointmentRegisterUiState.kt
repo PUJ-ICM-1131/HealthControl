@@ -10,6 +10,14 @@ import com.icm2630.proyecto.data.model.TipoPerfil
 data class AppointmentRegisterUiState(
 
     // =========================================================
+    // MODO EDICIÓN
+    // =========================================================
+
+
+    val citaId: String? = null,
+
+
+    // =========================================================
     // PERFIL Y PERSONA
     // =========================================================
 
@@ -106,11 +114,11 @@ data class AppointmentRegisterUiState(
                 perfilUsuario?.tipoPerfil
             ) {
 
-                TipoPerfil.INDIVIDUAL -> {
+                TipoPerfil.TITULAR -> {
                     true
                 }
 
-                TipoPerfil.ASOCIADO -> {
+                TipoPerfil.ACOMPANANTE -> {
                     personaSeleccionadaId != null
                 }
 

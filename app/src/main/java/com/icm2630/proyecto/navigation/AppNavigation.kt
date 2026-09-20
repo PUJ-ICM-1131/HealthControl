@@ -1,7 +1,5 @@
 package com.icm2630.proyecto.navigation
 
-import com.icm2630.proyecto.ui.screens.MonitoreoScreen
-import com.icm2630.proyecto.ui.screens.MapScreen
 import com.icm2630.proyecto.ui.screens.MapScreen
 import com.icm2630.proyecto.ui.screens.RegisterOptionsScreen
 import com.icm2630.proyecto.ui.screens.AppointmentRegisterScreen
@@ -22,10 +20,13 @@ import com.icm2630.proyecto.data.model.PerfilUsuario
 import com.icm2630.proyecto.data.model.TipoPerfil
 import com.icm2630.proyecto.data.repository.SesionRepository
 import com.icm2630.proyecto.ui.components.HealthBottomNavigation
+import com.icm2630.proyecto.ui.screens.DetalleCitaScreen
+import com.icm2630.proyecto.ui.screens.DetalleMedicamentoScreen
 import com.icm2630.proyecto.ui.screens.HistoryScreen
 import com.icm2630.proyecto.ui.screens.HomeScreen
 import com.icm2630.proyecto.ui.screens.LoginScreen
 import com.icm2630.proyecto.ui.screens.MedicationRegisterScreen
+import com.icm2630.proyecto.ui.screens.MonitoreoScreen
 import com.icm2630.proyecto.ui.screens.ProfileScreen
 import com.icm2630.proyecto.ui.screens.ProfileSetupScreen
 import com.icm2630.proyecto.ui.screens.RegisterScreen
@@ -79,29 +80,11 @@ fun AppNavigation() {
 
                         backStack.clear()
 
-
-                        val destino =
-                            when {
-
-                                !SesionRepository.perfilConfigurado -> {
-
-                                    Routes.ProfileSetup
-                                }
-
-                                SesionRepository
-                                    .perfil
-                                    ?.tipoPerfil ==
-                                        TipoPerfil.ASOCIADO -> {
-
-                                    Routes.Monitoreo
-                                }
-
-                                else -> {
-
-                                    Routes.Home
-                                }
-                            }
-
+                        val destino = when {
+                            !SesionRepository.perfilConfigurado -> Routes.ProfileSetup
+                            SesionRepository.perfil?.tipoPerfil == TipoPerfil.ACOMPANANTE -> Routes.Monitoreo
+                            else -> Routes.Home
+                        }
 
                         backStack.add(
                             destino
@@ -161,20 +144,11 @@ fun AppNavigation() {
 
                         backStack.clear()
 
-
-                        val destino =
-                            if (
-                                perfil.tipoPerfil ==
-                                TipoPerfil.ASOCIADO
-                            ) {
-
-                                Routes.Monitoreo
-
-                            } else {
-
-                                Routes.Home
-                            }
-
+                        val destino = if (perfil.tipoPerfil == TipoPerfil.ACOMPANANTE) {
+                            Routes.Monitoreo
+                        } else {
+                            Routes.Home
+                        }
 
                         backStack.add(
                             destino
@@ -201,6 +175,25 @@ fun AppNavigation() {
 
                 HomeScreen(
 
+                    perfil = SesionRepository.perfil ?: PerfilUsuario(),
+
+                    onNavigate = { route ->
+
+                        navegarATab(
+                            backStack = backStack,
+                            destino = route
+                        )
+                    }
+                )
+            }
+
+            // HU-25: home del rol Acompañante, ve la salud del titular vinculado.
+            entry<Routes.Monitoreo> {
+
+                MonitoreoScreen(
+
+                    perfil = SesionRepository.perfil ?: PerfilUsuario(),
+
                     onNavigate = { route ->
 
                         navegarATab(
@@ -220,20 +213,6 @@ fun AppNavigation() {
 
                         backStack.add(
                             Routes.Login
-                        )
-                    }
-                )
-            }
-
-            entry<Routes.Monitoreo> {
-
-                MonitoreoScreen(
-
-                    onNavigate = { route ->
-
-                        navegarATab(
-                            backStack = backStack,
-                            destino = route
                         )
                     },
 
@@ -256,6 +235,17 @@ fun AppNavigation() {
                         navegarATab(
                             backStack = backStack,
                             destino = route
+                        )
+                    },
+
+
+                    // HU-06 / HU-21: al tocar un registro, se apila (no se
+                    // reemplaza) la pantalla de detalle correspondiente,
+                    // para poder volver con el botón Atrás.
+                    onVerDetalle = { route ->
+
+                        backStack.add(
+                            route
                         )
                     }
                 )
@@ -281,7 +271,7 @@ fun AppNavigation() {
                     onRegisterAppointment = {
 
                         backStack.add(
-                            Routes.RegistrarCita
+                            Routes.RegistrarCita()
                         )
                     },
 
@@ -289,15 +279,17 @@ fun AppNavigation() {
                     onRegisterMedication = {
 
                         backStack.add(
-                            Routes.RegistrarMedicamento
+                            Routes.RegistrarMedicamento()
                         )
                     }
                 )
             }
 
-            entry<Routes.RegistrarMedicamento> {
+            entry<Routes.RegistrarMedicamento> { key ->
 
                 MedicationRegisterScreen(
+
+                    medicamentoId = key.medicamentoId,
 
                     onBack = {
 
@@ -323,9 +315,11 @@ fun AppNavigation() {
 // REGISTRAR CITA
 // =================================================
 
-            entry<Routes.RegistrarCita> {
+            entry<Routes.RegistrarCita> { key ->
 
                 AppointmentRegisterScreen(
+
+                    citaId = key.citaId,
 
                     onBack = {
 
@@ -341,6 +335,92 @@ fun AppNavigation() {
 
                             backStack.add(
                                 Routes.Registrar
+                            )
+                        }
+                    }
+                )
+            }
+
+// =================================================
+// DETALLE DE CITA
+// =================================================
+
+            entry<Routes.DetalleCita> { key ->
+
+                DetalleCitaScreen(
+
+                    citaId = key.citaId,
+
+                    onBack = {
+
+                        if (backStack.size > 1) {
+
+                            backStack.removeAt(
+                                backStack.lastIndex
+                            )
+                        }
+                    },
+
+
+                    onEditar = {
+
+                        backStack.add(
+                            Routes.RegistrarCita(
+                                citaId = key.citaId
+                            )
+                        )
+                    },
+
+
+                    onEliminar = {
+
+                        if (backStack.size > 1) {
+
+                            backStack.removeAt(
+                                backStack.lastIndex
+                            )
+                        }
+                    }
+                )
+            }
+
+// =================================================
+// DETALLE DE MEDICAMENTO
+// =================================================
+
+            entry<Routes.DetalleMedicamento> { key ->
+
+                DetalleMedicamentoScreen(
+
+                    medicamentoId = key.medicamentoId,
+
+                    onBack = {
+
+                        if (backStack.size > 1) {
+
+                            backStack.removeAt(
+                                backStack.lastIndex
+                            )
+                        }
+                    },
+
+
+                    onEditar = {
+
+                        backStack.add(
+                            Routes.RegistrarMedicamento(
+                                medicamentoId = key.medicamentoId
+                            )
+                        )
+                    },
+
+
+                    onEliminar = {
+
+                        if (backStack.size > 1) {
+
+                            backStack.removeAt(
+                                backStack.lastIndex
                             )
                         }
                     }
@@ -381,6 +461,17 @@ fun AppNavigation() {
                             backStack = backStack,
                             destino = route
                         )
+                    },
+
+
+                    // Igual que en Pendientes: al tocar un registro del
+                    // historial se apila la pantalla de detalle
+                    // correspondiente (cita o medicamento).
+                    onVerDetalle = { route ->
+
+                        backStack.add(
+                            route
+                        )
                     }
                 )
             }
@@ -389,10 +480,7 @@ fun AppNavigation() {
 
                 ProfileScreen(
 
-                    perfil =
-                        SesionRepository.perfil
-                            ?: PerfilUsuario(),
-
+                    perfil = SesionRepository.perfil ?: PerfilUsuario(),
 
                     onNavigate = { route ->
 
@@ -412,9 +500,24 @@ fun AppNavigation() {
                     },
 
 
-                    onCambiarTipoPerfil = {
+                    // Cambiar de rol no es un simple toggle: pasar a Acompañante
+                    // exige un código válido (resuelto dentro de ProfileScreen);
+                    // aquí solo persistimos el resultado y navegamos al home
+                    // correcto para el nuevo rol.
+                    onCambiarTipoPerfil = { nuevoTipo, vinculo ->
 
+                        val actual = SesionRepository.perfil ?: PerfilUsuario()
 
+                        SesionRepository.perfil = actual.copy(
+                            tipoPerfil = nuevoTipo,
+                            personaVinculada = if (nuevoTipo == TipoPerfil.ACOMPANANTE) vinculo else null
+                        )
+
+                        backStack.clear()
+
+                        backStack.add(
+                            if (nuevoTipo == TipoPerfil.ACOMPANANTE) Routes.Monitoreo else Routes.Home
+                        )
                     },
 
 
@@ -437,17 +540,7 @@ fun AppNavigation() {
 }
 
 
-/**
- * Las pantallas principales de la barra inferior
- * son destinos hermanos.
- *
- * Cuando el usuario cambia de pestaña,
- * reemplazamos el destino actual para evitar:
- *
- * Home -> Recordatorios -> Registrar -> Historial...
- *
- * acumulándose en el backStack.
- */
+
 private fun navegarATab(
     backStack: MutableList<Routes>,
     destino: Routes

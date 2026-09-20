@@ -12,4 +12,14 @@ object SesionRepository {
     fun cerrarSesion() {
         perfil = null
     }
+
+    /**
+     * Valida credenciales de forma simulada.
+     * Correo aceptado: test@gmail.com
+     * Contraseña aceptada: 12345678
+     */
+    fun validarCredenciales(correo: String, password: String): Boolean {
+        // Mock simple: campos no vacíos y coinciden con datos fijos
+        return correo == "test@gmail.com" && password == "12345678"
+    }
 }

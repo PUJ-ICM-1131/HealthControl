@@ -27,7 +27,6 @@ import androidx.compose.material.icons.outlined.Cancel
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.MailOutline
 import androidx.compose.material.icons.outlined.Person
-import androidx.compose.material.icons.outlined.PhoneIphone
 import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material.icons.outlined.VisibilityOff
@@ -49,6 +48,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.foundation.border
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
@@ -77,7 +79,6 @@ private val HairLine = Color(0xFFE5E7EB)
 fun RegisterScreen(
     onRegister: (nombre: String, correo: String, password: String) -> Unit = { _, _, _ -> },
     onGoogleClick: () -> Unit = {},
-    onAppleClick: () -> Unit = {},
     onIrALogin: () -> Unit = {}
 ) {
     var nombre by rememberSaveable { mutableStateOf("") }
@@ -196,25 +197,13 @@ fun RegisterScreen(
 
             Spacer(Modifier.height(24.dp))
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                BotonSocial(
-                    texto = "Google",
-                    // Reemplaza por painterResource(R.drawable.ic_google) cuando agregues el asset oficial
-                    icon = Icons.Outlined.Cancel,
-                    onClick = onGoogleClick,
-                    modifier = Modifier.weight(1f)
-                )
-                BotonSocial(
-                    texto = "Apple",
-                    // Reemplaza por painterResource(R.drawable.ic_apple)
-                    icon = Icons.Outlined.PhoneIphone,
-                    onClick = onAppleClick,
-                    modifier = Modifier.weight(1f)
-                )
-            }
+            BotonSocial(
+                texto = "Google",
+                // Reemplaza por painterResource(R.drawable.ic_google) cuando agregues el asset oficial
+                icon = Icons.Outlined.Cancel,
+                onClick = onGoogleClick,
+                modifier = Modifier.fillMaxWidth()
+            )
 
             Spacer(Modifier.height(28.dp))
         }
@@ -251,24 +240,19 @@ fun RegisterScreen(
 
 @Composable
 private fun Logo() {
-    Box(
+    Image(
+        painter = painterResource(R.drawable.loguitouwu),
+        contentDescription = "Logo de Health Control",
         modifier = Modifier
-            .size(80.dp)
-            .shadow(
-                elevation = 8.dp,
-                shape = RoundedCornerShape(22.dp),
-                ambientColor = Blue500,
-                spotColor = Blue500
-            )
-            .background(Color.White, RoundedCornerShape(22.dp)),
-        contentAlignment = Alignment.Center
-    ) {
-        Image(
-            painter = painterResource(R.drawable.loguitouwu),
-            contentDescription = "Logo de Health Control",
-            modifier = Modifier.size(54.dp)
-        )
-    }
+            .size(150.dp)
+            .clip(RoundedCornerShape(32.dp))
+            .border(
+                width = 2.dp,
+                color = Blue700,
+                shape = RoundedCornerShape(32.dp)
+            ),
+        contentScale = ContentScale.Crop
+    )
 }
 
 @Composable

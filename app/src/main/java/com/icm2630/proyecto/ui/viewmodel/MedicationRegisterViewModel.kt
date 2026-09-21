@@ -15,11 +15,7 @@ import java.util.UUID
 
 class MedicationRegisterViewModel : ViewModel() {
 
-
-    // =========================================================
     // ESTADO
-    // =========================================================
-
     private val _uiState =
         MutableStateFlow(
             MedicationRegisterUiState()
@@ -32,10 +28,7 @@ class MedicationRegisterViewModel : ViewModel() {
         cargarPerfilDesdeSesion()
     }
 
-    // =========================================================
     // PERFIL DEL USUARIO
-    // =========================================================
-
     /**
      * Recibe el perfil del usuario que inició sesión.
      *
@@ -44,75 +37,49 @@ class MedicationRegisterViewModel : ViewModel() {
      */
     private fun cargarPerfilDesdeSesion() {
 
-        val perfilUsuario =
-            SesionRepository.perfil
-                ?: return
+        val perfilUsuario = SesionRepository.perfil ?: return
 
 
         val personas =
-            if (
-                perfilUsuario.tipoPerfil ==
-                TipoPerfil.ACOMPANANTE
-            ) {
-
-                PersonaRepository
-                    .obtenerPersonasAsociadas()
-
+            if (perfilUsuario.tipoPerfil == TipoPerfil.ACOMPANANTE) {
+                PersonaRepository.obtenerPersonasAsociadas()
             } else {
-
                 emptyList()
             }
 
-
-        _uiState.value =
-            _uiState.value.copy(
+        _uiState.value = _uiState.value.copy(
                 perfilUsuario = perfilUsuario,
                 personasAsociadas = personas,
                 personaSeleccionadaId = null
             )
     }
 
-
-    // =========================================================
     // PERSONA
-    // =========================================================
+    fun seleccionarPersona(personaId: String) {
 
-    fun seleccionarPersona(
-        personaId: String
-    ) {
-
-        val existe =
-            _uiState.value
-                .personasAsociadas
+        val existe = _uiState.value.personasAsociadas
                 .any { persona ->
                     persona.id == personaId
                 }
-
 
         if (!existe) {
             return
         }
 
 
-        _uiState.value =
-            _uiState.value.copy(
+        _uiState.value = _uiState.value.copy(
                 personaSeleccionadaId = personaId
             )
     }
 
-
-    // =========================================================
-    // MODO EDICIÓN (HU-06 aplicado también a medicamentos)
-    // =========================================================
+    // MODO EDICIÓN (aplicado también a medicamentos)
 
     /**
      * Precarga el formulario con un medicamento ya registrado
      * para que la persona pueda modificarlo en vez de crear
      * uno desde cero.
      */
-    fun cargarMedicamentoParaEditar(
-        medicamentoId: String
-    ) {
+    fun cargarMedicamentoParaEditar(medicamentoId: String) {
 
         val medicamento =
             MedicamentoRepository.obtenerPorId(
@@ -138,7 +105,6 @@ class MedicationRegisterViewModel : ViewModel() {
             )
     }
 
-
     /**
      * El ViewModel de esta pantalla se reutiliza tanto para crear
      * como para editar. Si se entra a "registrar" después de haber
@@ -147,21 +113,15 @@ class MedicationRegisterViewModel : ViewModel() {
      */
     fun iniciarNuevoMedicamento() {
 
-        val estadoActual =
-            _uiState.value
+        val estadoActual = _uiState.value
 
-        _uiState.value =
-            MedicationRegisterUiState(
+        _uiState.value = MedicationRegisterUiState(
                 perfilUsuario = estadoActual.perfilUsuario,
                 personasAsociadas = estadoActual.personasAsociadas
             )
     }
 
-
-    // =========================================================
     // NOMBRE DEL MEDICAMENTO
-    // =========================================================
-
     fun onNombreChange(
         nombre: String
     ) {
@@ -172,44 +132,23 @@ class MedicationRegisterViewModel : ViewModel() {
             )
     }
 
-
-    // =========================================================
     // PRESENTACIÓN
-    // =========================================================
-
-    fun onFormaChange(
-        forma: FormaMedicamento
-    ) {
-
+    fun onFormaChange(forma: FormaMedicamento) {
         val unidadInicial =
             when (forma) {
-
-                FormaMedicamento.PASTILLA ->
-                    "mg"
-
-                FormaMedicamento.JARABE ->
-                    "mL"
-
-                FormaMedicamento.GOTAS ->
-                    "gotas"
-
-                FormaMedicamento.INYECCION ->
-                    "mL"
+                FormaMedicamento.PASTILLA -> "mg"
+                FormaMedicamento.JARABE -> "mL"
+                FormaMedicamento.GOTAS -> "gotas"
+                FormaMedicamento.INYECCION -> "mL"
             }
 
-
-        _uiState.value =
-            _uiState.value.copy(
+        _uiState.value = _uiState.value.copy(
                 forma = forma,
                 unidad = unidadInicial,
-
                 // Esta información solo tiene sentido
                 // principalmente para pastillas.
                 cantidadPorToma =
-                    if (
-                        forma ==
-                        FormaMedicamento.PASTILLA
-                    ) {
+                    if (forma == FormaMedicamento.PASTILLA) {
                         "1"
                     } else {
                         ""
@@ -217,81 +156,49 @@ class MedicationRegisterViewModel : ViewModel() {
             )
     }
 
-
-    // =========================================================
     // DOSIS
-    // =========================================================
-
-    fun onDosisChange(
-        dosis: String
-    ) {
-
-        _uiState.value =
-            _uiState.value.copy(
+    fun onDosisChange(dosis: String) {
+        _uiState.value = _uiState.value.copy(
                 dosis = dosis
             )
     }
 
-
-    fun onUnidadChange(
-        unidad: String
-    ) {
-
-        _uiState.value =
-            _uiState.value.copy(
+    fun onUnidadChange(unidad: String) {
+        _uiState.value = _uiState.value.copy(
                 unidad = unidad
             )
     }
 
 
-    fun onCantidadPorTomaChange(
-        cantidad: String
-    ) {
-
-        _uiState.value =
-            _uiState.value.copy(
+    fun onCantidadPorTomaChange(cantidad: String) {
+        _uiState.value = _uiState.value.copy(
                 cantidadPorToma = cantidad
             )
     }
 
-
-    // =========================================================
     // HORARIOS
-    // =========================================================
-
-    fun agregarHorario(
-        horario: String
-    ) {
+    fun agregarHorario(horario: String) {
 
         if (horario.isBlank()) {
             return
         }
 
-
-        val horariosActuales =
-            _uiState.value.horarios
-
+        val horariosActuales = _uiState.value.horarios
 
         // No agregamos horarios repetidos.
         if (horario in horariosActuales) {
             return
         }
 
-
-        _uiState.value =
-            _uiState.value.copy(
+        _uiState.value = _uiState.value.copy(
                 horarios =
                     horariosActuales + horario
             )
     }
 
+    fun eliminarHorario(horario: String) {
 
-    fun eliminarHorario(
-        horario: String
-    ) {
-
-        _uiState.value =
-            _uiState.value.copy(
+        _uiState.value = _uiState.value.copy(
                 horarios =
                     _uiState.value
                         .horarios
@@ -301,18 +208,10 @@ class MedicationRegisterViewModel : ViewModel() {
             )
     }
 
-
-    // =========================================================
     // FECHAS
-    // =========================================================
+    fun onFechaInicioChange(fechaMillis: Long) {
 
-    fun onFechaInicioChange(
-        fechaMillis: Long
-    ) {
-
-        val estadoActual =
-            _uiState.value
-
+        val estadoActual = _uiState.value
 
         /*
          * Si ya había una fecha final anterior
@@ -326,35 +225,23 @@ class MedicationRegisterViewModel : ViewModel() {
                     fechaFin >= fechaMillis
                 }
 
-
-        _uiState.value =
-            estadoActual.copy(
+        _uiState.value = estadoActual.copy(
                 fechaInicioMillis = fechaMillis,
                 fechaFinMillis = nuevaFechaFin
             )
     }
 
-
-    fun onFechaFinChange(
-        fechaMillis: Long
-    ) {
-
-        _uiState.value =
-            _uiState.value.copy(
+    fun onFechaFinChange(fechaMillis: Long) {
+        _uiState.value = _uiState.value.copy(
                 fechaFinMillis = fechaMillis
             )
     }
 
 
-    fun onTratamientoPermanenteChange(
-        permanente: Boolean
-    ) {
-
-        _uiState.value =
-            _uiState.value.copy(
+    fun onTratamientoPermanenteChange(permanente: Boolean) {
+        _uiState.value = _uiState.value.copy(
                 tratamientoPermanente =
                     permanente,
-
                 fechaFinMillis =
                     if (permanente) {
                         null
@@ -364,33 +251,16 @@ class MedicationRegisterViewModel : ViewModel() {
             )
     }
 
-
-    // =========================================================
     // INDICACIONES
-    // =========================================================
-
-    fun onIndicacionesChange(
-        indicaciones: String
-    ) {
-
-        _uiState.value =
-            _uiState.value.copy(
+    fun onIndicacionesChange(indicaciones: String) {
+        _uiState.value = _uiState.value.copy(
                 indicaciones = indicaciones
             )
     }
 
-
-    // =========================================================
     // ORDEN MÉDICA
-    // =========================================================
-
-    fun onOrdenMedicaSeleccionada(
-        uri: String,
-        nombreArchivo: String
-    ) {
-
-        _uiState.value =
-            _uiState.value.copy(
+    fun onOrdenMedicaSeleccionada(uri: String, nombreArchivo: String) {
+        _uiState.value = _uiState.value.copy(
                 ordenMedicaUri = uri,
                 nombreOrdenMedica = nombreArchivo
             )
@@ -398,27 +268,18 @@ class MedicationRegisterViewModel : ViewModel() {
 
 
     fun eliminarOrdenMedica() {
-
-        _uiState.value =
-            _uiState.value.copy(
+        _uiState.value = _uiState.value.copy(
                 ordenMedicaUri = null,
                 nombreOrdenMedica = null
             )
     }
 
-
-    // =========================================================
     // GUARDAR MEDICAMENTO
-    // =========================================================
-
     fun guardarMedicamento() {
 
-        val estado =
-            _uiState.value
-
+        val estado = _uiState.value
 
         if (!estado.formularioValido) {
-
             _uiState.value =
                 estado.copy(
                     mensajeError =
@@ -428,20 +289,14 @@ class MedicationRegisterViewModel : ViewModel() {
             return
         }
 
-
-        _uiState.value =
-            estado.copy(
+        _uiState.value = estado.copy(
                 guardando = true,
                 mensajeError = null
             )
 
+        val medicamento = Medicamento(
 
-        val medicamento =
-            Medicamento(
-
-                id =
-                    estado.medicamentoId
-                        ?: UUID
+                id = estado.medicamentoId ?: UUID
                             .randomUUID()
                             .toString(),
 
@@ -451,96 +306,57 @@ class MedicationRegisterViewModel : ViewModel() {
                  * id de Persona = persona asociada
                  */
                 personaId =
-                    if (
-                        estado.perfilUsuario?.tipoPerfil ==
-                        TipoPerfil.ACOMPANANTE
-                    ) {
+                    if (estado.perfilUsuario?.tipoPerfil == TipoPerfil.ACOMPANANTE) {
                         estado.personaSeleccionadaId
                     } else {
                         null
                     },
 
-                nombre =
-                    estado.nombre.trim(),
-
-                forma =
-                    estado.forma,
-
-                dosis =
-                    estado.dosis.trim(),
-
-                unidad =
-                    estado.unidad,
-
-                cantidadPorToma =
-                    estado.cantidadPorToma,
-
-                horarios =
-                    estado.horarios,
-
-                fechaInicioMillis =
-                    estado.fechaInicioMillis!!,
-
+                nombre = estado.nombre.trim(),
+                forma = estado.forma,
+                dosis = estado.dosis.trim(),
+                unidad = estado.unidad,
+                cantidadPorToma = estado.cantidadPorToma,
+                horarios = estado.horarios,
+                fechaInicioMillis = estado.fechaInicioMillis!!,
                 fechaFinMillis =
-                    if (
-                        estado.tratamientoPermanente
-                    ) {
+                    if (estado.tratamientoPermanente) {
                         null
                     } else {
                         estado.fechaFinMillis
                     },
-
-                tratamientoPermanente =
-                    estado.tratamientoPermanente,
-
-                indicaciones =
-                    estado.indicaciones.trim(),
-
-                ordenMedicaUri =
-                    estado.ordenMedicaUri
+                tratamientoPermanente = estado.tratamientoPermanente,
+                indicaciones = estado.indicaciones.trim(),
+                ordenMedicaUri = estado.ordenMedicaUri
             )
 
 
         if (estado.medicamentoId != null) {
-
             MedicamentoRepository.actualizar(
                 medicamento
             )
-
         } else {
-
             MedicamentoRepository.registrar(
                 medicamento
             )
         }
 
-
-        _uiState.value =
-            _uiState.value.copy(
+        _uiState.value = _uiState.value.copy(
                 medicamentoId = medicamento.id,
                 guardando = false,
                 guardadoExitoso = true
             )
     }
 
-
-    // =========================================================
     // EVENTOS DE UI
-    // =========================================================
-
     fun consumirGuardadoExitoso() {
-
-        _uiState.value =
-            _uiState.value.copy(
+        _uiState.value = _uiState.value.copy(
                 guardadoExitoso = false
             )
     }
 
-
     fun limpiarError() {
-
-        _uiState.value =
-            _uiState.value.copy(
+        _uiState.value = _uiState.value.copy(
                 mensajeError = null
             )
     }

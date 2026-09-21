@@ -23,7 +23,6 @@ data class PerfilSetupUiState(
     val condicionRelevante: String = "",
     val permisoUbicacion: Boolean = false,
     val notificacionesActivas: Boolean = true,
-    // --- Vinculación (HU-03) ---
     /** Código que este titular genera para compartir con su acompañante. */
     val codigoGenerado: String? = null,
     /** Relación declarada por el acompañante con el titular (ej. "Hija", "Cuidador"). */

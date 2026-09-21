@@ -16,11 +16,7 @@ import java.util.UUID
 
 class AppointmentRegisterViewModel : ViewModel() {
 
-
-    // =========================================================
     // ESTADO
-    // =========================================================
-
     private val _uiState =
         MutableStateFlow(
             AppointmentRegisterUiState()
@@ -29,20 +25,12 @@ class AppointmentRegisterViewModel : ViewModel() {
     val uiState: StateFlow<AppointmentRegisterUiState> =
         _uiState.asStateFlow()
 
-
-    // =========================================================
     // INICIALIZACIÓN
-    // =========================================================
-
     init {
         cargarPerfilDesdeSesion()
     }
 
-
-    // =========================================================
     // PERFIL Y PERSONAS ASOCIADAS
-    // =========================================================
-
     private fun cargarPerfilDesdeSesion() {
 
         val perfilUsuario =
@@ -77,11 +65,7 @@ class AppointmentRegisterViewModel : ViewModel() {
             )
     }
 
-
-    // =========================================================
     // CITA PARA "YO"
-    // =========================================================
-
     fun seleccionarYo() {
 
         _uiState.value =
@@ -94,11 +78,7 @@ class AppointmentRegisterViewModel : ViewModel() {
             )
     }
 
-
-    // =========================================================
     // CITA PARA PERSONA ASOCIADA
-    // =========================================================
-
     fun seleccionarPersona(
         personaId: String
     ) {
@@ -128,11 +108,7 @@ class AppointmentRegisterViewModel : ViewModel() {
             )
     }
 
-
-    // =========================================================
     // MODO EDICIÓN
-    // =========================================================
-
     /**
      * Precarga el formulario con una cita ya registrada
      * para permitir modificarla.
@@ -141,110 +117,54 @@ class AppointmentRegisterViewModel : ViewModel() {
         citaId: String
     ) {
 
-        val cita =
-            CitaRepository.obtenerPorId(
+        val cita = CitaRepository.obtenerPorId(
                 citaId
             ) ?: return
 
 
-        _uiState.value =
-            _uiState.value.copy(
-
-                citaId =
-                    cita.id,
-
-
+        _uiState.value = _uiState.value.copy(
+                citaId = cita.id,
                 // Si personaId es null,
                 // la cita pertenece al propio usuario.
-                citaParaMi =
-                    cita.personaId == null,
-
-
-                personaSeleccionadaId =
-                    cita.personaId,
-
-
-                tipoCita =
-                    cita.tipo,
-
-                especialidad =
-                    cita.especialidad,
-
-                motivo =
-                    cita.motivo,
-
-                fechaMillis =
-                    cita.fechaMillis,
-
-                hora =
-                    cita.hora,
-
-                minuto =
-                    cita.minuto,
-
-                modalidad =
-                    cita.modalidad,
-
-                institucion =
-                    cita.institucion,
-
-                direccion =
-                    cita.direccion,
-
-                enlaceVirtual =
-                    cita.enlaceVirtual,
-
-                nombreMedico =
-                    cita.nombreMedico,
-
-                notas =
-                    cita.notas,
-
-                soporteUri =
-                    cita.soporteUri
+                citaParaMi = cita.personaId == null,
+                personaSeleccionadaId = cita.personaId,
+                tipoCita = cita.tipo,
+                especialidad = cita.especialidad,
+                motivo = cita.motivo,
+                fechaMillis = cita.fechaMillis,
+                hora = cita.hora,
+                minuto = cita.minuto,
+                modalidad = cita.modalidad,
+                institucion = cita.institucion,
+                direccion = cita.direccion,
+                enlaceVirtual = cita.enlaceVirtual,
+                nombreMedico = cita.nombreMedico,
+                notas = cita.notas,
+                soporteUri = cita.soporteUri
             )
     }
 
-
-    // =========================================================
     // NUEVA CITA
-    // =========================================================
-
     fun iniciarNuevaCita() {
 
-        val estadoActual =
-            _uiState.value
+        val estadoActual = _uiState.value
 
-
-        _uiState.value =
-            AppointmentRegisterUiState(
-
-                perfilUsuario =
-                    estadoActual.perfilUsuario,
-
-                personasAsociadas =
-                    estadoActual.personasAsociadas,
-
+        _uiState.value = AppointmentRegisterUiState(
+                perfilUsuario = estadoActual.perfilUsuario,
+                personasAsociadas = estadoActual.personasAsociadas,
                 citaParaMi = true,
-
                 personaSeleccionadaId = null
             )
     }
 
-
-    // =========================================================
     // TIPO DE CITA
-    // =========================================================
-
     fun onTipoCitaChange(
         tipoCita: TipoCita
     ) {
 
-        _uiState.value =
-            _uiState.value.copy(
+        _uiState.value = _uiState.value.copy(
 
                 tipoCita = tipoCita,
-
                 /*
                  * Si deja de ser cita con especialista,
                  * limpiamos la especialidad.
@@ -254,213 +174,146 @@ class AppointmentRegisterViewModel : ViewModel() {
                         tipoCita ==
                         TipoCita.ESPECIALISTA
                     ) {
-
                         _uiState.value.especialidad
-
                     } else {
-
                         ""
                     }
             )
     }
 
-
-    // =========================================================
     // ESPECIALIDAD
-    // =========================================================
-
     fun onEspecialidadChange(
         especialidad: String
     ) {
 
-        _uiState.value =
-            _uiState.value.copy(
+        _uiState.value = _uiState.value.copy(
                 especialidad = especialidad
             )
     }
 
-
-    // =========================================================
     // MOTIVO
-    // =========================================================
-
     fun onMotivoChange(
         motivo: String
     ) {
 
-        _uiState.value =
-            _uiState.value.copy(
+        _uiState.value = _uiState.value.copy(
                 motivo = motivo
             )
     }
 
-
-    // =========================================================
     // FECHA
-    // =========================================================
-
     fun onFechaChange(
         fechaMillis: Long
     ) {
 
-        _uiState.value =
-            _uiState.value.copy(
+        _uiState.value = _uiState.value.copy(
                 fechaMillis = fechaMillis
             )
     }
 
-
-    // =========================================================
     // HORA
-    // =========================================================
-
     fun onHoraChange(
         hora: Int,
         minuto: Int
     ) {
 
-        _uiState.value =
-            _uiState.value.copy(
+        _uiState.value = _uiState.value.copy(
                 hora = hora,
                 minuto = minuto
             )
     }
 
-
-    // =========================================================
     // MODALIDAD
-    // =========================================================
-
     fun onModalidadChange(
         modalidad: ModalidadCita
     ) {
 
-        val estadoActual =
-            _uiState.value
+        val estadoActual = _uiState.value
 
 
-        _uiState.value =
-            when (modalidad) {
+        _uiState.value = when (modalidad) {
 
                 ModalidadCita.PRESENCIAL -> {
 
                     estadoActual.copy(
-
                         modalidad =
                             ModalidadCita.PRESENCIAL,
-
                         // El enlace virtual deja de aplicar.
                         enlaceVirtual = ""
                     )
                 }
 
-
                 ModalidadCita.VIRTUAL -> {
-
                     estadoActual.copy(
-
                         modalidad =
                             ModalidadCita.VIRTUAL,
-
                         /*
                          * Para cita virtual no necesitamos
                          * institución física ni dirección.
                          */
                         institucion = "",
-
                         direccion = ""
                     )
                 }
             }
     }
 
-
-    // =========================================================
     // INSTITUCIÓN
-    // =========================================================
-
     fun onInstitucionChange(
         institucion: String
     ) {
-
-        _uiState.value =
-            _uiState.value.copy(
+        _uiState.value = _uiState.value.copy(
                 institucion = institucion
             )
     }
 
-
-    // =========================================================
     // DIRECCIÓN
-    // =========================================================
-
     fun onDireccionChange(
         direccion: String
     ) {
 
-        _uiState.value =
-            _uiState.value.copy(
+        _uiState.value = _uiState.value.copy(
                 direccion = direccion
             )
     }
 
-
-    // =========================================================
     // ENLACE VIRTUAL
-    // =========================================================
-
     fun onEnlaceVirtualChange(
         enlace: String
     ) {
 
-        _uiState.value =
-            _uiState.value.copy(
+        _uiState.value = _uiState.value.copy(
                 enlaceVirtual = enlace
             )
     }
 
-
-    // =========================================================
     // MÉDICO / ESPECIALISTA
-    // =========================================================
-
     fun onNombreMedicoChange(
         nombreMedico: String
     ) {
 
-        _uiState.value =
-            _uiState.value.copy(
+        _uiState.value = _uiState.value.copy(
                 nombreMedico = nombreMedico
             )
     }
 
-
-    // =========================================================
     // NOTAS
-    // =========================================================
-
     fun onNotasChange(
         notas: String
     ) {
 
-        _uiState.value =
-            _uiState.value.copy(
+        _uiState.value = _uiState.value.copy(
                 notas = notas
             )
     }
 
-
-    // =========================================================
     // SOPORTE
-    // =========================================================
-
     fun onSoporteSeleccionado(
         uri: String,
         nombreArchivo: String
     ) {
 
-        _uiState.value =
-            _uiState.value.copy(
+        _uiState.value = _uiState.value.copy(
                 soporteUri = uri,
                 nombreSoporte = nombreArchivo
             )
@@ -476,21 +329,14 @@ class AppointmentRegisterViewModel : ViewModel() {
             )
     }
 
-
-    // =========================================================
     // GUARDAR CITA
-    // =========================================================
-
     fun guardarCita() {
 
-        val estado =
-            _uiState.value
-
+        val estado = _uiState.value
 
         if (!estado.formularioValido) {
 
-            _uiState.value =
-                estado.copy(
+            _uiState.value = estado.copy(
                     mensajeError =
                         "Completa la información requerida antes de guardar."
                 )
@@ -498,24 +344,14 @@ class AppointmentRegisterViewModel : ViewModel() {
             return
         }
 
-
-        _uiState.value =
-            estado.copy(
+        _uiState.value = estado.copy(
                 guardando = true,
                 mensajeError = null
             )
 
+        val cita = Cita(
 
-        val cita =
-            Cita(
-
-                id =
-                    estado.citaId
-                        ?: UUID
-                            .randomUUID()
-                            .toString(),
-
-
+                id = estado.citaId ?: UUID.randomUUID().toString(),
                 /*
                  * "Yo"
                  * → personaId = null
@@ -525,118 +361,48 @@ class AppointmentRegisterViewModel : ViewModel() {
                  */
                 personaId =
                     if (estado.citaParaMi) {
-
                         null
-
                     } else {
-
                         estado.personaSeleccionadaId
                     },
-
-
-                tipo =
-                    estado.tipoCita,
-
-
-                especialidad =
-                    estado.especialidad.trim(),
-
-
-                motivo =
-                    estado.motivo.trim(),
-
-
-                fechaMillis =
-                    estado.fechaMillis!!,
-
-
-                hora =
-                    estado.hora!!,
-
-
-                minuto =
-                    estado.minuto!!,
-
-
-                modalidad =
-                    estado.modalidad,
-
-
-                institucion =
-                    estado.institucion.trim(),
-
-
-                direccion =
-                    estado.direccion.trim(),
-
-
-                enlaceVirtual =
-                    estado.enlaceVirtual.trim(),
-
-
-                nombreMedico =
-                    estado.nombreMedico.trim(),
-
-
-                notas =
-                    estado.notas.trim(),
-
-
-                soporteUri =
-                    estado.soporteUri
+                tipo = estado.tipoCita,
+                especialidad = estado.especialidad.trim(),
+                motivo = estado.motivo.trim(),
+                fechaMillis = estado.fechaMillis!!,
+                hora = estado.hora!!,
+                minuto = estado.minuto!!,
+                modalidad = estado.modalidad,
+                institucion = estado.institucion.trim(),
+                direccion = estado.direccion.trim(),
+                enlaceVirtual = estado.enlaceVirtual.trim(),
+                nombreMedico = estado.nombreMedico.trim(),
+                notas = estado.notas.trim(),
+                soporteUri = estado.soporteUri
             )
 
-
-        // =====================================================
         // ACTUALIZAR O REGISTRAR
-        // =====================================================
-
         if (estado.citaId != null) {
-
-            CitaRepository.actualizar(
-                cita
-            )
-
+            CitaRepository.actualizar(cita)
         } else {
-
-            CitaRepository.registrar(
-                cita
-            )
+            CitaRepository.registrar(cita)
         }
 
-
-        _uiState.value =
-            _uiState.value.copy(
-
-                citaId =
-                    cita.id,
-
-                guardando =
-                    false,
-
-                guardadoExitoso =
-                    true
+        _uiState.value = _uiState.value.copy(
+                citaId = cita.id,
+                guardando = false,
+                guardadoExitoso = true
             )
     }
 
-
-    // =========================================================
     // EVENTOS DE UI
-    // =========================================================
-
     fun consumirGuardadoExitoso() {
-
-        _uiState.value =
-            _uiState.value.copy(
+        _uiState.value = _uiState.value.copy(
                 guardadoExitoso = false
             )
     }
 
-
     fun limpiarError() {
-
-        _uiState.value =
-            _uiState.value.copy(
+        _uiState.value = _uiState.value.copy(
                 mensajeError = null
             )
     }

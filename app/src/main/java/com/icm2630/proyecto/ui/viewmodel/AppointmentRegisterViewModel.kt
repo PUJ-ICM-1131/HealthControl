@@ -16,6 +16,7 @@ import java.util.UUID
 
 class AppointmentRegisterViewModel : ViewModel() {
 
+
     // =========================================================
     // ESTADO
     // =========================================================
@@ -68,10 +69,35 @@ class AppointmentRegisterViewModel : ViewModel() {
             _uiState.value.copy(
                 perfilUsuario = perfilUsuario,
                 personasAsociadas = personas,
+
+                // Por defecto la cita será para el propio usuario.
+                citaParaMi = true,
+
                 personaSeleccionadaId = null
             )
     }
 
+
+    // =========================================================
+    // CITA PARA "YO"
+    // =========================================================
+
+    fun seleccionarYo() {
+
+        _uiState.value =
+            _uiState.value.copy(
+
+                citaParaMi = true,
+
+                // null representa al propio usuario.
+                personaSeleccionadaId = null
+            )
+    }
+
+
+    // =========================================================
+    // CITA PARA PERSONA ASOCIADA
+    // =========================================================
 
     fun seleccionarPersona(
         personaId: String
@@ -81,7 +107,9 @@ class AppointmentRegisterViewModel : ViewModel() {
             _uiState.value
                 .personasAsociadas
                 .any { persona ->
-                    persona.id == personaId
+
+                    persona.id ==
+                            personaId
                 }
 
 
@@ -92,7 +120,11 @@ class AppointmentRegisterViewModel : ViewModel() {
 
         _uiState.value =
             _uiState.value.copy(
-                personaSeleccionadaId = personaId
+
+                citaParaMi = false,
+
+                personaSeleccionadaId =
+                    personaId
             )
     }
 
@@ -101,10 +133,10 @@ class AppointmentRegisterViewModel : ViewModel() {
     // MODO EDICIÓN
     // =========================================================
 
-
-     //Precarga el formulario con una cita ya registrada para que
-     //como tal la persona pueda modificarla en vez de crear una desde cero.
-
+    /**
+     * Precarga el formulario con una cita ya registrada
+     * para permitir modificarla.
+     */
     fun cargarCitaParaEditar(
         citaId: String
     ) {
@@ -117,35 +149,85 @@ class AppointmentRegisterViewModel : ViewModel() {
 
         _uiState.value =
             _uiState.value.copy(
-                citaId = cita.id,
-                personaSeleccionadaId = cita.personaId,
-                tipoCita = cita.tipo,
-                especialidad = cita.especialidad,
-                motivo = cita.motivo,
-                fechaMillis = cita.fechaMillis,
-                hora = cita.hora,
-                minuto = cita.minuto,
-                modalidad = cita.modalidad,
-                institucion = cita.institucion,
-                direccion = cita.direccion,
-                enlaceVirtual = cita.enlaceVirtual,
-                nombreMedico = cita.nombreMedico,
-                notas = cita.notas,
-                soporteUri = cita.soporteUri
+
+                citaId =
+                    cita.id,
+
+
+                // Si personaId es null,
+                // la cita pertenece al propio usuario.
+                citaParaMi =
+                    cita.personaId == null,
+
+
+                personaSeleccionadaId =
+                    cita.personaId,
+
+
+                tipoCita =
+                    cita.tipo,
+
+                especialidad =
+                    cita.especialidad,
+
+                motivo =
+                    cita.motivo,
+
+                fechaMillis =
+                    cita.fechaMillis,
+
+                hora =
+                    cita.hora,
+
+                minuto =
+                    cita.minuto,
+
+                modalidad =
+                    cita.modalidad,
+
+                institucion =
+                    cita.institucion,
+
+                direccion =
+                    cita.direccion,
+
+                enlaceVirtual =
+                    cita.enlaceVirtual,
+
+                nombreMedico =
+                    cita.nombreMedico,
+
+                notas =
+                    cita.notas,
+
+                soporteUri =
+                    cita.soporteUri
             )
     }
 
 
+    // =========================================================
+    // NUEVA CITA
+    // =========================================================
 
     fun iniciarNuevaCita() {
 
         val estadoActual =
             _uiState.value
 
+
         _uiState.value =
             AppointmentRegisterUiState(
-                perfilUsuario = estadoActual.perfilUsuario,
-                personasAsociadas = estadoActual.personasAsociadas
+
+                perfilUsuario =
+                    estadoActual.perfilUsuario,
+
+                personasAsociadas =
+                    estadoActual.personasAsociadas,
+
+                citaParaMi = true,
+
+                personaSeleccionadaId = null
             )
     }
 
@@ -160,11 +242,12 @@ class AppointmentRegisterViewModel : ViewModel() {
 
         _uiState.value =
             _uiState.value.copy(
+
                 tipoCita = tipoCita,
 
                 /*
                  * Si deja de ser cita con especialista,
-                 * limpiamos una especialidad que ya no aplica.
+                 * limpiamos la especialidad.
                  */
                 especialidad =
                     if (
@@ -262,12 +345,11 @@ class AppointmentRegisterViewModel : ViewModel() {
                 ModalidadCita.PRESENCIAL -> {
 
                     estadoActual.copy(
+
                         modalidad =
                             ModalidadCita.PRESENCIAL,
 
-                        /*
-                         * Un enlace virtual deja de aplicar.
-                         */
+                        // El enlace virtual deja de aplicar.
                         enlaceVirtual = ""
                     )
                 }
@@ -276,6 +358,7 @@ class AppointmentRegisterViewModel : ViewModel() {
                 ModalidadCita.VIRTUAL -> {
 
                     estadoActual.copy(
+
                         modalidad =
                             ModalidadCita.VIRTUAL,
 
@@ -284,6 +367,7 @@ class AppointmentRegisterViewModel : ViewModel() {
                          * institución física ni dirección.
                          */
                         institucion = "",
+
                         direccion = ""
                     )
                 }
@@ -337,7 +421,7 @@ class AppointmentRegisterViewModel : ViewModel() {
 
 
     // =========================================================
-    // MÉDICO
+    // MÉDICO / ESPECIALISTA
     // =========================================================
 
     fun onNombreMedicoChange(
@@ -431,63 +515,81 @@ class AppointmentRegisterViewModel : ViewModel() {
                             .randomUUID()
                             .toString(),
 
+
                 /*
-                 * null = cita del propio usuario.
-                 * id   = persona asociada.
+                 * "Yo"
+                 * → personaId = null
+                 *
+                 * Persona asociada
+                 * → personaId = id de la persona
                  */
                 personaId =
-                    if (
-                        estado.perfilUsuario?.tipoPerfil ==
-                        TipoPerfil.ACOMPANANTE
-                    ) {
+                    if (estado.citaParaMi) {
 
-                        estado.personaSeleccionadaId
+                        null
 
                     } else {
 
-                        null
+                        estado.personaSeleccionadaId
                     },
+
 
                 tipo =
                     estado.tipoCita,
 
+
                 especialidad =
                     estado.especialidad.trim(),
+
 
                 motivo =
                     estado.motivo.trim(),
 
+
                 fechaMillis =
                     estado.fechaMillis!!,
+
 
                 hora =
                     estado.hora!!,
 
+
                 minuto =
                     estado.minuto!!,
+
 
                 modalidad =
                     estado.modalidad,
 
+
                 institucion =
                     estado.institucion.trim(),
+
 
                 direccion =
                     estado.direccion.trim(),
 
+
                 enlaceVirtual =
                     estado.enlaceVirtual.trim(),
+
 
                 nombreMedico =
                     estado.nombreMedico.trim(),
 
+
                 notas =
                     estado.notas.trim(),
+
 
                 soporteUri =
                     estado.soporteUri
             )
 
+
+        // =====================================================
+        // ACTUALIZAR O REGISTRAR
+        // =====================================================
 
         if (estado.citaId != null) {
 
@@ -505,9 +607,15 @@ class AppointmentRegisterViewModel : ViewModel() {
 
         _uiState.value =
             _uiState.value.copy(
-                citaId = cita.id,
-                guardando = false,
-                guardadoExitoso = true
+
+                citaId =
+                    cita.id,
+
+                guardando =
+                    false,
+
+                guardadoExitoso =
+                    true
             )
     }
 

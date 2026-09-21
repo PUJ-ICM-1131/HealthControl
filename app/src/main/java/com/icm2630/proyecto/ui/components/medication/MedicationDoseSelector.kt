@@ -22,6 +22,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -53,6 +54,43 @@ fun MedicationDoseSelector(
     modifier: Modifier = Modifier
 ) {
 
+    // =========================================================
+    // SABER SI ESTÁ USANDO "OTRO"
+    // =========================================================
+
+    var otroSeleccionado by remember {
+
+        mutableStateOf(
+            quantityPerDose.isNotBlank() &&
+                    quantityPerDose != "1" &&
+                    quantityPerDose != "2"
+        )
+    }
+
+
+    /*
+     * Mantiene sincronizado el selector cuando el valor
+     * cambia desde el ViewModel, por ejemplo al editar.
+     */
+    LaunchedEffect(quantityPerDose) {
+
+        when {
+
+            quantityPerDose == "1" ||
+                    quantityPerDose == "2" -> {
+
+                otroSeleccionado = false
+            }
+
+
+            quantityPerDose.isNotBlank() -> {
+
+                otroSeleccionado = true
+            }
+        }
+    }
+
+
     Column(
         modifier = modifier.fillMaxWidth()
     ) {
@@ -64,15 +102,18 @@ fun MedicationDoseSelector(
             fontWeight = FontWeight.SemiBold
         )
 
+
         Spacer(
             modifier = Modifier.height(4.dp)
         )
+
 
         Text(
             text = getDoseDescription(selectedForm),
             color = TextSecondary,
             style = MaterialTheme.typography.bodyMedium
         )
+
 
         Spacer(
             modifier = Modifier.height(14.dp)
@@ -94,13 +135,14 @@ fun MedicationDoseSelector(
                 onValueChange = { newValue ->
 
                     /*
-                     * Dejamos ingresar únicamente números
+                     * Únicamente números
                      * y un separador decimal.
                      */
                     val valid =
                         newValue.matches(
                             Regex("""^\d*[.,]?\d*$""")
                         )
+
 
                     if (valid) {
                         onDoseChange(newValue)
@@ -177,37 +219,172 @@ fun MedicationDoseSelector(
             )
 
 
+            // =================================================
+            // 1 / 2 / OTRO
+            // =================================================
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement =
+                    Arrangement.spacedBy(8.dp)
             ) {
 
-                listOf(
-                    "½",
-                    "1",
-                    "2"
-                ).forEach { option ->
+                QuantityOption(
+                    value = "1",
+                    label = "pastilla",
 
-                    QuantityOption(
-                        value = option,
+                    selected =
+                        !otroSeleccionado &&
+                                quantityPerDose == "1",
 
-                        label =
-                            if (option == "1") {
-                                "pastilla"
-                            } else {
-                                "pastillas"
-                            },
+                    modifier =
+                        Modifier.weight(1f),
 
-                        selected =
-                            quantityPerDose == option,
+                    onClick = {
 
-                        modifier = Modifier.weight(1f),
+                        otroSeleccionado = false
 
-                        onClick = {
-                            onQuantityPerDoseChange(option)
+                        onQuantityPerDoseChange(
+                            "1"
+                        )
+                    }
+                )
+
+
+                QuantityOption(
+                    value = "2",
+                    label = "pastillas",
+
+                    selected =
+                        !otroSeleccionado &&
+                                quantityPerDose == "2",
+
+                    modifier =
+                        Modifier.weight(1f),
+
+                    onClick = {
+
+                        otroSeleccionado = false
+
+                        onQuantityPerDoseChange(
+                            "2"
+                        )
+                    }
+                )
+
+
+                QuantityOption(
+                    value = "Otro",
+                    label = "cantidad",
+
+                    selected =
+                        otroSeleccionado,
+
+                    modifier =
+                        Modifier.weight(1f),
+
+                    onClick = {
+
+                        otroSeleccionado = true
+
+
+                        /*
+                         * Si antes tenía seleccionada
+                         * la opción 1 o 2, limpiamos el
+                         * valor para que escriba otro.
+                         */
+                        if (
+                            quantityPerDose == "1" ||
+                            quantityPerDose == "2"
+                        ) {
+
+                            onQuantityPerDoseChange(
+                                ""
+                            )
                         }
-                    )
-                }
+                    }
+                )
+            }
+
+
+            // =================================================
+            // CANTIDAD PERSONALIZADA
+            // =================================================
+
+            if (otroSeleccionado) {
+
+                Spacer(
+                    modifier = Modifier.height(12.dp)
+                )
+
+
+                OutlinedTextField(
+                    value =
+                        if (
+                            quantityPerDose == "1" ||
+                            quantityPerDose == "2"
+                        ) {
+                            ""
+                        } else {
+                            quantityPerDose
+                        },
+
+                    onValueChange = { newValue ->
+
+                        /*
+                         * Permite cantidades como:
+                         * 3
+                         * 4
+                         * 1.5
+                         * 0.5
+                         */
+                        val valid =
+                            newValue.matches(
+                                Regex("""^\d*[.,]?\d*$""")
+                            )
+
+
+                        if (valid) {
+
+                            onQuantityPerDoseChange(
+                                newValue
+                            )
+                        }
+                    },
+
+                    modifier =
+                        Modifier.fillMaxWidth(),
+
+                    label = {
+                        Text(
+                            "Otra cantidad"
+                        )
+                    },
+
+                    placeholder = {
+                        Text(
+                            "Ej. 3"
+                        )
+                    },
+
+                    supportingText = {
+
+                        Text(
+                            "Ingresa cuántas pastillas debe tomar."
+                        )
+                    },
+
+                    singleLine = true,
+
+                    keyboardOptions =
+                        KeyboardOptions(
+                            keyboardType =
+                                KeyboardType.Decimal
+                        ),
+
+                    shape =
+                        RoundedCornerShape(16.dp)
+                )
             }
         }
 
@@ -237,7 +414,10 @@ fun MedicationDoseSelector(
             ) {
 
                 Text(
-                    text = getDoseHelpExample(selectedForm),
+                    text =
+                        getDoseHelpExample(
+                            selectedForm
+                        ),
 
                     modifier = Modifier.padding(
                         horizontal = 14.dp,
@@ -246,7 +426,8 @@ fun MedicationDoseSelector(
 
                     color = TextSecondary,
 
-                    style = MaterialTheme.typography.bodyMedium
+                    style =
+                        MaterialTheme.typography.bodyMedium
                 )
             }
         }
@@ -270,8 +451,11 @@ private fun MedicationUnitSelector(
         mutableStateOf(false)
     }
 
+
     val units =
-        getUnitsForForm(selectedForm)
+        getUnitsForForm(
+            selectedForm
+        )
 
 
     Box(
@@ -286,14 +470,17 @@ private fun MedicationUnitSelector(
                     expanded = true
                 },
 
-            shape = RoundedCornerShape(16.dp),
+            shape =
+                RoundedCornerShape(16.dp),
 
-            color = Color.White,
+            color =
+                Color.White,
 
-            border = BorderStroke(
-                width = 1.dp,
-                color = Blue500
-            )
+            border =
+                BorderStroke(
+                    width = 1.dp,
+                    color = Blue500
+                )
         ) {
 
             Row(
@@ -308,21 +495,25 @@ private fun MedicationUnitSelector(
             ) {
 
                 Column(
-                    modifier = Modifier.weight(1f)
+                    modifier =
+                        Modifier.weight(1f)
                 ) {
 
                     Text(
                         text = "Unidad",
                         color = TextSecondary,
-                        style = MaterialTheme.typography.labelSmall
+                        style =
+                            MaterialTheme.typography.labelSmall
                     )
 
 
                     Text(
                         text = selectedUnit,
                         color = Blue700,
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = FontWeight.SemiBold
+                        style =
+                            MaterialTheme.typography.bodyLarge,
+                        fontWeight =
+                            FontWeight.SemiBold
                     )
                 }
 
@@ -351,17 +542,21 @@ private fun MedicationUnitSelector(
             units.forEach { unit ->
 
                 DropdownMenuItem(
+
                     text = {
 
                         Text(
                             text = unit,
-                            style = MaterialTheme.typography.bodyLarge
+                            style =
+                                MaterialTheme.typography.bodyLarge
                         )
                     },
 
                     onClick = {
 
-                        onUnitSelected(unit)
+                        onUnitSelected(
+                            unit
+                        )
 
                         expanded = false
                     }
@@ -391,7 +586,8 @@ private fun QuantityOption(
                 onClick()
             },
 
-        shape = RoundedCornerShape(16.dp),
+        shape =
+            RoundedCornerShape(16.dp),
 
         color =
             if (selected) {
@@ -400,21 +596,23 @@ private fun QuantityOption(
                 Color.White
             },
 
-        border = BorderStroke(
-            width =
-                if (selected) {
-                    1.5.dp
-                } else {
-                    1.dp
-                },
+        border =
+            BorderStroke(
 
-            color =
-                if (selected) {
-                    Blue500
-                } else {
-                    Blue100
-                }
-        )
+                width =
+                    if (selected) {
+                        1.5.dp
+                    } else {
+                        1.dp
+                    },
+
+                color =
+                    if (selected) {
+                        Blue500
+                    } else {
+                        Blue100
+                    }
+            )
     ) {
 
         Column(
@@ -429,15 +627,18 @@ private fun QuantityOption(
             Text(
                 text = value,
                 color = Blue700,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
+                style =
+                    MaterialTheme.typography.titleMedium,
+                fontWeight =
+                    FontWeight.Bold
             )
 
 
             Text(
                 text = label,
                 color = TextSecondary,
-                style = MaterialTheme.typography.bodySmall
+                style =
+                    MaterialTheme.typography.bodySmall
             )
         }
     }
@@ -460,11 +661,13 @@ private fun getUnitsForForm(
                 "mg"
             )
 
+
         "Gotas" ->
             listOf(
                 "gotas",
                 "mL"
             )
+
 
         "Inyección" ->
             listOf(
@@ -472,6 +675,7 @@ private fun getUnitsForForm(
                 "mg",
                 "UI"
             )
+
 
         else ->
             listOf(
@@ -492,11 +696,14 @@ private fun getDoseDescription(
         "Jarabe" ->
             "Indica la cantidad de líquido que debe tomar."
 
+
         "Gotas" ->
             "Indica la cantidad de gotas de cada aplicación."
 
+
         "Inyección" ->
             "Indica la dosis correspondiente a cada aplicación."
+
 
         else ->
             "Indica la concentración del medicamento."
@@ -513,11 +720,14 @@ private fun getDoseExample(
         "Jarabe" ->
             "Ej. 10"
 
+
         "Gotas" ->
             "Ej. 5"
 
+
         "Inyección" ->
             "Ej. 2"
+
 
         else ->
             "Ej. 50"
@@ -534,11 +744,14 @@ private fun getDoseHelpExample(
         "Jarabe" ->
             "Ejemplo: 10 mL en cada toma."
 
+
         "Gotas" ->
             "Ejemplo: 5 gotas en cada aplicación."
 
+
         "Inyección" ->
             "Ejemplo: 2 mL en cada aplicación."
+
 
         else ->
             ""

@@ -14,6 +14,7 @@ sealed interface Routes : NavKey {
     data object Recordatorios : Routes
     data object Registrar : Routes
     data object Historial : Routes
+    data object Mapa : Routes
     data object Perfil : Routes
 
     /**
@@ -28,6 +29,4 @@ sealed interface Routes : NavKey {
     // Detalle de un pendiente (HU-21): ver, editar o eliminar.
     data class DetalleCita(val citaId: String) : Routes
     data class DetalleMedicamento(val medicamentoId: String) : Routes
-
-    data object Mapa : Routes
 }

@@ -9,13 +9,15 @@ object PersonaRepository {
         Persona(
             id = "persona-1",
             nombre = "Carlos",
-            apellido = "Rodríguez"
+            apellido = "Rodríguez",
+            telefono = "3001234567"
         ),
 
         Persona(
             id = "persona-2",
             nombre = "María",
-            apellido = "Rodríguez"
+            apellido = "Rodríguez",
+            telefono = "3019876543"
         )
     )
 

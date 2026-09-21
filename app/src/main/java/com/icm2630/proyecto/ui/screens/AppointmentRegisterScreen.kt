@@ -192,36 +192,55 @@ fun AppointmentRegisterScreen(
 
                 state.perfilUsuario
                     ?.nombreCompleto
-                    ?.ifBlank {
-                        "Mi perfil"
-                    }
-                    ?: "Mi perfil"
+                    ?.ifBlank { "Yo" }
+                    ?: "Yo"
             }
+
 
             TipoPerfil.ACOMPANANTE -> {
 
-                state.personaSeleccionada
-                    ?.nombreCompleto
-                    ?: "Selecciona una persona"
+                if (state.citaParaMi) {
+
+                    state.perfilUsuario
+                        ?.nombreCompleto
+                        ?.ifBlank { "Yo" }
+                        ?: "Yo"
+
+                } else {
+
+                    state.personaSeleccionada
+                        ?.nombreCompleto
+                        ?: "Selecciona una persona"
+                }
             }
 
+
             null -> {
-                "Mi perfil"
+                "Yo"
             }
         }
 
 
     val tipoPersona =
-        if (
+        when {
+
             state.perfilUsuario?.tipoPerfil ==
-            TipoPerfil.ACOMPANANTE
-        ) {
+                    TipoPerfil.TITULAR -> {
 
-            "Persona asociada"
+                "Mi perfil"
+            }
 
-        } else {
 
-            "Perfil personal"
+            state.citaParaMi -> {
+
+                "Mi perfil"
+            }
+
+
+            else -> {
+
+                "Persona asociada"
+            }
         }
 
 
@@ -508,6 +527,42 @@ fun AppointmentRegisterScreen(
                     shape =
                         RoundedCornerShape(16.dp)
                 )
+
+                // =================================================
+// NOMBRE DEL MÉDICO O ESPECIALISTA
+// =================================================
+
+                Spacer(
+                    modifier = Modifier.height(16.dp)
+                )
+
+
+                OutlinedTextField(
+                    value = state.nombreMedico,
+
+                    onValueChange =
+                        viewModel::onNombreMedicoChange,
+
+                    modifier =
+                        Modifier.fillMaxWidth(),
+
+                    label = {
+                        Text(
+                            "Nombre del médico o especialista"
+                        )
+                    },
+
+                    placeholder = {
+                        Text(
+                            "Ej. Dra. Laura Gómez"
+                        )
+                    },
+
+                    singleLine = true,
+
+                    shape =
+                        RoundedCornerShape(16.dp)
+                )
             }
 
 
@@ -619,40 +674,12 @@ fun AppointmentRegisterScreen(
                 title = "Información adicional",
                 subtitle = "Agrega información útil para recordar la cita"
             ) {
+                // =================================================
+                // NOTAS
+                // =================================================
 
                 OutlinedTextField(
-                    value =
-                        state.nombreMedico,
-
-                    onValueChange =
-                        viewModel::onNombreMedicoChange,
-
-                    modifier =
-                        Modifier.fillMaxWidth(),
-
-                    label = {
-                        Text("Médico o profesional")
-                    },
-
-                    placeholder = {
-                        Text("Ej. Dra. Laura Gómez")
-                    },
-
-                    singleLine = true,
-
-                    shape =
-                        RoundedCornerShape(16.dp)
-                )
-
-
-                Spacer(
-                    modifier = Modifier.height(14.dp)
-                )
-
-
-                OutlinedTextField(
-                    value =
-                        state.notas,
+                    value = state.notas,
 
                     onValueChange =
                         viewModel::onNotasChange,
@@ -681,13 +708,15 @@ fun AppointmentRegisterScreen(
                 )
 
 
+                // =================================================
+                // SOPORTE
+                // =================================================
+
                 Text(
                     text = "Soporte",
                     color = Blue700,
-                    style =
-                        MaterialTheme.typography.bodyLarge,
-                    fontWeight =
-                        FontWeight.SemiBold
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.SemiBold
                 )
 
 
@@ -773,13 +802,24 @@ fun AppointmentRegisterScreen(
     if (showPersonDialog) {
 
         AppointmentPersonSelectorDialog(
+
             personas =
                 state.personasAsociadas,
+
+            citaParaMi =
+                state.citaParaMi,
 
             selectedPersonId =
                 state.personaSeleccionadaId,
 
             onDismiss = {
+                showPersonDialog = false
+            },
+
+            onSelectSelf = {
+
+                viewModel.seleccionarYo()
+
                 showPersonDialog = false
             },
 
@@ -829,8 +869,10 @@ fun AppointmentRegisterScreen(
 @Composable
 private fun AppointmentPersonSelectorDialog(
     personas: List<Persona>,
+    citaParaMi: Boolean,
     selectedPersonId: String?,
     onDismiss: () -> Unit,
+    onSelectSelf: () -> Unit,
     onPersonSelected: (Persona) -> Unit
 ) {
 
@@ -851,16 +893,61 @@ private fun AppointmentPersonSelectorDialog(
 
             Column {
 
-                if (personas.isEmpty()) {
+                // =============================================
+                // YO
+                // =============================================
 
-                    Text(
-                        text =
-                            "No tienes personas asociadas disponibles.",
-                        style =
-                            MaterialTheme.typography.bodyMedium
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            onSelectSelf()
+                        }
+                        .padding(
+                            vertical = 10.dp
+                        ),
+
+                    verticalAlignment =
+                        Alignment.CenterVertically
+                ) {
+
+                    RadioButton(
+                        selected = citaParaMi,
+
+                        onClick = {
+                            onSelectSelf()
+                        }
                     )
 
-                } else {
+
+                    Column(
+                        modifier =
+                            Modifier.weight(1f)
+                    ) {
+
+                        Text(
+                            text = "Yo",
+                            fontWeight =
+                                FontWeight.SemiBold
+                        )
+
+
+                        Text(
+                            text = "Registrar la cita para mí",
+
+                            style =
+                                MaterialTheme
+                                    .typography
+                                    .bodySmall
+                        )
+                    }
+                }
+
+
+                if (personas.isNotEmpty()) {
+
+                    HorizontalDivider()
+
 
                     personas.forEachIndexed { index, persona ->
 
@@ -868,6 +955,7 @@ private fun AppointmentPersonSelectorDialog(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable {
+
                                     onPersonSelected(
                                         persona
                                     )
@@ -882,10 +970,12 @@ private fun AppointmentPersonSelectorDialog(
 
                             RadioButton(
                                 selected =
-                                    persona.id ==
+                                    !citaParaMi &&
+                                            persona.id ==
                                             selectedPersonId,
 
                                 onClick = {
+
                                     onPersonSelected(
                                         persona
                                     )
@@ -912,13 +1002,18 @@ private fun AppointmentPersonSelectorDialog(
                                         "Persona asociada",
 
                                     style =
-                                        MaterialTheme.typography.bodySmall
+                                        MaterialTheme
+                                            .typography
+                                            .bodySmall
                                 )
                             }
                         }
 
 
-                        if (index < personas.lastIndex) {
+                        if (
+                            index <
+                            personas.lastIndex
+                        ) {
 
                             HorizontalDivider()
                         }
@@ -935,7 +1030,9 @@ private fun AppointmentPersonSelectorDialog(
                 onClick = onDismiss
             ) {
 
-                Text("Cancelar")
+                Text(
+                    text = "Cancelar"
+                )
             }
         }
     )

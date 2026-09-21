@@ -13,7 +13,6 @@ data class AppointmentRegisterUiState(
     // MODO EDICIÓN
     // =========================================================
 
-
     val citaId: String? = null,
 
 
@@ -24,6 +23,12 @@ data class AppointmentRegisterUiState(
     val perfilUsuario: PerfilUsuario? = null,
 
     val personasAsociadas: List<Persona> = emptyList(),
+
+    /**
+     * true  = la cita es para el propio usuario ("Yo").
+     * false = la cita es para una persona asociada.
+     */
+    val citaParaMi: Boolean = true,
 
     /**
      * null = cita del propio usuario.
@@ -70,10 +75,18 @@ data class AppointmentRegisterUiState(
 
 
     // =========================================================
-    // INFORMACIÓN ADICIONAL
+    // INFORMACIÓN DEL MÉDICO
     // =========================================================
 
+    /**
+     * Nombre del médico, especialista u odontólogo.
+     */
     val nombreMedico: String = "",
+
+
+    // =========================================================
+    // INFORMACIÓN ADICIONAL
+    // =========================================================
 
     val notas: String = "",
 
@@ -91,6 +104,7 @@ data class AppointmentRegisterUiState(
     val guardadoExitoso: Boolean = false,
 
     val mensajeError: String? = null
+
 ) {
 
     // =========================================================
@@ -98,8 +112,15 @@ data class AppointmentRegisterUiState(
     // =========================================================
 
     val personaSeleccionada: Persona?
-        get() = personasAsociadas.find { persona ->
-            persona.id == personaSeleccionadaId
+        get() {
+
+            if (citaParaMi) {
+                return null
+            }
+
+            return personasAsociadas.find { persona ->
+                persona.id == personaSeleccionadaId
+            }
         }
 
 
@@ -114,13 +135,29 @@ data class AppointmentRegisterUiState(
                 perfilUsuario?.tipoPerfil
             ) {
 
+                // El titular siempre puede registrar
+                // una cita para sí mismo.
                 TipoPerfil.TITULAR -> {
                     true
                 }
 
+
+                // El acompañante puede elegir:
+                //
+                // 1. "Yo"
+                // 2. Una persona asociada
                 TipoPerfil.ACOMPANANTE -> {
-                    personaSeleccionadaId != null
+
+                    if (citaParaMi) {
+
+                        true
+
+                    } else {
+
+                        personaSeleccionadaId != null
+                    }
                 }
+
 
                 null -> {
                     false
@@ -176,10 +213,11 @@ data class AppointmentRegisterUiState(
                             direccion.isNotBlank()
                 }
 
+
                 ModalidadCita.VIRTUAL -> {
 
                     /*
-                     * El enlace puede agregarse después
+                     * El enlace puede agregarse posteriormente
                      * cuando la institución lo envíe.
                      */
                     true

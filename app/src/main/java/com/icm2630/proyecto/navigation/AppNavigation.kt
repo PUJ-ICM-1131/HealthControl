@@ -192,7 +192,9 @@ fun AppNavigation() {
 
                 MonitoreoScreen(
 
-                    perfil = SesionRepository.perfil ?: PerfilUsuario(),
+                    perfil =
+                        SesionRepository.perfil
+                            ?: PerfilUsuario(),
 
                     onNavigate = { route ->
 
@@ -202,25 +204,36 @@ fun AppNavigation() {
                         )
                     },
 
-
                     onCerrarSesion = {
 
-                        SesionRepository
-                            .cerrarSesion()
-
+                        SesionRepository.cerrarSesion()
 
                         backStack.clear()
 
                         backStack.add(
                             Routes.Login
                         )
-                    },
+                    }
+                )
+            }
 
+            // =================================================
+            // MAPA
+            // =================================================
 
-                    onOpenMap = {
+            entry<Routes.Mapa> {
 
-                        backStack.add(
-                            Routes.Mapa
+                MapScreen(
+
+                    perfil =
+                        SesionRepository.perfil
+                            ?: PerfilUsuario(),
+
+                    onNavigate = { route ->
+
+                        navegarATab(
+                            backStack = backStack,
+                            destino = route
                         )
                     }
                 )
@@ -421,30 +434,6 @@ fun AppNavigation() {
 
                             backStack.removeAt(
                                 backStack.lastIndex
-                            )
-                        }
-                    }
-                )
-            }
-
-            entry<Routes.Mapa> {
-
-                MapScreen(
-
-                    onBack = {
-
-                        if (backStack.size > 1) {
-
-                            backStack.removeAt(
-                                backStack.lastIndex
-                            )
-
-                        } else {
-
-                            backStack.clear()
-
-                            backStack.add(
-                                Routes.Monitoreo
                             )
                         }
                     }

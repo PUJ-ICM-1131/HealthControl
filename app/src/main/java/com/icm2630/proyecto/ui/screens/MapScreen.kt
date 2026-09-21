@@ -1,7 +1,11 @@
 package com.icm2630.proyecto.ui.screens
 
-import androidx.compose.foundation.clickable
+import android.content.Intent
+import android.net.Uri
+import android.widget.Toast
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -9,86 +13,176 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.ArrowBack
-import androidx.compose.material.icons.outlined.Refresh
-import androidx.compose.material3.AlertDialog
+import androidx.compose.material.icons.outlined.Call
+import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.RadioButton
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.icm2630.proyecto.data.model.Persona
-import com.icm2630.proyecto.ui.components.map.MapPersonCard
-import com.icm2630.proyecto.ui.components.map.MapPreviewCard
-import com.icm2630.proyecto.ui.components.map.MapQuickActions
-import com.icm2630.proyecto.ui.components.map.SafetyStatusCard
+import com.icm2630.proyecto.data.model.PerfilUsuario
+import com.icm2630.proyecto.data.model.TipoPerfil
+import com.icm2630.proyecto.data.repository.VinculacionSimulator
+import com.icm2630.proyecto.navigation.Routes
+import com.icm2630.proyecto.ui.components.HealthBottomNavigation
 import com.icm2630.proyecto.ui.theme.Blue50
+import com.icm2630.proyecto.ui.theme.Blue100
 import com.icm2630.proyecto.ui.theme.Blue700
-import com.icm2630.proyecto.ui.viewmodel.MapViewModel
+import com.icm2630.proyecto.ui.theme.TextSecondary
 
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MapScreen(
-    onBack: () -> Unit,
-    viewModel: MapViewModel = viewModel()
+    perfil: PerfilUsuario = PerfilUsuario(),
+    onNavigate: (Routes) -> Unit = {}
 ) {
 
-    val state by viewModel.uiState.collectAsState()
+    val context = LocalContext.current
 
-    val snackbarHostState = remember {
-        SnackbarHostState()
-    }
+    val esAcompanante =
+        perfil.tipoPerfil == TipoPerfil.ACOMPANANTE
 
-    var showPersonDialog by remember {
-        mutableStateOf(false)
-    }
+    val personaVinculada =
+        perfil.personaVinculada
+
+    val tienePersonaVinculada =
+        esAcompanante &&
+                personaVinculada != null
 
 
     // =========================================================
-    // MENSAJES
+    // PERSONA QUE SE ESTÁ VISUALIZANDO
     // =========================================================
 
-    LaunchedEffect(
-        state.mensajeError
+    var viendoMiUbicacion by rememberSaveable(
+        perfil.tipoPerfil,
+        personaVinculada?.codigo
     ) {
+        mutableStateOf(
+            !tienePersonaVinculada
+        )
+    }
 
-        state.mensajeError?.let { mensaje ->
 
-            snackbarHostState.showSnackbar(
-                message = mensaje
+    // =========================================================
+    // HOME SEGÚN EL ROL
+    // =========================================================
+
+    val rutaInicio =
+        if (esAcompanante) {
+
+            Routes.Monitoreo
+
+        } else {
+
+            Routes.Home
+        }
+
+
+    // =========================================================
+    // NOMBRE DE LA PERSONA SELECCIONADA
+    // =========================================================
+
+    val nombrePersona =
+        if (viendoMiUbicacion) {
+
+            perfil.nombreCompleto
+                .ifBlank {
+                    "Mi perfil"
+                }
+
+        } else {
+
+            personaVinculada
+                ?.nombre
+                ?: "Persona vinculada"
+        }
+
+
+    // =========================================================
+    // TELÉFONO
+    //
+    // SOLO SE OBTIENE CUANDO ESTAMOS VIENDO A LA PERSONA
+    // VINCULADA. SI EL USUARIO SELECCIONA "YO", NO HAY
+    // BOTÓN PARA LLAMARSE A SÍ MISMO.
+    // =========================================================
+
+    val telefonoPersona =
+        if (
+            esAcompanante &&
+            !viendoMiUbicacion
+        ) {
+
+            val codigo =
+                personaVinculada
+                    ?.codigo
+
+            if (codigo.isNullOrBlank()) {
+
+                ""
+
+            } else {
+
+                VinculacionSimulator
+                    .telefonoParaCodigo(
+                        codigo
+                    )
+            }
+
+        } else {
+
+            ""
+        }
+
+
+    // =========================================================
+    // LLAMAR
+    // =========================================================
+
+    val llamarPersona: () -> Unit = {
+
+        if (telefonoPersona.isBlank()) {
+
+            Toast.makeText(
+                context,
+                "No hay un número de celular registrado.",
+                Toast.LENGTH_SHORT
+            ).show()
+
+        } else {
+
+            val intent =
+                Intent(
+                    Intent.ACTION_DIAL
+                ).apply {
+
+                    data =
+                        Uri.parse(
+                            "tel:${Uri.encode(telefonoPersona)}"
+                        )
+                }
+
+            context.startActivity(
+                intent
             )
-
-            viewModel.limpiarError()
         }
     }
 
@@ -99,98 +193,17 @@ fun MapScreen(
 
     Scaffold(
 
-        containerColor = Blue50,
+        bottomBar = {
 
-
-        // =====================================================
-        // BARRA SUPERIOR
-        // =====================================================
-
-        topBar = {
-
-            TopAppBar(
-
-                navigationIcon = {
-
-                    IconButton(
-                        onClick = onBack
-                    ) {
-
-                        Icon(
-                            imageVector = Icons.Outlined.ArrowBack,
-                            contentDescription = "Volver",
-                            tint = Blue700
-                        )
-                    }
-                },
-
-
-                title = {
-
-                    Column {
-
-                        Text(
-                            text = "Ubicación y seguridad",
-                            color = Blue700,
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold
-                        )
-
-
-                        Text(
-                            text = "Seguimiento del familiar",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                    }
-                },
-
-
-                actions = {
-
-                    Surface(
-                        modifier = Modifier
-                            .padding(end = 12.dp)
-                            .clickable {
-                                // SOS mock para esta primera entrega
-                            },
-
-                        shape = RoundedCornerShape(12.dp),
-
-                        color = Color(0xFFFFE8E8)
-                    ) {
-
-                        Text(
-                            text = "SOS",
-
-                            modifier = Modifier.padding(
-                                horizontal = 14.dp,
-                                vertical = 8.dp
-                            ),
-
-                            color = Color(0xFFD62828),
-
-                            style = MaterialTheme.typography.labelLarge,
-
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                },
-
-
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Blue50
-                )
+            HealthBottomNavigation(
+                currentRoute = Routes.Mapa,
+                onNavigate = onNavigate,
+                rutaInicio = rutaInicio
             )
         },
 
-
-        snackbarHost = {
-
-            SnackbarHost(
-                hostState = snackbarHostState
-            )
-        }
+        containerColor =
+            Color(0xFFF8FAFF)
 
     ) { paddingValues ->
 
@@ -199,152 +212,339 @@ fun MapScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .verticalScroll(
-                    rememberScrollState()
-                )
                 .padding(
-                    horizontal = 16.dp
+                    horizontal = 20.dp,
+                    vertical = 24.dp
                 ),
 
             verticalArrangement =
-                Arrangement.spacedBy(14.dp)
+                Arrangement.spacedBy(8.dp)
         ) {
 
 
-            Spacer(
-                modifier = Modifier.height(6.dp)
+            // =================================================
+            // TÍTULO
+            // =================================================
+
+            Text(
+                text = "Mapa",
+
+                style =
+                    MaterialTheme
+                        .typography
+                        .headlineMedium,
+
+                fontWeight =
+                    FontWeight.Bold,
+
+                color =
+                    Blue700
             )
 
 
             // =================================================
-            // PERSONA MONITOREADA
+            // SELECTOR
+            //
+            // SOLO SE MUESTRA SI ES ACOMPAÑANTE Y TIENE
+            // UNA PERSONA VINCULADA.
             // =================================================
 
-            MapPersonCard(
+            if (tienePersonaVinculada) {
 
-                personName =
-                    state.nombrePersona,
-
-                canChangePerson =
-                    state.puedeCambiarPersona,
-
-                onChangePerson = {
-                    showPersonDialog = true
-                }
-            )
-
-
-            // =================================================
-            // UBICACIÓN DISPONIBLE
-            // =================================================
-
-            state.ubicacion?.let { ubicacion ->
-
-
-                // =============================================
-                // MAPA
-                // =============================================
-
-                MapPreviewCard(
-
-                    personName =
-                        state.nombrePersona,
-
-                    address =
-                        ubicacion.direccion,
-
-                    lastUpdate =
-                        "Actualizado ${
-                            formatLastUpdate(
-                                ubicacion.ultimaActualizacionMillis
-                            )
-                        }"
+                Spacer(
+                    modifier =
+                        Modifier.height(8.dp)
                 )
 
 
-                // =============================================
-                // ESTADO DE SEGURIDAD
-                // =============================================
+                Text(
+                    text =
+                        "¿De quién quieres ver la ubicación?",
 
-                SafetyStatusCard()
+                    style =
+                        MaterialTheme
+                            .typography
+                            .titleSmall,
+
+                    fontWeight =
+                        FontWeight.SemiBold,
+
+                    color =
+                        TextSecondary
+                )
 
 
-                // =============================================
-                // ACCIONES RÁPIDAS
-                // =============================================
+                Spacer(
+                    modifier =
+                        Modifier.height(4.dp)
+                )
 
-                MapQuickActions(
 
-                    onCall = {
-                        // Mock por ahora
-                        // Después puede abrir el marcador telefónico
-                    },
+                Row(
+                    modifier =
+                        Modifier.fillMaxWidth(),
 
-                    onDirections = {
-                        // Mock por ahora
-                        // Después puede abrir Google Maps
-                    },
+                    horizontalArrangement =
+                        Arrangement.spacedBy(10.dp)
+                ) {
 
-                    onSafeZone = {
-                        // Mock por ahora
-                        // Después permitirá configurar la zona segura
-                    },
 
-                    onHistory = {
-                        // Mock por ahora
-                        // Después mostrará historial de ubicaciones
+                    // =========================================
+                    // YO
+                    // =========================================
+
+                    if (viendoMiUbicacion) {
+
+                        Button(
+                            onClick = {
+                                viendoMiUbicacion = true
+                            },
+
+                            modifier =
+                                Modifier.weight(1f),
+
+                            shape =
+                                RoundedCornerShape(14.dp),
+
+                            colors =
+                                ButtonDefaults.buttonColors(
+                                    containerColor =
+                                        Blue700
+                                )
+                        ) {
+
+                            Text(
+                                text = "Yo",
+
+                                fontWeight =
+                                    FontWeight.SemiBold
+                            )
+                        }
+
+                    } else {
+
+                        OutlinedButton(
+                            onClick = {
+                                viendoMiUbicacion = true
+                            },
+
+                            modifier =
+                                Modifier.weight(1f),
+
+                            shape =
+                                RoundedCornerShape(14.dp)
+                        ) {
+
+                            Text(
+                                text = "Yo",
+
+                                color =
+                                    Blue700,
+
+                                fontWeight =
+                                    FontWeight.SemiBold
+                            )
+                        }
                     }
+
+
+                    // =========================================
+                    // PERSONA VINCULADA
+                    // =========================================
+
+                    if (!viendoMiUbicacion) {
+
+                        Button(
+                            onClick = {
+                                viendoMiUbicacion = false
+                            },
+
+                            modifier =
+                                Modifier.weight(1f),
+
+                            shape =
+                                RoundedCornerShape(14.dp),
+
+                            colors =
+                                ButtonDefaults.buttonColors(
+                                    containerColor =
+                                        Blue700
+                                )
+                        ) {
+
+                            Text(
+                                text =
+                                    personaVinculada
+                                        ?.nombre
+                                        ?: "Persona",
+
+                                maxLines = 1,
+
+                                fontWeight =
+                                    FontWeight.SemiBold
+                            )
+                        }
+
+                    } else {
+
+                        OutlinedButton(
+                            onClick = {
+                                viendoMiUbicacion = false
+                            },
+
+                            modifier =
+                                Modifier.weight(1f),
+
+                            shape =
+                                RoundedCornerShape(14.dp)
+                        ) {
+
+                            Text(
+                                text =
+                                    personaVinculada
+                                        ?.nombre
+                                        ?: "Persona",
+
+                                maxLines = 1,
+
+                                color =
+                                    Blue700,
+
+                                fontWeight =
+                                    FontWeight.SemiBold
+                            )
+                        }
+                    }
+                }
+
+
+                Spacer(
+                    modifier =
+                        Modifier.height(12.dp)
                 )
             }
 
 
             // =================================================
-            // UBICACIÓN NO DISPONIBLE
+            // TEXTO DE UBICACIÓN
             // =================================================
 
-            if (
-                state.ubicacion == null &&
-                !state.cargando
+            Text(
+                text =
+                    if (viendoMiUbicacion) {
+
+                        "Mi ubicación"
+
+                    } else {
+
+                        "Ubicación de $nombrePersona"
+                    },
+
+                style =
+                    MaterialTheme
+                        .typography
+                        .bodyLarge,
+
+                color =
+                    TextSecondary
+            )
+
+
+            Spacer(
+                modifier =
+                    Modifier.height(12.dp)
+            )
+
+
+            // =================================================
+            // ESPACIO PARA EL FUTURO MAPA
+            // =================================================
+
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(300.dp),
+
+                shape =
+                    RoundedCornerShape(24.dp),
+
+                color =
+                    Blue50,
+
+                border =
+                    BorderStroke(
+                        width = 1.dp,
+                        color = Blue100
+                    ),
+
+                shadowElevation =
+                    2.dp
             ) {
 
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
+                Box(
+                    modifier =
+                        Modifier.fillMaxSize(),
 
-                    shape = RoundedCornerShape(22.dp),
-
-                    color = Color.White,
-
-                    shadowElevation = 2.dp
+                    contentAlignment =
+                        Alignment.Center
                 ) {
 
                     Column(
-                        modifier = Modifier.padding(20.dp)
+                        horizontalAlignment =
+                            Alignment.CenterHorizontally,
+
+                        verticalArrangement =
+                            Arrangement.spacedBy(10.dp)
                     ) {
 
-                        Text(
-                            text = "Ubicación no disponible",
+                        Icon(
+                            imageVector =
+                                Icons.Outlined.LocationOn,
 
-                            color = Blue700,
+                            contentDescription =
+                                null,
 
-                            style = MaterialTheme.typography.titleMedium,
-
-                            fontWeight = FontWeight.Bold
-                        )
-
-
-                        Spacer(
-                            modifier = Modifier.height(5.dp)
+                            tint =
+                                Blue700
                         )
 
 
                         Text(
-                            text = "Todavía no existe información de ubicación para esta persona.",
-
-                            color =
-                                MaterialTheme.colorScheme.onSurfaceVariant,
+                            text =
+                                "Espacio para el mapa",
 
                             style =
-                                MaterialTheme.typography.bodyMedium
+                                MaterialTheme
+                                    .typography
+                                    .titleMedium,
+
+                            fontWeight =
+                                FontWeight.SemiBold,
+
+                            color =
+                                Blue700
+                        )
+
+
+                        Text(
+                            text =
+                                "La integración con el servicio de mapas se realizará posteriormente.",
+
+                            modifier =
+                                Modifier.padding(
+                                    horizontal = 28.dp
+                                ),
+
+                            style =
+                                MaterialTheme
+                                    .typography
+                                    .bodyMedium,
+
+                            color =
+                                TextSecondary,
+
+                            textAlign =
+                                TextAlign.Center
                         )
                     }
                 }
@@ -352,52 +552,42 @@ fun MapScreen(
 
 
             // =================================================
-            // ACTUALIZAR UBICACIÓN
+            // LLAMAR
+            //
+            // SOLO APARECE CUANDO EL ACOMPAÑANTE ESTÁ
+            // VISUALIZANDO A LA PERSONA VINCULADA.
             // =================================================
 
-            Button(
+            if (telefonoPersona.isNotBlank()) {
 
-                onClick = {
-                    viewModel.actualizarUbicacion()
-                },
-
-                enabled =
-                    !state.cargando,
-
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp),
-
-                shape =
-                    RoundedCornerShape(18.dp),
-
-                colors =
-                    ButtonDefaults.buttonColors(
-                        containerColor = Blue700
-                    )
-            ) {
+                Spacer(
+                    modifier =
+                        Modifier.height(16.dp)
+                )
 
 
-                if (state.cargando) {
+                Button(
+                    onClick =
+                        llamarPersona,
 
-                    CircularProgressIndicator(
-                        modifier =
-                            Modifier.padding(
-                                end = 10.dp
-                            ),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .height(56.dp),
 
-                        strokeWidth =
-                            2.dp,
+                    shape =
+                        RoundedCornerShape(16.dp),
 
-                        color =
-                            Color.White
-                    )
-
-                } else {
+                    colors =
+                        ButtonDefaults.buttonColors(
+                            containerColor =
+                                Blue700
+                        )
+                ) {
 
                     Icon(
                         imageVector =
-                            Icons.Outlined.Refresh,
+                            Icons.Outlined.Call,
 
                         contentDescription =
                             null
@@ -406,283 +596,38 @@ fun MapScreen(
 
                     Spacer(
                         modifier =
-                            Modifier.padding(
-                                horizontal = 4.dp
-                            )
+                            Modifier.width(8.dp)
+                    )
+
+
+                    Text(
+                        text =
+                            "Llamar a $nombrePersona",
+
+                        fontWeight =
+                            FontWeight.Bold
                     )
                 }
 
 
                 Text(
                     text =
-                        if (state.cargando) {
-                            "Actualizando..."
-                        } else {
-                            "Actualizar ubicación"
-                        },
+                        telefonoPersona,
+
+                    modifier =
+                        Modifier.fillMaxWidth(),
 
                     style =
-                        MaterialTheme.typography.bodyLarge,
+                        MaterialTheme
+                            .typography
+                            .bodyMedium,
 
-                    fontWeight =
-                        FontWeight.Bold
+                    color =
+                        TextSecondary,
+
+                    textAlign =
+                        TextAlign.Center
                 )
-            }
-
-
-            Spacer(
-                modifier =
-                    Modifier.height(22.dp)
-            )
-        }
-    }
-
-
-    // =========================================================
-    // DIÁLOGO PARA CAMBIAR PERSONA
-    // =========================================================
-
-    if (showPersonDialog) {
-
-        MapPersonSelectorDialog(
-
-            personas =
-                state.personasAsociadas,
-
-            selectedPersonId =
-                state.personaSeleccionadaId,
-
-            onDismiss = {
-                showPersonDialog = false
-            },
-
-            onPersonSelected = { persona ->
-
-                viewModel.seleccionarPersona(
-                    persona.id
-                )
-
-                showPersonDialog = false
-            }
-        )
-    }
-}
-
-
-// =============================================================
-// SELECTOR DE PERSONA
-// =============================================================
-
-@Composable
-private fun MapPersonSelectorDialog(
-    personas: List<Persona>,
-    selectedPersonId: String?,
-    onDismiss: () -> Unit,
-    onPersonSelected: (Persona) -> Unit
-) {
-
-    AlertDialog(
-
-        onDismissRequest =
-            onDismiss,
-
-
-        title = {
-
-            Text(
-                text =
-                    "¿De quién deseas ver la ubicación?",
-
-                color =
-                    Blue700,
-
-                fontWeight =
-                    FontWeight.Bold
-            )
-        },
-
-
-        text = {
-
-            Column {
-
-                if (personas.isEmpty()) {
-
-                    Text(
-                        text =
-                            "No tienes personas asociadas disponibles.",
-
-                        style =
-                            MaterialTheme.typography.bodyMedium
-                    )
-
-                } else {
-
-                    personas.forEachIndexed { index, persona ->
-
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-
-                                    onPersonSelected(
-                                        persona
-                                    )
-                                }
-                                .padding(
-                                    vertical = 10.dp
-                                ),
-
-                            verticalAlignment =
-                                Alignment.CenterVertically
-                        ) {
-
-
-                            RadioButton(
-                                selected =
-                                    persona.id ==
-                                            selectedPersonId,
-
-                                onClick = {
-
-                                    onPersonSelected(
-                                        persona
-                                    )
-                                }
-                            )
-
-
-                            Column(
-                                modifier =
-                                    Modifier.weight(1f)
-                            ) {
-
-                                Text(
-                                    text =
-                                        persona.nombreCompleto,
-
-                                    color =
-                                        Blue700,
-
-                                    fontWeight =
-                                        FontWeight.SemiBold
-                                )
-
-
-                                Text(
-                                    text =
-                                        "Persona asociada",
-
-                                    color =
-                                        MaterialTheme
-                                            .colorScheme
-                                            .onSurfaceVariant,
-
-                                    style =
-                                        MaterialTheme
-                                            .typography
-                                            .bodySmall
-                                )
-                            }
-                        }
-
-
-                        if (
-                            index <
-                            personas.lastIndex
-                        ) {
-
-                            HorizontalDivider()
-                        }
-                    }
-                }
-            }
-        },
-
-
-        confirmButton = {},
-
-
-        dismissButton = {
-
-            TextButton(
-                onClick =
-                    onDismiss
-            ) {
-
-                Text(
-                    text = "Cancelar"
-                )
-            }
-        }
-    )
-}
-
-
-// =============================================================
-// FORMATEAR ÚLTIMA ACTUALIZACIÓN
-// =============================================================
-
-private fun formatLastUpdate(
-    millis: Long
-): String {
-
-    val diferencia =
-        System.currentTimeMillis() -
-                millis
-
-
-    val minutos =
-        diferencia /
-                (60 * 1000)
-
-
-    val horas =
-        minutos / 60
-
-
-    val dias =
-        horas / 24
-
-
-    return when {
-
-        diferencia < 0 -> {
-            "recientemente"
-        }
-
-
-        minutos < 1 -> {
-            "hace unos segundos"
-        }
-
-
-        minutos < 60 -> {
-
-            if (minutos == 1L) {
-                "hace 1 minuto"
-            } else {
-                "hace $minutos minutos"
-            }
-        }
-
-
-        horas < 24 -> {
-
-            if (horas == 1L) {
-                "hace 1 hora"
-            } else {
-                "hace $horas horas"
-            }
-        }
-
-
-        else -> {
-
-            if (dias == 1L) {
-                "hace 1 día"
-            } else {
-                "hace $dias días"
             }
         }
     }

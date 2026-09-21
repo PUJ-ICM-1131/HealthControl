@@ -67,11 +67,7 @@ fun MapScreen(
         esAcompanante &&
                 personaVinculada != null
 
-
-    // =========================================================
     // PERSONA QUE SE ESTÁ VISUALIZANDO
-    // =========================================================
-
     var viendoMiUbicacion by rememberSaveable(
         perfil.tipoPerfil,
         personaVinculada?.codigo
@@ -81,11 +77,7 @@ fun MapScreen(
         )
     }
 
-
-    // =========================================================
     // HOME SEGÚN EL ROL
-    // =========================================================
-
     val rutaInicio =
         if (esAcompanante) {
 
@@ -96,11 +88,7 @@ fun MapScreen(
             Routes.Home
         }
 
-
-    // =========================================================
     // NOMBRE DE LA PERSONA SELECCIONADA
-    // =========================================================
-
     val nombrePersona =
         if (viendoMiUbicacion) {
 
@@ -115,15 +103,6 @@ fun MapScreen(
                 ?.nombre
                 ?: "Persona vinculada"
         }
-
-
-    // =========================================================
-    // TELÉFONO
-    //
-    // SOLO SE OBTIENE CUANDO ESTAMOS VIENDO A LA PERSONA
-    // VINCULADA. SI EL USUARIO SELECCIONA "YO", NO HAY
-    // BOTÓN PARA LLAMARSE A SÍ MISMO.
-    // =========================================================
 
     val telefonoPersona =
         if (
@@ -152,11 +131,7 @@ fun MapScreen(
             ""
         }
 
-
-    // =========================================================
     // LLAMAR
-    // =========================================================
-
     val llamarPersona: () -> Unit = {
 
         if (telefonoPersona.isBlank()) {
@@ -186,11 +161,7 @@ fun MapScreen(
         }
     }
 
-
-    // =========================================================
     // PANTALLA
-    // =========================================================
-
     Scaffold(
 
         bottomBar = {
@@ -221,33 +192,18 @@ fun MapScreen(
                 Arrangement.spacedBy(8.dp)
         ) {
 
-
-            // =================================================
             // TÍTULO
-            // =================================================
-
             Text(
                 text = "Mapa",
-
                 style =
                     MaterialTheme
                         .typography
                         .headlineMedium,
 
-                fontWeight =
-                    FontWeight.Bold,
+                fontWeight = FontWeight.Bold,
 
-                color =
-                    Blue700
+                color = Blue700
             )
-
-
-            // =================================================
-            // SELECTOR
-            //
-            // SOLO SE MUESTRA SI ES ACOMPAÑANTE Y TIENE
-            // UNA PERSONA VINCULADA.
-            // =================================================
 
             if (tienePersonaVinculada) {
 
@@ -256,43 +212,32 @@ fun MapScreen(
                         Modifier.height(8.dp)
                 )
 
-
                 Text(
-                    text =
-                        "¿De quién quieres ver la ubicación?",
+                    text = "¿De quién quieres ver la ubicación?",
 
-                    style =
-                        MaterialTheme
+                    style = MaterialTheme
                             .typography
                             .titleSmall,
 
-                    fontWeight =
-                        FontWeight.SemiBold,
+                    fontWeight = FontWeight.SemiBold,
 
-                    color =
-                        TextSecondary
+                    color = TextSecondary
                 )
 
 
                 Spacer(
-                    modifier =
-                        Modifier.height(4.dp)
+                    modifier = Modifier.height(4.dp)
                 )
 
 
                 Row(
-                    modifier =
-                        Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth(),
 
                     horizontalArrangement =
                         Arrangement.spacedBy(10.dp)
                 ) {
 
-
-                    // =========================================
                     // YO
-                    // =========================================
-
                     if (viendoMiUbicacion) {
 
                         Button(
@@ -315,7 +260,6 @@ fun MapScreen(
 
                             Text(
                                 text = "Yo",
-
                                 fontWeight =
                                     FontWeight.SemiBold
                             )
@@ -347,11 +291,7 @@ fun MapScreen(
                         }
                     }
 
-
-                    // =========================================
                     // PERSONA VINCULADA
-                    // =========================================
-
                     if (!viendoMiUbicacion) {
 
                         Button(
@@ -424,11 +364,7 @@ fun MapScreen(
                 )
             }
 
-
-            // =================================================
             // TEXTO DE UBICACIÓN
-            // =================================================
-
             Text(
                 text =
                     if (viendoMiUbicacion) {
@@ -455,11 +391,7 @@ fun MapScreen(
                     Modifier.height(12.dp)
             )
 
-
-            // =================================================
             // ESPACIO PARA EL FUTURO MAPA
-            // =================================================
-
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -549,14 +481,6 @@ fun MapScreen(
                     }
                 }
             }
-
-
-            // =================================================
-            // LLAMAR
-            //
-            // SOLO APARECE CUANDO EL ACOMPAÑANTE ESTÁ
-            // VISUALIZANDO A LA PERSONA VINCULADA.
-            // =================================================
 
             if (telefonoPersona.isNotBlank()) {
 

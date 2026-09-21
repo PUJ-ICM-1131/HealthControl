@@ -38,11 +38,7 @@ import java.util.TimeZone
 
 private val Fondo = Color(0xFFF8FAFF)
 
-
-// =================================================================
 // PANTALLA DE DETALLE DE UNA CITA
-// =================================================================
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DetalleCitaScreen(
@@ -353,11 +349,7 @@ fun DetalleCitaScreen(
     }
 }
 
-
-// =================================================================
 // ENCABEZADO
-// =================================================================
-
 @Composable
 private fun EncabezadoCita(cita: Cita) {
 
@@ -495,12 +487,7 @@ private fun AvisoSoloLectura(mensaje: String) {
     }
 }
 
-
-// =================================================================
 // FORMATO DE FECHA / HORA
-// =================================================================
-
-
 private fun obtenerHoyUtcMillisCita(): Long {
 
     val hoyLocal = Calendar.getInstance()

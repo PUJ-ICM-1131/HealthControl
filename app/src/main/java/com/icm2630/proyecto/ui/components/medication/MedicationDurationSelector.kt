@@ -51,10 +51,7 @@ fun MedicationDurationSelector(
         modifier = modifier.fillMaxWidth()
     ) {
 
-        // =====================================================
         // FECHA DE INICIO
-        // =====================================================
-
         Text(
             text = "Fecha de inicio",
             color = Blue700,
@@ -79,21 +76,14 @@ fun MedicationDurationSelector(
             modifier = Modifier.size(14.dp)
         )
 
-
-        // =====================================================
         // TRATAMIENTO PERMANENTE
-        // =====================================================
 
         PermanentTreatmentCard(
             checked = permanentTreatment,
             onCheckedChange = onPermanentTreatmentChange
         )
 
-
-        // =====================================================
         // FECHA DE FINALIZACIÓN
-        // =====================================================
-
         if (!permanentTreatment) {
 
             Spacer(
@@ -139,11 +129,7 @@ fun MedicationDurationSelector(
     }
 }
 
-
-// =============================================================
 // TARJETA DE FECHA
-// =============================================================
-
 @Composable
 private fun MedicationDateCard(
     value: String,
@@ -254,11 +240,7 @@ private fun MedicationDateCard(
     }
 }
 
-
-// =============================================================
 // TRATAMIENTO PERMANENTE
-// =============================================================
-
 @Composable
 private fun PermanentTreatmentCard(
     checked: Boolean,
@@ -374,11 +356,7 @@ private fun PermanentTreatmentCard(
     }
 }
 
-
-// =============================================================
 // PREVIEW
-// =============================================================
-
 @Preview(
     showBackground = true,
     name = "Duración medicamento"

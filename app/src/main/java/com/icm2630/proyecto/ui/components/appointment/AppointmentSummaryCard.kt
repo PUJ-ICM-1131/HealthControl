@@ -75,9 +75,7 @@ fun AppointmentSummaryCard(
             modifier = Modifier.padding(18.dp)
         ) {
 
-            // =================================================
             // ENCABEZADO
-            // =================================================
 
             Row(
                 verticalAlignment = Alignment.CenterVertically
@@ -129,11 +127,7 @@ fun AppointmentSummaryCard(
 
             SummarySeparator()
 
-
-            // =================================================
             // PERSONA
-            // =================================================
-
             AppointmentSummaryItem(
                 icon = Icons.Outlined.Person,
                 title = "Cita para",
@@ -146,11 +140,7 @@ fun AppointmentSummaryCard(
 
             SummarySeparator()
 
-
-            // =================================================
             // TIPO DE CITA
-            // =================================================
-
             AppointmentSummaryItem(
                 icon = Icons.Outlined.LocalHospital,
                 title = "Tipo de cita",
@@ -164,11 +154,7 @@ fun AppointmentSummaryCard(
 
             SummarySeparator()
 
-
-            // =================================================
             // FECHA
-            // =================================================
-
             AppointmentSummaryItem(
                 icon = Icons.Outlined.CalendarMonth,
                 title = "Fecha",
@@ -181,11 +167,7 @@ fun AppointmentSummaryCard(
 
             SummarySeparator()
 
-
-            // =================================================
             // HORA
-            // =================================================
-
             AppointmentSummaryItem(
                 icon = Icons.Outlined.Schedule,
                 title = "Hora",
@@ -198,11 +180,7 @@ fun AppointmentSummaryCard(
 
             SummarySeparator()
 
-
-            // =================================================
             // LUGAR / MODALIDAD
-            // =================================================
-
             AppointmentSummaryItem(
                 icon = Icons.Outlined.Place,
                 title = "Lugar",
@@ -217,11 +195,7 @@ fun AppointmentSummaryCard(
     }
 }
 
-
-// =============================================================
 // ITEM DEL RESUMEN
-// =============================================================
-
 @Composable
 private fun AppointmentSummaryItem(
     icon: ImageVector,
@@ -280,11 +254,7 @@ private fun AppointmentSummaryItem(
     }
 }
 
-
-// =============================================================
 // SEPARADOR
-// =============================================================
-
 @Composable
 private fun SummarySeparator() {
 
@@ -305,11 +275,7 @@ private fun SummarySeparator() {
     )
 }
 
-
-// =============================================================
 // DESCRIPCIÓN DEL TIPO DE CITA
-// =============================================================
-
 private fun buildAppointmentTypeDescription(
     appointmentType: String,
     specialty: String,
@@ -351,11 +317,7 @@ private fun buildAppointmentTypeDescription(
     )
 }
 
-
-// =============================================================
 // DESCRIPCIÓN DEL LUGAR
-// =============================================================
-
 private fun buildLocationDescription(
     modality: String,
     institution: String,
@@ -416,11 +378,7 @@ private fun buildLocationDescription(
     }
 }
 
-
-// =============================================================
 // PREVIEW
-// =============================================================
-
 @Preview(
     showBackground = true,
     name = "Resumen cita"

@@ -84,7 +84,7 @@ fun ProfileSetupScreen(
         ) {
             Spacer(Modifier.height(8.dp))
 
-            // ---------- Encabezado ----------
+            // Encabezado
             Box(modifier = Modifier.fillMaxWidth()) {
                 BotonCircular(
                     icon = Icons.AutoMirrored.Outlined.ArrowBack,
@@ -112,7 +112,7 @@ fun ProfileSetupScreen(
 
             Spacer(Modifier.height(20.dp))
 
-            // ---------- Tarjeta de datos personales ----------
+            //Tarjeta de datos personales
             TarjetaBlanca {
                 AvatarConCamara(modifier = Modifier.align(Alignment.CenterHorizontally))
 
@@ -153,7 +153,7 @@ fun ProfileSetupScreen(
 
                 Spacer(Modifier.height(16.dp))
 
-                // HU-20: aquí se podría abrir el selector de contactos de la agenda.
+                //aquí se podría abrir el selector de contactos de la agenda.
                 CampoPerfil(
                     label = "Contacto de emergencia (Nombre y relación)",
                     value = state.contactoEmergencia,
@@ -164,7 +164,7 @@ fun ProfileSetupScreen(
 
             Spacer(Modifier.height(24.dp))
 
-            // ---------- Tipo de perfil (HU-02) ----------
+            // Tipo de perfil
             Text(
                 text = "Tipo de perfil",
                 style = MaterialTheme.typography.titleMedium,
@@ -194,7 +194,7 @@ fun ProfileSetupScreen(
 
             Spacer(Modifier.height(20.dp))
 
-            // ---------- Vinculación (HU-03) ----------
+            //Vinculación
             TarjetaBlanca {
                 if (state.tipoPerfil == TipoPerfil.TITULAR) {
                     SeccionVinculacionTitular(
@@ -299,9 +299,8 @@ fun ProfileSetupScreen(
     }
 }
 
-/* ---------------------------------------------------------------- */
-/*  Componentes                                                      */
-/* ---------------------------------------------------------------- */
+
+//Componentes
 
 @Composable
 private fun TarjetaBlanca(contenido: @Composable ColumnScope.() -> Unit) {

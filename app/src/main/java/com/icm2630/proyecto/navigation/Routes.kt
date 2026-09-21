@@ -19,7 +19,7 @@ sealed interface Routes : NavKey {
 
     /**
      * [citaId] / [medicamentoId] nulos = se está registrando uno nuevo.
-     * Con valor = se está editando el existente con ese id (HU-06):
+     * Con valor = se está editando el existente con ese id:
      * la misma pantalla de registro precarga los datos y guarda sobre
      * el mismo registro en vez de crear uno nuevo.
      */

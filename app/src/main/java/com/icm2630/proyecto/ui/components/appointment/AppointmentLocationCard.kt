@@ -51,9 +51,7 @@ fun AppointmentLocationCard(
         modifier = modifier.fillMaxWidth()
     ) {
 
-        // =====================================================
         // MODALIDAD
-        // =====================================================
 
         Text(
             text = "Modalidad",
@@ -112,10 +110,7 @@ fun AppointmentLocationCard(
             modifier = Modifier.height(20.dp)
         )
 
-
-        // =====================================================
         // PRESENCIAL
-        // =====================================================
 
         if (modality == "Presencial") {
 
@@ -174,10 +169,7 @@ fun AppointmentLocationCard(
             )
         }
 
-
-        // =====================================================
         // VIRTUAL
-        // =====================================================
 
         if (modality == "Virtual") {
 
@@ -236,10 +228,7 @@ fun AppointmentLocationCard(
     }
 }
 
-
-// =============================================================
 // OPCIÓN DE MODALIDAD
-// =============================================================
 
 @Composable
 private fun AppointmentModalityOption(
@@ -324,10 +313,7 @@ private fun AppointmentModalityOption(
     }
 }
 
-
-// =============================================================
 // PREVIEW
-// =============================================================
 
 @Preview(
     showBackground = true,

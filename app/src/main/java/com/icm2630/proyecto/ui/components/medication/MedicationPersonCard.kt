@@ -64,10 +64,7 @@ fun MedicationPersonCard(
             verticalAlignment = Alignment.CenterVertically
         ) {
 
-            // -------------------------------------------------
             // ÍCONO DE PERSONA
-            // -------------------------------------------------
-
             Surface(
                 modifier = Modifier.size(52.dp),
                 shape = CircleShape,
@@ -92,11 +89,7 @@ fun MedicationPersonCard(
                 modifier = Modifier.width(14.dp)
             )
 
-
-            // -------------------------------------------------
             // INFORMACIÓN
-            // -------------------------------------------------
-
             Column(
                 modifier = Modifier.weight(1f)
             ) {
@@ -141,11 +134,7 @@ fun MedicationPersonCard(
                 }
             }
 
-
-            // -------------------------------------------------
             // CAMBIAR PERSONA
-            // -------------------------------------------------
-
             if (canChangePerson) {
 
                 TextButton(
@@ -164,11 +153,7 @@ fun MedicationPersonCard(
     }
 }
 
-
-// =============================================================
 // PREVIEW - PERFIL PERSONAL
-// =============================================================
-
 @Preview(
     showBackground = true,
     name = "Medicamento - Mi perfil"
@@ -192,11 +177,7 @@ private fun MedicationPersonCardPersonalPreview() {
     }
 }
 
-
-// =============================================================
 // PREVIEW - PERSONA ASOCIADA
-// =============================================================
-
 @Preview(
     showBackground = true,
     name = "Medicamento - Persona asociada"

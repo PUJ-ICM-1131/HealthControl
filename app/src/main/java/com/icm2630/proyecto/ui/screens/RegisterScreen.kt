@@ -95,7 +95,7 @@ fun RegisterScreen(
             .statusBarsPadding()
             .imePadding()
     ) {
-        // ---------- Contenido desplazable ----------
+        //Contenido desplazable
         Column(
             modifier = Modifier
                 .weight(1f)
@@ -234,9 +234,7 @@ fun RegisterScreen(
     }
 }
 
-/* ---------------------------------------------------------------- */
-/*  Componentes                                                      */
-/* ---------------------------------------------------------------- */
+//Componentes
 
 @Composable
 private fun Logo() {

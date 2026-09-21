@@ -14,7 +14,7 @@ object SesionRepository {
     }
 
     /**
-     * Valida credenciales de forma simulada.
+     * Valida credenciales de forma simulada
      * Correo aceptado: test@gmail.com
      * Contraseña aceptada: 12345678
      */

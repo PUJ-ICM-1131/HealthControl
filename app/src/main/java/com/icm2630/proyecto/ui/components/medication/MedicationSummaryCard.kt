@@ -73,10 +73,7 @@ fun MedicationSummaryCard(
             modifier = Modifier.padding(18.dp)
         ) {
 
-            // -------------------------------------------------
             // ENCABEZADO
-            // -------------------------------------------------
-
             Row(
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -139,11 +136,7 @@ fun MedicationSummaryCard(
                 modifier = Modifier.size(14.dp)
             )
 
-
-            // -------------------------------------------------
             // MEDICAMENTO
-            // -------------------------------------------------
-
             SummaryItem(
                 icon = Icons.Outlined.Medication,
                 title = "Medicamento",
@@ -155,14 +148,9 @@ fun MedicationSummaryCard(
                 )
             )
 
-
             SummarySeparator()
 
-
-            // -------------------------------------------------
             // PERSONA
-            // -------------------------------------------------
-
             SummaryItem(
                 icon = Icons.Outlined.Person,
                 title = "Para",
@@ -172,14 +160,9 @@ fun MedicationSummaryCard(
                     }
             )
 
-
             SummarySeparator()
 
-
-            // -------------------------------------------------
             // HORARIOS
-            // -------------------------------------------------
-
             SummaryItem(
                 icon = Icons.Outlined.Schedule,
                 title = "Horarios",
@@ -193,14 +176,9 @@ fun MedicationSummaryCard(
                     }
             )
 
-
             SummarySeparator()
 
-
-            // -------------------------------------------------
             // DURACIÓN
-            // -------------------------------------------------
-
             SummaryItem(
                 icon = Icons.Outlined.CalendarMonth,
                 title = "Duración",
@@ -214,11 +192,7 @@ fun MedicationSummaryCard(
     }
 }
 
-
-// =============================================================
 // ELEMENTO DEL RESUMEN
-// =============================================================
-
 @Composable
 private fun SummaryItem(
     icon: ImageVector,
@@ -277,11 +251,7 @@ private fun SummaryItem(
     }
 }
 
-
-// =============================================================
 // SEPARADOR
-// =============================================================
-
 @Composable
 private fun SummarySeparator() {
 
@@ -302,11 +272,7 @@ private fun SummarySeparator() {
     )
 }
 
-
-// =============================================================
 // CONSTRUIR DESCRIPCIÓN DEL MEDICAMENTO
-// =============================================================
-
 private fun buildMedicationDescription(
     medicationName: String,
     presentation: String,
@@ -351,11 +317,7 @@ private fun buildMedicationDescription(
     )
 }
 
-
-// =============================================================
 // CONSTRUIR DURACIÓN
-// =============================================================
-
 private fun buildDurationDescription(
     startDate: String,
     endDate: String,
@@ -382,11 +344,7 @@ private fun buildDurationDescription(
     return "$startDate - $endDate"
 }
 
-
-// =============================================================
 // PREVIEW
-// =============================================================
-
 @Preview(
     showBackground = true,
     name = "Resumen medicamento"

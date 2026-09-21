@@ -9,17 +9,10 @@ import com.icm2630.proyecto.data.model.TipoPerfil
 
 data class AppointmentRegisterUiState(
 
-    // =========================================================
     // MODO EDICIÓN
-    // =========================================================
-
     val citaId: String? = null,
 
-
-    // =========================================================
     // PERFIL Y PERSONA
-    // =========================================================
-
     val perfilUsuario: PerfilUsuario? = null,
 
     val personasAsociadas: List<Persona> = emptyList(),
@@ -36,11 +29,7 @@ data class AppointmentRegisterUiState(
      */
     val personaSeleccionadaId: String? = null,
 
-
-    // =========================================================
     // INFORMACIÓN DE LA CITA
-    // =========================================================
-
     val tipoCita: TipoCita =
         TipoCita.MEDICINA_GENERAL,
 
@@ -48,22 +37,14 @@ data class AppointmentRegisterUiState(
 
     val motivo: String = "",
 
-
-    // =========================================================
     // FECHA Y HORA
-    // =========================================================
-
     val fechaMillis: Long? = null,
 
     val hora: Int? = null,
 
     val minuto: Int? = null,
 
-
-    // =========================================================
     // LUGAR Y MODALIDAD
-    // =========================================================
-
     val modalidad: ModalidadCita =
         ModalidadCita.PRESENCIAL,
 
@@ -73,44 +54,27 @@ data class AppointmentRegisterUiState(
 
     val enlaceVirtual: String = "",
 
-
-    // =========================================================
     // INFORMACIÓN DEL MÉDICO
-    // =========================================================
-
     /**
      * Nombre del médico, especialista u odontólogo.
      */
     val nombreMedico: String = "",
 
-
-    // =========================================================
     // INFORMACIÓN ADICIONAL
-    // =========================================================
-
     val notas: String = "",
 
     val soporteUri: String? = null,
 
     val nombreSoporte: String? = null,
 
-
-    // =========================================================
     // ESTADO DE LA OPERACIÓN
-    // =========================================================
-
     val guardando: Boolean = false,
-
     val guardadoExitoso: Boolean = false,
-
     val mensajeError: String? = null
 
 ) {
 
-    // =========================================================
     // PERSONA SELECCIONADA
-    // =========================================================
-
     val personaSeleccionada: Persona?
         get() {
 
@@ -123,11 +87,7 @@ data class AppointmentRegisterUiState(
             }
         }
 
-
-    // =========================================================
     // VALIDACIÓN DE PERSONA
-    // =========================================================
-
     val personaValida: Boolean
         get() {
 
@@ -165,11 +125,7 @@ data class AppointmentRegisterUiState(
             }
         }
 
-
-    // =========================================================
     // VALIDACIÓN DE ESPECIALIDAD
-    // =========================================================
-
     val especialidadValida: Boolean
         get() {
 
@@ -186,22 +142,14 @@ data class AppointmentRegisterUiState(
             }
         }
 
-
-    // =========================================================
     // VALIDACIÓN DE FECHA Y HORA
-    // =========================================================
-
     val fechaHoraValida: Boolean
         get() =
             fechaMillis != null &&
                     hora != null &&
                     minuto != null
 
-
-    // =========================================================
     // VALIDACIÓN DEL LUGAR
-    // =========================================================
-
     val ubicacionValida: Boolean
         get() {
 
@@ -225,11 +173,7 @@ data class AppointmentRegisterUiState(
             }
         }
 
-
-    // =========================================================
     // VALIDACIÓN GENERAL
-    // =========================================================
-
     val formularioValido: Boolean
         get() {
 

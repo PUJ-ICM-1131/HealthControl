@@ -163,10 +163,7 @@ private fun AppointmentTypeCard(
             modifier = Modifier.padding(14.dp)
         ) {
 
-            // =================================================
             // IDENTIFICADOR VISUAL
-            // =================================================
-
             Surface(
                 modifier = Modifier.size(42.dp),
 

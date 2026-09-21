@@ -36,11 +36,6 @@ import com.icm2630.proyecto.ui.screens.RemindersScreen
 @Composable
 fun AppNavigation() {
 
-    /*
-     * Pila de navegación de la aplicación.
-     *
-     * La aplicación inicia en Login.
-     */
     val backStack = remember {
         mutableStateListOf<Routes>(
             Routes.Login
@@ -52,9 +47,6 @@ fun AppNavigation() {
 
         backStack = backStack,
 
-        /*
-         * Comportamiento general del botón Atrás.
-         */
         onBack = {
 
             if (backStack.size > 1) {
@@ -66,11 +58,6 @@ fun AppNavigation() {
         },
 
         entryProvider = entryProvider {
-
-
-            // =================================================
-            // LOGIN
-            // =================================================
 
             entry<Routes.Login> {
 
@@ -100,11 +87,6 @@ fun AppNavigation() {
                     }
                 )
             }
-
-
-            // =================================================
-            // REGISTRO DE USUARIO
-            // =================================================
 
             entry<Routes.Register> {
 
@@ -187,7 +169,6 @@ fun AppNavigation() {
                 )
             }
 
-            // HU-25: home del rol Acompañante, ve la salud del titular vinculado.
             entry<Routes.Monitoreo> {
 
                 MonitoreoScreen(
@@ -216,10 +197,6 @@ fun AppNavigation() {
                     }
                 )
             }
-
-            // =================================================
-            // MAPA
-            // =================================================
 
             entry<Routes.Mapa> {
 
@@ -251,10 +228,6 @@ fun AppNavigation() {
                         )
                     },
 
-
-                    // HU-06 / HU-21: al tocar un registro, se apila (no se
-                    // reemplaza) la pantalla de detalle correspondiente,
-                    // para poder volver con el botón Atrás.
                     onVerDetalle = { route ->
 
                         backStack.add(
@@ -263,10 +236,6 @@ fun AppNavigation() {
                     }
                 )
             }
-
-// =================================================
-// REGISTRAR
-// =================================================
 
             entry<Routes.Registrar> {
 
@@ -324,10 +293,6 @@ fun AppNavigation() {
                 )
             }
 
-// =================================================
-// REGISTRAR CITA
-// =================================================
-
             entry<Routes.RegistrarCita> { key ->
 
                 AppointmentRegisterScreen(
@@ -353,10 +318,6 @@ fun AppNavigation() {
                     }
                 )
             }
-
-// =================================================
-// DETALLE DE CITA
-// =================================================
 
             entry<Routes.DetalleCita> { key ->
 
@@ -397,9 +358,6 @@ fun AppNavigation() {
                 )
             }
 
-// =================================================
-// DETALLE DE MEDICAMENTO
-// =================================================
 
             entry<Routes.DetalleMedicamento> { key ->
 
@@ -452,10 +410,6 @@ fun AppNavigation() {
                         )
                     },
 
-
-                    // Igual que en Pendientes: al tocar un registro del
-                    // historial se apila la pantalla de detalle
-                    // correspondiente (cita o medicamento).
                     onVerDetalle = { route ->
 
                         backStack.add(
@@ -483,8 +437,7 @@ fun AppNavigation() {
                     onEditarCampo = {
 
                         /*
-                         * TODO:
-                         * Conectar edición real del perfil.
+                         * Conectar edición real del perfil
                          */
                     },
 
@@ -547,11 +500,6 @@ private fun navegarATab(
         )
     }
 }
-
-
-// =============================================================
-// PLACEHOLDER
-// =============================================================
 
 @Composable
 fun PlaceholderScreen(

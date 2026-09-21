@@ -96,10 +96,7 @@ fun MedicationRegisterScreen(
 
     val modoEdicion = medicamentoId != null
 
-
-    // ---------------------------------------------------------
     // ESTADO EXCLUSIVAMENTE VISUAL
-    // ---------------------------------------------------------
 
     var showPersonDialog by remember {
         mutableStateOf(false)
@@ -113,11 +110,7 @@ fun MedicationRegisterScreen(
         mutableStateOf(false)
     }
 
-
-    // ---------------------------------------------------------
     // CARGAR MEDICAMENTO A EDITAR (o limpiar el formulario)
-    // ---------------------------------------------------------
-
     LaunchedEffect(medicamentoId) {
 
         if (medicamentoId != null) {
@@ -132,11 +125,7 @@ fun MedicationRegisterScreen(
         }
     }
 
-
-    // ---------------------------------------------------------
     // RESULTADO DE GUARDADO
-    // ---------------------------------------------------------
-
     LaunchedEffect(
         state.guardadoExitoso,
         state.mensajeError
@@ -167,11 +156,7 @@ fun MedicationRegisterScreen(
         }
     }
 
-
-    // ---------------------------------------------------------
     // SELECTOR DE ARCHIVO
-    // ---------------------------------------------------------
-
     val fileLauncher =
         rememberLauncherForActivityResult(
             contract = ActivityResultContracts.OpenDocument()
@@ -193,11 +178,7 @@ fun MedicationRegisterScreen(
             }
         }
 
-
-    // ---------------------------------------------------------
     // PERSONA QUE SE MOSTRARÁ
-    // ---------------------------------------------------------
-
     val nombrePersona =
         when (state.perfilUsuario?.tipoPerfil) {
 
@@ -298,11 +279,7 @@ fun MedicationRegisterScreen(
             )
         },
 
-
-        // =====================================================
         // BOTÓN INFERIOR
-        // =====================================================
-
         bottomBar = {
 
             Surface(
@@ -389,11 +366,7 @@ fun MedicationRegisterScreen(
                 modifier = Modifier.height(4.dp)
             )
 
-
-            // =================================================
             // PERSONA
-            // =================================================
-
             MedicationPersonCard(
 
                 personName = nombrePersona,
@@ -409,11 +382,7 @@ fun MedicationRegisterScreen(
                 }
             )
 
-
-            // =================================================
             // 1. MEDICAMENTO
-            // =================================================
-
             MedicationSectionCard(
                 step = 1,
                 title = "Medicamento",
@@ -491,11 +460,7 @@ fun MedicationRegisterScreen(
                 )
             }
 
-
-            // =================================================
             // 2. DOSIS
-            // =================================================
-
             MedicationSectionCard(
                 step = 2,
                 title = "Dosis",
@@ -528,11 +493,7 @@ fun MedicationRegisterScreen(
                 )
             }
 
-
-            // =================================================
             // 3. HORARIOS
-            // =================================================
-
             MedicationSectionCard(
                 step = 3,
                 title = "Horarios",
@@ -574,11 +535,7 @@ fun MedicationRegisterScreen(
                 )
             }
 
-
-            // =================================================
             // 4. DURACIÓN
-            // =================================================
-
             MedicationSectionCard(
                 step = 4,
                 title = "Duración",
@@ -617,11 +574,7 @@ fun MedicationRegisterScreen(
                 )
             }
 
-
-            // =================================================
             // 5. INDICACIONES Y ORDEN
-            // =================================================
-
             MedicationSectionCard(
                 step = 5,
                 title = "Indicaciones",
@@ -699,11 +652,7 @@ fun MedicationRegisterScreen(
                 )
             }
 
-
-            // =================================================
             // RESUMEN
-            // =================================================
-
             MedicationSummaryCard(
 
                 medicationName =
@@ -749,11 +698,7 @@ fun MedicationRegisterScreen(
         }
     }
 
-
-    // =========================================================
     // DIÁLOGO DE PERSONAS ASOCIADAS
-    // =========================================================
-
     if (showPersonDialog) {
 
         PersonSelectorDialog(
@@ -779,11 +724,7 @@ fun MedicationRegisterScreen(
         )
     }
 
-
-    // =========================================================
     // FECHA INICIAL
-    // =========================================================
-
     if (showStartDatePicker) {
 
         MedicationDatePickerDialog(
@@ -806,11 +747,7 @@ fun MedicationRegisterScreen(
         )
     }
 
-
-    // =========================================================
     // FECHA FINAL
-    // =========================================================
-
     if (showEndDatePicker) {
 
         MedicationDatePickerDialog(
@@ -834,11 +771,7 @@ fun MedicationRegisterScreen(
     }
 }
 
-
-// =============================================================
 // SELECTOR DE PERSONA
-// =============================================================
-
 @Composable
 private fun PersonSelectorDialog(
     personas: List<Persona>,
@@ -955,11 +888,7 @@ private fun PersonSelectorDialog(
     )
 }
 
-
-// =============================================================
 // DATE PICKER
-// =============================================================
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun MedicationDatePickerDialog(
@@ -1022,11 +951,7 @@ private fun MedicationDatePickerDialog(
     }
 }
 
-
-// =============================================================
 // FORMATO DE HORA
-// =============================================================
-
 private fun formatMedicationTime(
     hour: Int,
     minute: Int
@@ -1042,13 +967,9 @@ private fun formatMedicationTime(
 
     val hour12 =
         when {
+            hour == 0 -> 12
 
-            hour == 0 ->
-                12
-
-            hour > 12 ->
-                hour - 12
-
+            hour > 12 -> hour - 12
             else ->
                 hour
         }
@@ -1063,11 +984,7 @@ private fun formatMedicationTime(
     )
 }
 
-
-// =============================================================
 // FORMATO DE FECHA
-// =============================================================
-
 private fun formatMedicationDate(
     millis: Long?
 ): String {

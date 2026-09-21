@@ -73,11 +73,7 @@ fun MedicationScheduleSelector(
             modifier = Modifier.size(14.dp)
         )
 
-
-        // =====================================================
         // SIN HORARIOS
-        // =====================================================
-
         if (schedules.isEmpty()) {
 
             EmptyScheduleCard()
@@ -106,11 +102,7 @@ fun MedicationScheduleSelector(
             modifier = Modifier.size(12.dp)
         )
 
-
-        // =====================================================
         // AGREGAR HORARIO
-        // =====================================================
-
         OutlinedButton(
             onClick = onAddSchedule,
 
@@ -146,11 +138,7 @@ fun MedicationScheduleSelector(
     }
 }
 
-
-// =============================================================
 // ESTADO VACÍO
-// =============================================================
-
 @Composable
 private fun EmptyScheduleCard() {
 
@@ -223,11 +211,7 @@ private fun EmptyScheduleCard() {
     }
 }
 
-
-// =============================================================
 // TARJETA DE HORARIO
-// =============================================================
-
 @Composable
 private fun ScheduleCard(
     time: String,
@@ -321,11 +305,7 @@ private fun ScheduleCard(
     }
 }
 
-
-// =============================================================
 // MOMENTO DEL DÍA
-// =============================================================
-
 private fun getMomentOfDay(
     time: String
 ): String {
@@ -367,11 +347,7 @@ private fun getMomentOfDay(
     }
 }
 
-
-// =============================================================
 // PREVIEW
-// =============================================================
-
 @Preview(
     showBackground = true,
     name = "Horarios medicamento"

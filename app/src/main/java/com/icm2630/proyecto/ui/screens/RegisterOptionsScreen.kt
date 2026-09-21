@@ -82,11 +82,7 @@ fun RegisterOptionsScreen(
                 modifier = Modifier.height(28.dp)
             )
 
-
-            // =================================================
             // ENCABEZADO
-            // =================================================
-
             Text(
                 text = "Registrar",
                 color = Blue700,
@@ -124,11 +120,7 @@ fun RegisterOptionsScreen(
                 modifier = Modifier.height(28.dp)
             )
 
-
-            // =================================================
             // CITA MÉDICA
-            // =================================================
-
             RegisterOptionCard(
                 icon = Icons.Outlined.CalendarMonth,
                 title = "Cita médica",
@@ -142,11 +134,7 @@ fun RegisterOptionsScreen(
                 modifier = Modifier.height(16.dp)
             )
 
-
-            // =================================================
             // MEDICAMENTO
-            // =================================================
-
             RegisterOptionCard(
                 icon = Icons.Outlined.Medication,
                 title = "Medicamento",
@@ -160,11 +148,7 @@ fun RegisterOptionsScreen(
                 modifier = Modifier.height(24.dp)
             )
 
-
-            // =================================================
             // MENSAJE DE AYUDA
-            // =================================================
-
             Surface(
                 modifier = Modifier.fillMaxWidth(),
 
@@ -199,11 +183,7 @@ fun RegisterOptionsScreen(
     }
 }
 
-
-// =============================================================
 // TARJETA DE OPCIÓN
-// =============================================================
-
 @Composable
 private fun RegisterOptionCard(
     icon: ImageVector,
@@ -334,11 +314,7 @@ private fun RegisterOptionCard(
     }
 }
 
-
-// =============================================================
 // PREVIEW
-// =============================================================
-
 @Preview(
     showBackground = true,
     showSystemUi = true,

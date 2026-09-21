@@ -1,9 +1,9 @@
 package com.icm2630.proyecto.data.repository
 
 /**
- * No hay backend todavía (HU-03): esta utilidad centraliza cómo se genera
+ * No hay backend todavía: esta utilidad centraliza cómo se genera
  * un código de invitación y cómo se "resuelve" uno al validarlo, para que
- * tanto el onboarding como Ajustes de perfil se comporten igual.
+ * tanto el onboarding como ajustes de perfil se comporten igual.
  */
 object VinculacionSimulator {
 
@@ -71,8 +71,7 @@ object VinculacionSimulator {
         codigo: String
     ): String {
 
-        val indice =
-            indiceParaCodigo(
+        val indice = indiceParaCodigo(
                 codigo
             )
 
@@ -91,8 +90,7 @@ object VinculacionSimulator {
         codigo: String
     ): String {
 
-        val indice =
-            indiceParaCodigo(
+        val indice = indiceParaCodigo(
                 codigo
             )
 

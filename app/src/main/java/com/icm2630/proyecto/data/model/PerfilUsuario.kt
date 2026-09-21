@@ -1,7 +1,7 @@
 package com.icm2630.proyecto.data.model
 
 /**
- * HU-02: define el rol con el que el usuario usa la app.
+ * define el rol con el que el usuario usa la app.
  * Determina la interfaz y el destino después del onboarding.
  *
  * - TITULAR: la app gestiona la salud de esta misma persona. Puede generar
@@ -60,6 +60,6 @@ data class PerfilUsuario(
     /** Acompañantes que, con ese código, quedaron vinculados a este titular. */
     val acompanantes: List<PersonaVinculada> = emptyList(),
     /** Si el rol es ACOMPANANTE, el titular al que se vinculó. */
-    val personaVinculada: PersonaVinculada? = null,
+    val personaVinculada: PersonaVinculada? = null, //cambiar esto
     val configurado: Boolean = false
 )

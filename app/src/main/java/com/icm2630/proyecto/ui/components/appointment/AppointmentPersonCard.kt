@@ -64,10 +64,7 @@ fun AppointmentPersonCard(
             verticalAlignment = Alignment.CenterVertically
         ) {
 
-            // =================================================
             // ICONO
-            // =================================================
-
             Surface(
                 modifier = Modifier.size(52.dp),
                 shape = CircleShape,
@@ -92,11 +89,7 @@ fun AppointmentPersonCard(
                 modifier = Modifier.width(14.dp)
             )
 
-
-            // =================================================
             // INFORMACIÓN
-            // =================================================
-
             Column(
                 modifier = Modifier.weight(1f)
             ) {
@@ -141,11 +134,7 @@ fun AppointmentPersonCard(
                 }
             }
 
-
-            // =================================================
             // CAMBIAR PERSONA
-            // =================================================
-
             if (canChangePerson) {
 
                 TextButton(
@@ -164,11 +153,7 @@ fun AppointmentPersonCard(
     }
 }
 
-
-// =============================================================
 // PREVIEW - PERFIL PERSONAL
-// =============================================================
-
 @Preview(
     showBackground = true,
     name = "Cita - Perfil personal"
@@ -192,11 +177,7 @@ private fun AppointmentPersonCardPersonalPreview() {
     }
 }
 
-
-// =============================================================
 // PREVIEW - PERSONA ASOCIADA
-// =============================================================
-
 @Preview(
     showBackground = true,
     name = "Cita - Persona asociada"

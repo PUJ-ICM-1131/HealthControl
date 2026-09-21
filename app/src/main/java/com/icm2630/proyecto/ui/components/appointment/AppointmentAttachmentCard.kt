@@ -91,11 +91,7 @@ fun AppointmentAttachmentCard(
 
             verticalAlignment = Alignment.CenterVertically
         ) {
-
-            // =================================================
             // ICONO
-            // =================================================
-
             Surface(
                 modifier = Modifier.size(46.dp),
 
@@ -138,10 +134,7 @@ fun AppointmentAttachmentCard(
                 modifier = Modifier.width(12.dp)
             )
 
-
-            // =================================================
             // INFORMACIÓN DEL ARCHIVO
-            // =================================================
 
             Column(
                 modifier = Modifier.weight(1f)
@@ -180,10 +173,7 @@ fun AppointmentAttachmentCard(
                 )
             }
 
-
-            // =================================================
             // ELIMINAR ARCHIVO
-            // =================================================
 
             if (hasFile) {
 
@@ -206,11 +196,7 @@ fun AppointmentAttachmentCard(
     }
 }
 
-
-// =============================================================
 // PREVIEW SIN ARCHIVO
-// =============================================================
-
 @Preview(
     showBackground = true,
     name = "Soporte de cita vacío"
@@ -234,11 +220,7 @@ private fun AppointmentAttachmentEmptyPreview() {
     }
 }
 
-
-// =============================================================
 // PREVIEW CON ARCHIVO
-// =============================================================
-
 @Preview(
     showBackground = true,
     name = "Soporte de cita seleccionado"

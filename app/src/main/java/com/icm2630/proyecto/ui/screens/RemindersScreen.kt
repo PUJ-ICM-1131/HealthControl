@@ -60,11 +60,7 @@ private data class PacienteFiltro(
     val pendientes: Int = 0
 )
 
-
-// =================================================================
 // MODELOS INTERNOS DE PANTALLA
-// =================================================================
-
 private enum class TipoRecordatorio {
     CITA,
     MEDICAMENTO
@@ -113,7 +109,6 @@ private fun calcularUrgencia(fechaMillis: Long, hoyMillis: Long): NivelUrgencia 
         else -> NivelUrgencia.FUTURO
     }
 }
-
 
 @Composable
 fun RemindersScreen(
@@ -508,10 +503,7 @@ private fun BotonAgregar(onClick: () -> Unit) {
     }
 }
 
-
-// =================================================================
-// CONSTRUCCIÓN DE LA LISTA DE PACIENTES (HU-25: monitoreo familiar)
-// =================================================================
+// CONSTRUCCIÓN DE LA LISTA DE PACIENTES (monitoreo familiar)
 
 
 private fun construirPacientes(): List<PacienteFiltro> {
@@ -556,11 +548,7 @@ private fun contarPendientes(personaId: String?): Int {
     return citas.size + tomasDeMedicamento
 }
 
-
-// =================================================================
 // CONSTRUCCIÓN DE LOS RECORDATORIOS A PARTIR DE LOS REPOSITORIOS
-// =================================================================
-
 private fun construirRecordatorios(
     filtro: FiltroTipo,
     personaId: String?
@@ -686,10 +674,7 @@ private data class RecordatorioConFecha(
     val recordatorio: Recordatorio
 )
 
-
-// =================================================================
 // UTILIDADES DE FECHA / HORA
-// =================================================================
 
 /**
  * Medianoche de "hoy" expresada en UTC, para que sea comparable

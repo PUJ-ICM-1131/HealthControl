@@ -56,28 +56,14 @@ object MedicamentoRepository {
         )
     )
 
-
-    // =========================================================
     // REGISTRAR MEDICAMENTO
-    // =========================================================
-
-    fun registrar(
-        medicamento: Medicamento
-    ) {
+    fun registrar(medicamento: Medicamento) {
         medicamentos.add(medicamento)
     }
 
-
-    // =========================================================
     // ACTUALIZAR MEDICAMENTO
-    // =========================================================
-
-    fun actualizar(
-        medicamento: Medicamento
-    ) {
-
-        val indice =
-            medicamentos.indexOfFirst { existente ->
+    fun actualizar(medicamento: Medicamento) {
+        val indice = medicamentos.indexOfFirst { existente ->
                 existente.id == medicamento.id
             }
 
@@ -86,64 +72,34 @@ object MedicamentoRepository {
         }
     }
 
-
-    // =========================================================
     // OBTENER TODOS
-    // =========================================================
-
     fun obtenerTodos(): List<Medicamento> {
         return medicamentos.toList()
     }
 
-
-    // =========================================================
     // MEDICAMENTOS DEL PROPIO USUARIO
-    // =========================================================
-
     fun obtenerPropios(): List<Medicamento> {
-
         return medicamentos.filter { medicamento ->
             medicamento.personaId == null
         }
     }
 
-
-    // =========================================================
     // MEDICAMENTOS DE UNA PERSONA ASOCIADA
-    // =========================================================
-
-    fun obtenerPorPersona(
-        personaId: String
-    ): List<Medicamento> {
-
+    fun obtenerPorPersona(personaId: String): List<Medicamento> {
         return medicamentos.filter { medicamento ->
             medicamento.personaId == personaId
         }
     }
 
-
-    // =========================================================
     // BUSCAR MEDICAMENTO POR ID
-    // =========================================================
-
-    fun obtenerPorId(
-        medicamentoId: String
-    ): Medicamento? {
-
+    fun obtenerPorId(medicamentoId: String): Medicamento? {
         return medicamentos.find { medicamento ->
             medicamento.id == medicamentoId
         }
     }
 
-
-    // =========================================================
     // ELIMINAR
-    // =========================================================
-
-    fun eliminar(
-        medicamentoId: String
-    ) {
-
+    fun eliminar(medicamentoId: String) {
         medicamentos.removeAll { medicamento ->
             medicamento.id == medicamentoId
         }

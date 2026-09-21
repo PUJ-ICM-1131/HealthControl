@@ -8,11 +8,10 @@ import com.icm2630.proyecto.data.model.TipoCita
 object CitaRepository {
 
     /*
-     * Datos simulados para la primera entrega.
+     * Datos simulados para la primera entrega
      *
-     * Se almacenan únicamente en memoria.
-     * Al cerrar completamente la aplicación,
-     * las citas creadas durante la ejecución se pierden.
+     * Se almacenan únicamente en memoria
+     * Al cerrar completamente la aplicación, las citas creadas durante la ejecución se pierden.
      */
     private val citas = mutableListOf(
 
@@ -55,10 +54,7 @@ object CitaRepository {
         )
     )
 
-
-    // =========================================================
     // REGISTRAR CITA
-    // =========================================================
 
     fun registrar(
         cita: Cita
@@ -66,17 +62,11 @@ object CitaRepository {
         citas.add(cita)
     }
 
-
-    // =========================================================
     // ACTUALIZAR CITA
-    // =========================================================
 
-    fun actualizar(
-        cita: Cita
-    ) {
+    fun actualizar(cita: Cita) {
 
-        val indice =
-            citas.indexOfFirst { existente ->
+        val indice = citas.indexOfFirst { existente ->
                 existente.id == cita.id
             }
 
@@ -85,64 +75,36 @@ object CitaRepository {
         }
     }
 
-
-    // =========================================================
     // OBTENER TODAS
-    // =========================================================
 
     fun obtenerTodas(): List<Cita> {
         return citas.toList()
     }
 
-
-    // =========================================================
     // CITAS DEL PROPIO USUARIO
-    // =========================================================
 
     fun obtenerPropias(): List<Cita> {
-
         return citas.filter { cita ->
             cita.personaId == null
         }
     }
 
-
-    // =========================================================
     // CITAS DE UNA PERSONA ASOCIADA
-    // =========================================================
-
-    fun obtenerPorPersona(
-        personaId: String
-    ): List<Cita> {
-
+    fun obtenerPorPersona(personaId: String): List<Cita> {
         return citas.filter { cita ->
             cita.personaId == personaId
         }
     }
 
-
-    // =========================================================
     // BUSCAR CITA POR ID
-    // =========================================================
-
-    fun obtenerPorId(
-        citaId: String
-    ): Cita? {
-
+    fun obtenerPorId(citaId: String): Cita? {
         return citas.find { cita ->
             cita.id == citaId
         }
     }
 
-
-    // =========================================================
     // ELIMINAR CITA
-    // =========================================================
-
-    fun eliminar(
-        citaId: String
-    ) {
-
+    fun eliminar(citaId: String) {
         citas.removeAll { cita ->
             cita.id == citaId
         }

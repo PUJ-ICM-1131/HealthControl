@@ -464,9 +464,6 @@ private fun BotonFiltros(activo: Boolean, onClick: () -> Unit) {
     }
 }
 
-
-
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun FiltroFechaDialog(

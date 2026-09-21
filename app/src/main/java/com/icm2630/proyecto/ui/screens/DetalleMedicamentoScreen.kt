@@ -37,11 +37,7 @@ import java.util.TimeZone
 
 private val Fondo = Color(0xFFF8FAFF)
 
-
-// =================================================================
 // PANTALLA DE DETALLE DE UN MEDICAMENTO
-// =================================================================
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DetalleMedicamentoScreen(
@@ -313,11 +309,7 @@ fun DetalleMedicamentoScreen(
     }
 }
 
-
-// =================================================================
 // ENCABEZADO
-// =================================================================
-
 @Composable
 private fun EncabezadoMedicamento(medicamento: Medicamento) {
 
@@ -360,9 +352,6 @@ private fun EncabezadoMedicamento(medicamento: Medicamento) {
         }
     }
 }
-
-
-
 
 @Composable
 private fun TarjetaDetalleMedicamento(contenido: @Composable ColumnScope.() -> Unit) {
@@ -425,8 +414,6 @@ private fun DetalleCampoMedicamento(
     }
 }
 
-
-
 @Composable
 private fun AvisoSoloLecturaMedicamento(mensaje: String) {
 
@@ -455,12 +442,7 @@ private fun AvisoSoloLecturaMedicamento(mensaje: String) {
     }
 }
 
-
-// =================================================================
 // FORMATO DE FECHA
-// =================================================================
-
-
 private fun obtenerHoyUtcMillisMedicamento(): Long {
 
     val hoyLocal = Calendar.getInstance()

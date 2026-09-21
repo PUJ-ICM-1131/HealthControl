@@ -54,10 +54,7 @@ fun MedicationDoseSelector(
     modifier: Modifier = Modifier
 ) {
 
-    // =========================================================
     // SABER SI ESTÁ USANDO "OTRO"
-    // =========================================================
-
     var otroSeleccionado by remember {
 
         mutableStateOf(
@@ -119,11 +116,7 @@ fun MedicationDoseSelector(
             modifier = Modifier.height(14.dp)
         )
 
-
-        // =====================================================
         // CANTIDAD + UNIDAD
-        // =====================================================
-
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -182,11 +175,7 @@ fun MedicationDoseSelector(
             )
         }
 
-
-        // =====================================================
         // PASTILLAS POR TOMA
-        // =====================================================
-
         if (selectedForm == "Pastilla") {
 
             Spacer(
@@ -218,11 +207,7 @@ fun MedicationDoseSelector(
                 modifier = Modifier.height(12.dp)
             )
 
-
-            // =================================================
             // 1 / 2 / OTRO
-            // =================================================
-
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement =
@@ -306,11 +291,7 @@ fun MedicationDoseSelector(
                 )
             }
 
-
-            // =================================================
             // CANTIDAD PERSONALIZADA
-            // =================================================
-
             if (otroSeleccionado) {
 
                 Spacer(
@@ -331,13 +312,6 @@ fun MedicationDoseSelector(
 
                     onValueChange = { newValue ->
 
-                        /*
-                         * Permite cantidades como:
-                         * 3
-                         * 4
-                         * 1.5
-                         * 0.5
-                         */
                         val valid =
                             newValue.matches(
                                 Regex("""^\d*[.,]?\d*$""")
@@ -382,17 +356,12 @@ fun MedicationDoseSelector(
                                 KeyboardType.Decimal
                         ),
 
-                    shape =
-                        RoundedCornerShape(16.dp)
+                    shape = RoundedCornerShape(16.dp)
                 )
             }
         }
 
-
-        // =====================================================
         // AYUDA SEGÚN PRESENTACIÓN
-        // =====================================================
-
         if (selectedForm != "Pastilla") {
 
             Spacer(
@@ -414,8 +383,7 @@ fun MedicationDoseSelector(
             ) {
 
                 Text(
-                    text =
-                        getDoseHelpExample(
+                    text = getDoseHelpExample(
                             selectedForm
                         ),
 
@@ -426,24 +394,17 @@ fun MedicationDoseSelector(
 
                     color = TextSecondary,
 
-                    style =
-                        MaterialTheme.typography.bodyMedium
+                    style = MaterialTheme.typography.bodyMedium
                 )
             }
         }
     }
 }
 
-
-// =============================================================
 // SELECTOR DE UNIDAD
-// =============================================================
-
 @Composable
-private fun MedicationUnitSelector(
-    selectedForm: String,
-    selectedUnit: String,
-    onUnitSelected: (String) -> Unit,
+private fun MedicationUnitSelector(selectedForm: String,
+    selectedUnit: String, onUnitSelected: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
 
@@ -451,17 +412,11 @@ private fun MedicationUnitSelector(
         mutableStateOf(false)
     }
 
-
-    val units =
-        getUnitsForForm(
-            selectedForm
-        )
-
+    val units = getUnitsForForm(selectedForm)
 
     Box(
         modifier = modifier
     ) {
-
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
@@ -469,29 +424,21 @@ private fun MedicationUnitSelector(
                 .clickable {
                     expanded = true
                 },
-
-            shape =
-                RoundedCornerShape(16.dp),
-
-            color =
-                Color.White,
-
+            shape = RoundedCornerShape(16.dp),
+            color = Color.White,
             border =
                 BorderStroke(
                     width = 1.dp,
                     color = Blue500
                 )
         ) {
-
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(
                         horizontal = 13.dp
                     ),
-
-                verticalAlignment =
-                    Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically
             ) {
 
                 Column(
@@ -502,34 +449,24 @@ private fun MedicationUnitSelector(
                     Text(
                         text = "Unidad",
                         color = TextSecondary,
-                        style =
-                            MaterialTheme.typography.labelSmall
+                        style = MaterialTheme.typography.labelSmall
                     )
-
 
                     Text(
                         text = selectedUnit,
                         color = Blue700,
-                        style =
-                            MaterialTheme.typography.bodyLarge,
-                        fontWeight =
-                            FontWeight.SemiBold
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.SemiBold
                     )
                 }
 
-
                 Icon(
-                    imageVector =
-                        Icons.Outlined.KeyboardArrowDown,
-
-                    contentDescription =
-                        "Seleccionar unidad",
-
+                    imageVector = Icons.Outlined.KeyboardArrowDown,
+                    contentDescription = "Seleccionar unidad",
                     tint = Blue500
                 )
             }
         }
-
 
         DropdownMenu(
             expanded = expanded,
@@ -566,15 +503,9 @@ private fun MedicationUnitSelector(
     }
 }
 
-
-// =============================================================
 // OPCIÓN DE CANTIDAD
-// =============================================================
-
 @Composable
-private fun QuantityOption(
-    value: String,
-    label: String,
+private fun QuantityOption(value: String, label: String,
     selected: Boolean,
     modifier: Modifier = Modifier,
     onClick: () -> Unit
@@ -586,8 +517,7 @@ private fun QuantityOption(
                 onClick()
             },
 
-        shape =
-            RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(16.dp),
 
         color =
             if (selected) {
@@ -644,138 +574,70 @@ private fun QuantityOption(
     }
 }
 
-
-// =============================================================
 // DATOS VISUALES
-// =============================================================
-
-private fun getUnitsForForm(
-    selectedForm: String
-): List<String> {
+private fun getUnitsForForm(selectedForm: String): List<String> {
 
     return when (selectedForm) {
+        "Jarabe" -> listOf("mL", "mg")
 
-        "Jarabe" ->
-            listOf(
-                "mL",
-                "mg"
-            )
-
-
-        "Gotas" ->
-            listOf(
-                "gotas",
-                "mL"
-            )
-
+        "Gotas" -> listOf("gotas", "mL")
 
         "Inyección" ->
-            listOf(
-                "mL",
-                "mg",
-                "UI"
-            )
-
+            listOf("mL", "mg", "UI")
 
         else ->
-            listOf(
-                "mg",
-                "g",
-                "mcg"
-            )
+            listOf("mg", "g", "mcg")
     }
 }
 
 
-private fun getDoseDescription(
-    selectedForm: String
-): String {
-
+private fun getDoseDescription(selectedForm: String): String {
     return when (selectedForm) {
-
         "Jarabe" ->
             "Indica la cantidad de líquido que debe tomar."
-
 
         "Gotas" ->
             "Indica la cantidad de gotas de cada aplicación."
 
-
         "Inyección" ->
             "Indica la dosis correspondiente a cada aplicación."
 
-
-        else ->
-            "Indica la concentración del medicamento."
+        else -> "Indica la concentración del medicamento."
     }
 }
 
 
-private fun getDoseExample(
-    selectedForm: String
-): String {
-
+private fun getDoseExample(selectedForm: String): String {
     return when (selectedForm) {
-
-        "Jarabe" ->
-            "Ej. 10"
-
-
-        "Gotas" ->
-            "Ej. 5"
-
-
-        "Inyección" ->
-            "Ej. 2"
-
-
-        else ->
-            "Ej. 50"
+        "Jarabe" -> "Ej. 10"
+        "Gotas" -> "Ej. 5"
+        "Inyección" -> "Ej. 2"
+        else -> "Ej. 50"
     }
 }
 
 
-private fun getDoseHelpExample(
-    selectedForm: String
-): String {
-
+private fun getDoseHelpExample(selectedForm: String): String {
     return when (selectedForm) {
+        "Jarabe" -> "Ejemplo: 10 mL en cada toma."
 
-        "Jarabe" ->
-            "Ejemplo: 10 mL en cada toma."
+        "Gotas" -> "Ejemplo: 5 gotas en cada aplicación."
 
+        "Inyección" -> "Ejemplo: 2 mL en cada aplicación."
 
-        "Gotas" ->
-            "Ejemplo: 5 gotas en cada aplicación."
-
-
-        "Inyección" ->
-            "Ejemplo: 2 mL en cada aplicación."
-
-
-        else ->
-            ""
+        else -> ""
     }
 }
 
-
-// =============================================================
 // PREVIEW
-// =============================================================
-
-@Preview(
-    showBackground = true,
-    name = "Dosis medicamento"
-)
+@Preview(showBackground = true, name = "Dosis medicamento")
 @Composable
 private fun MedicationDoseSelectorPreview() {
 
     HealthControlTheme {
-
         Surface(
             color = Blue50
         ) {
-
             MedicationDoseSelector(
                 selectedForm = "Pastilla",
                 dose = "50",

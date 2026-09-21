@@ -100,11 +100,7 @@ fun AppointmentRegisterScreen(
 
     val modoEdicion = citaId != null
 
-
-    // =========================================================
     // CARGAR CITA A EDITAR (o limpiar el formulario si es nueva)
-    // =========================================================
-
     LaunchedEffect(citaId) {
 
         if (citaId != null) {
@@ -119,11 +115,7 @@ fun AppointmentRegisterScreen(
         }
     }
 
-
-    // =========================================================
     // MENSAJES DE GUARDADO / ERROR
-    // =========================================================
-
     LaunchedEffect(
         state.guardadoExitoso,
         state.mensajeError
@@ -154,11 +146,7 @@ fun AppointmentRegisterScreen(
         }
     }
 
-
-    // =========================================================
     // SELECTOR DE SOPORTE
-    // =========================================================
-
     val fileLauncher =
         rememberLauncherForActivityResult(
             contract = ActivityResultContracts.OpenDocument()
@@ -172,7 +160,6 @@ fun AppointmentRegisterScreen(
                         uri = uri
                     )
 
-
                 viewModel.onSoporteSeleccionado(
                     uri = uri.toString(),
                     nombreArchivo = nombreArchivo
@@ -180,40 +167,30 @@ fun AppointmentRegisterScreen(
             }
         }
 
-
-    // =========================================================
     // PERSONA A MOSTRAR
-    // =========================================================
-
     val nombrePersona =
         when (state.perfilUsuario?.tipoPerfil) {
 
             TipoPerfil.TITULAR -> {
-
                 state.perfilUsuario
                     ?.nombreCompleto
                     ?.ifBlank { "Yo" }
                     ?: "Yo"
             }
 
-
             TipoPerfil.ACOMPANANTE -> {
-
                 if (state.citaParaMi) {
-
                     state.perfilUsuario
                         ?.nombreCompleto
                         ?.ifBlank { "Yo" }
                         ?: "Yo"
 
                 } else {
-
                     state.personaSeleccionada
                         ?.nombreCompleto
                         ?: "Selecciona una persona"
                 }
             }
-
 
             null -> {
                 "Yo"
@@ -224,25 +201,18 @@ fun AppointmentRegisterScreen(
     val tipoPersona =
         when {
 
-            state.perfilUsuario?.tipoPerfil ==
-                    TipoPerfil.TITULAR -> {
-
+            state.perfilUsuario?.tipoPerfil == TipoPerfil.TITULAR -> {
                 "Mi perfil"
             }
-
 
             state.citaParaMi -> {
-
                 "Mi perfil"
             }
 
-
             else -> {
-
                 "Persona asociada"
             }
         }
-
 
     Scaffold(
 
@@ -306,11 +276,7 @@ fun AppointmentRegisterScreen(
             )
         },
 
-
-        // =====================================================
         // BOTÓN GUARDAR
-        // =====================================================
-
         bottomBar = {
 
             Surface(
@@ -356,7 +322,6 @@ fun AppointmentRegisterScreen(
                         )
                     )
 
-
                     Text(
                         text =
                             if (state.guardando) {
@@ -397,11 +362,7 @@ fun AppointmentRegisterScreen(
                 modifier = Modifier.height(4.dp)
             )
 
-
-            // =================================================
             // PERSONA
-            // =================================================
-
             AppointmentPersonCard(
                 personName = nombrePersona,
 
@@ -416,11 +377,7 @@ fun AppointmentRegisterScreen(
                 }
             )
 
-
-            // =================================================
             // 1. INFORMACIÓN DE LA CITA
-            // =================================================
-
             AppointmentSectionCard(
                 step = 1,
                 title = "Información de la cita",
@@ -496,11 +453,9 @@ fun AppointmentRegisterScreen(
                     )
                 }
 
-
                 Spacer(
                     modifier = Modifier.height(16.dp)
                 )
-
 
                 OutlinedTextField(
                     value =
@@ -528,10 +483,7 @@ fun AppointmentRegisterScreen(
                         RoundedCornerShape(16.dp)
                 )
 
-                // =================================================
-// NOMBRE DEL MÉDICO O ESPECIALISTA
-// =================================================
-
+                // NOMBRE DEL MÉDICO O ESPECIALISTA
                 Spacer(
                     modifier = Modifier.height(16.dp)
                 )
@@ -565,10 +517,7 @@ fun AppointmentRegisterScreen(
                 )
             }
 
-
-            // =================================================
             // 2. FECHA Y HORA
-            // =================================================
 
             AppointmentSectionCard(
                 step = 2,
@@ -613,11 +562,7 @@ fun AppointmentRegisterScreen(
                 )
             }
 
-
-            // =================================================
             // 3. LUGAR
-            // =================================================
-
             AppointmentSectionCard(
                 step = 3,
                 title = "Lugar",
@@ -664,20 +609,13 @@ fun AppointmentRegisterScreen(
                 )
             }
 
-
-            // =================================================
             // 4. INFORMACIÓN ADICIONAL
-            // =================================================
-
             AppointmentSectionCard(
                 step = 4,
                 title = "Información adicional",
                 subtitle = "Agrega información útil para recordar la cita"
             ) {
-                // =================================================
                 // NOTAS
-                // =================================================
-
                 OutlinedTextField(
                     value = state.notas,
 
@@ -707,11 +645,7 @@ fun AppointmentRegisterScreen(
                     modifier = Modifier.height(18.dp)
                 )
 
-
-                // =================================================
                 // SOPORTE
-                // =================================================
-
                 Text(
                     text = "Soporte",
                     color = Blue700,
@@ -745,48 +679,33 @@ fun AppointmentRegisterScreen(
                 )
             }
 
-
-            // =================================================
             // RESUMEN
-            // =================================================
-
             AppointmentSummaryCard(
-                personName =
-                    nombrePersona,
+                personName = nombrePersona,
 
-                appointmentType =
-                    state.tipoCita.titulo,
+                appointmentType = state.tipoCita.titulo,
 
-                specialty =
-                    state.especialidad,
+                specialty = state.especialidad,
 
-                date =
-                    formatAppointmentDate(
+                date = formatAppointmentDate(
                         state.fechaMillis
                     ),
 
-                time =
-                    formatAppointmentTime(
+                time = formatAppointmentTime(
                         state.hora,
                         state.minuto
                     ),
 
-                modality =
-                    state.modalidad.titulo,
+                modality = state.modalidad.titulo,
 
-                institution =
-                    state.institucion,
+                institution = state.institucion,
 
-                address =
-                    state.direccion,
+                address = state.direccion,
 
-                virtualLink =
-                    state.enlaceVirtual,
+                virtualLink = state.enlaceVirtual,
 
-                doctorName =
-                    state.nombreMedico
+                doctorName = state.nombreMedico
             )
-
 
             Spacer(
                 modifier = Modifier.height(20.dp)
@@ -794,23 +713,16 @@ fun AppointmentRegisterScreen(
         }
     }
 
-
-    // =========================================================
     // DIÁLOGO DE PERSONA
-    // =========================================================
-
     if (showPersonDialog) {
 
         AppointmentPersonSelectorDialog(
 
-            personas =
-                state.personasAsociadas,
+            personas = state.personasAsociadas,
 
-            citaParaMi =
-                state.citaParaMi,
+            citaParaMi = state.citaParaMi,
 
-            selectedPersonId =
-                state.personaSeleccionadaId,
+            selectedPersonId = state.personaSeleccionadaId,
 
             onDismiss = {
                 showPersonDialog = false
@@ -834,11 +746,7 @@ fun AppointmentRegisterScreen(
         )
     }
 
-
-    // =========================================================
     // DATE PICKER
-    // =========================================================
-
     if (showDatePicker) {
 
         AppointmentDatePickerDialog(
@@ -861,11 +769,7 @@ fun AppointmentRegisterScreen(
     }
 }
 
-
-// =============================================================
 // SELECTOR DE PERSONA
-// =============================================================
-
 @Composable
 private fun AppointmentPersonSelectorDialog(
     personas: List<Persona>,
@@ -893,10 +797,7 @@ private fun AppointmentPersonSelectorDialog(
 
             Column {
 
-                // =============================================
                 // YO
-                // =============================================
-
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -1038,11 +939,7 @@ private fun AppointmentPersonSelectorDialog(
     )
 }
 
-
-// =============================================================
 // DATE PICKER
-// =============================================================
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AppointmentDatePickerDialog(
@@ -1101,11 +998,7 @@ private fun AppointmentDatePickerDialog(
     }
 }
 
-
-// =============================================================
 // FORMATEAR FECHA
-// =============================================================
-
 private fun formatAppointmentDate(
     millis: Long?
 ): String {
@@ -1113,7 +1006,6 @@ private fun formatAppointmentDate(
     if (millis == null) {
         return ""
     }
-
 
     val formatter =
         SimpleDateFormat(
@@ -1130,23 +1022,17 @@ private fun formatAppointmentDate(
     )
 }
 
-
-// =============================================================
 // FORMATEAR HORA
-// =============================================================
-
 private fun formatAppointmentTime(
     hour: Int?,
     minute: Int?
 ): String {
-
     if (
         hour == null ||
         minute == null
     ) {
         return ""
     }
-
 
     val amPm =
         if (hour < 12) {
@@ -1155,20 +1041,12 @@ private fun formatAppointmentTime(
             "PM"
         }
 
-
     val hour12 =
         when {
-
-            hour == 0 ->
-                12
-
-            hour > 12 ->
-                hour - 12
-
-            else ->
-                hour
+            hour == 0 -> 12
+            hour > 12 -> hour - 12
+            else -> hour
         }
-
 
     return String.format(
         Locale.getDefault(),

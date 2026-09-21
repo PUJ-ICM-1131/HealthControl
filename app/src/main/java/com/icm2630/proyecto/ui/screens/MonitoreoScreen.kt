@@ -38,7 +38,7 @@ import com.icm2630.proyecto.ui.components.HealthBottomNavigation
 import com.icm2630.proyecto.ui.theme.*
 
 /**
- * HU-25: home del rol Acompañante. En vez de la propia salud, muestra la
+ * home del rol Acompañante. En vez de la propia salud, muestra la
  * de la persona (el titular) a la que este acompañante da seguimiento.
  */
 @Composable

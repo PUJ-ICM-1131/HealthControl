@@ -448,27 +448,6 @@ fun AppNavigation() {
                     },
 
 
-                    // Cambiar de rol no es un simple toggle: pasar a Acompañante
-                    // exige un código válido (resuelto dentro de ProfileScreen);
-                    // aquí solo persistimos el resultado y navegamos al home
-                    // correcto para el nuevo rol.
-                    onCambiarTipoPerfil = { nuevoTipo, vinculo ->
-
-                        val actual = SesionRepository.perfil ?: PerfilUsuario()
-
-                        SesionRepository.perfil = actual.copy(
-                            tipoPerfil = nuevoTipo,
-                            personaVinculada = if (nuevoTipo == TipoPerfil.ACOMPANANTE) vinculo else null
-                        )
-
-                        backStack.clear()
-
-                        backStack.add(
-                            if (nuevoTipo == TipoPerfil.ACOMPANANTE) Routes.Monitoreo else Routes.Home
-                        )
-                    },
-
-
                     onCerrarSesion = {
 
                         SesionRepository

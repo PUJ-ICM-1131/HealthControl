@@ -21,6 +21,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.icm2630.proyecto.ui.components.ChipsCondiciones
@@ -29,7 +30,6 @@ import com.icm2630.proyecto.ui.components.HealthBottomNavigation
 import com.icm2630.proyecto.data.model.Genero
 import com.icm2630.proyecto.data.model.PerfilUsuario
 import com.icm2630.proyecto.data.model.PersonaVinculada
-import com.icm2630.proyecto.data.model.TipoPerfil
 import com.icm2630.proyecto.data.repository.VinculacionSimulator
 import com.icm2630.proyecto.navigation.Routes
 import com.icm2630.proyecto.ui.theme.Blue100
@@ -67,7 +67,6 @@ fun ProfileScreen(
     onNavigate: (Routes) -> Unit = {},
     onEditarCampo: (CampoPerfilEditable) -> Unit = {},
     onActualizarPerfil: (PerfilUsuario) -> Unit = {},
-    onCambiarTipoPerfil: (TipoPerfil, PersonaVinculada?) -> Unit = { _, _ -> },
     onCerrarSesion: () -> Unit = {}
 ) {
     var mostrarConfirmacionCierre by remember { mutableStateOf(false) }
@@ -75,17 +74,11 @@ fun ProfileScreen(
     // Copia local para que la pantalla refleje al instante lo editado;
     // la fuente de verdad (SesionRepository) se actualiza vía onActualizarPerfil.
     var datos by remember(perfil) { mutableStateOf(perfil) }
+    // Mientras no haya backend se muestran dos personas de ejemplo.
+    val personas = datos.acompanantes.ifEmpty { PERSONAS_EJEMPLO }
     var campoEditando by remember { mutableStateOf<CampoPerfilEditable?>(null) }
 
-    // Estado visual local para que la selección responda al tacto ya
-    // mismo; la fuente de verdad real (SesionRepository) se actualiza
-    // recién cuando la persona confirma el cambio de rol.
-    var tipoSeleccionado by remember(datos.tipoPerfil) { mutableStateOf(datos.tipoPerfil) }
-
-    // Cambiar de rol no es un simple toggle: pasar a Acompañante exige un
-    // código válido y pasar a Titular implica perder la vinculación actual,
-    // así que ambos casos se confirman en un diálogo antes de aplicarse.
-    var pedirConfirmacionCambioA by remember { mutableStateOf<TipoPerfil?>(null) }
+    var mostrarAgregarPersona by remember { mutableStateOf(false) }
 
     Scaffold(
         bottomBar = {
@@ -126,11 +119,6 @@ fun ProfileScreen(
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     color = Blue700
-                )
-                Text(
-                    text = tipoSeleccionado.titulo,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = TextSecondary
                 )
             }
 
@@ -212,61 +200,18 @@ fun ProfileScreen(
 
             Spacer(Modifier.height(24.dp))
 
-            // ---------- Tipo de perfil (HU-02) ----------
-            SeccionTitulo("Tipo de perfil")
+            // ---------- Personas en mi HealthControl ----------
+            SeccionTitulo("Personas en mi HealthControl")
             Spacer(Modifier.height(12.dp))
             TarjetaBlanca {
-                Text(
-                    text = "Define si usas HealthControl para ti o para dar seguimiento a alguien más.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = TextSecondary
-                )
-
-                Spacer(Modifier.height(16.dp))
-
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    SelectorTipoPerfil(
-                        tipo = TipoPerfil.TITULAR,
-                        icon = Icons.Outlined.FavoriteBorder,
-                        seleccionado = tipoSeleccionado == TipoPerfil.TITULAR,
-                        onClick = {
-                            if (tipoSeleccionado != TipoPerfil.TITULAR) {
-                                pedirConfirmacionCambioA = TipoPerfil.TITULAR
-                            }
-                        },
-                        modifier = Modifier.weight(1f)
-                    )
-                    SelectorTipoPerfil(
-                        tipo = TipoPerfil.ACOMPANANTE,
-                        icon = Icons.Outlined.Groups,
-                        seleccionado = tipoSeleccionado == TipoPerfil.ACOMPANANTE,
-                        onClick = {
-                            if (tipoSeleccionado != TipoPerfil.ACOMPANANTE) {
-                                pedirConfirmacionCambioA = TipoPerfil.ACOMPANANTE
-                            }
-                        },
-                        modifier = Modifier.weight(1f)
-                    )
+                personas.forEachIndexed { indice, persona ->
+                    if (indice > 0) DivisorFila()
+                    FilaPersona(persona = persona, colorIndice = indice)
                 }
 
-                when (tipoSeleccionado) {
-                    TipoPerfil.TITULAR -> datos.codigoVinculacion?.let { codigo ->
-                        Spacer(Modifier.height(16.dp))
-                        InfoVinculacion(
-                            texto = "Tu código de invitación es $codigo. Compártelo con quien quieras que te acompañe.",
-                            colorFondo = Blue100.copy(alpha = 0.4f),
-                            colorTexto = Blue700
-                        )
-                    }
-                    TipoPerfil.ACOMPANANTE -> datos.personaVinculada?.let { vinculo ->
-                        Spacer(Modifier.height(16.dp))
-                        InfoVinculacion(
-                            texto = "Estás dando seguimiento a ${vinculo.nombre} (${vinculo.relacion.ifBlank { "acompañante" }}).",
-                            colorFondo = SuccessGreenBg,
-                            colorTexto = SuccessGreen
-                        )
-                    }
-                }
+                if (personas.isNotEmpty()) DivisorFila()
+
+                FilaAgregarPersona(onClick = { mostrarAgregarPersona = true })
             }
 
             Spacer(Modifier.height(24.dp))
@@ -344,45 +289,16 @@ fun ProfileScreen(
         )
     }
 
-    when (pedirConfirmacionCambioA) {
-        TipoPerfil.TITULAR -> {
-            AlertDialog(
-                onDismissRequest = { pedirConfirmacionCambioA = null },
-                title = { Text("¿Pasar a Titular?") },
-                text = {
-                    val nombreVinculo = datos.personaVinculada?.nombre
-                    Text(
-                        if (nombreVinculo != null)
-                            "Dejarás de ver la salud de $nombreVinculo y empezarás a gestionar la tuya propia."
-                        else
-                            "Empezarás a gestionar tu propia salud en vez de acompañar a alguien más."
-                    )
-                },
-                confirmButton = {
-                    TextButton(onClick = {
-                        tipoSeleccionado = TipoPerfil.TITULAR
-                        onCambiarTipoPerfil(TipoPerfil.TITULAR, null)
-                        pedirConfirmacionCambioA = null
-                    }) { Text("Confirmar", color = Blue700) }
-                },
-                dismissButton = {
-                    TextButton(onClick = { pedirConfirmacionCambioA = null }) {
-                        Text("Cancelar", color = TextSecondary)
-                    }
-                }
-            )
-        }
-        TipoPerfil.ACOMPANANTE -> {
-            DialogoVincularAcompanante(
-                onConfirmar = { vinculo ->
-                    tipoSeleccionado = TipoPerfil.ACOMPANANTE
-                    onCambiarTipoPerfil(TipoPerfil.ACOMPANANTE, vinculo)
-                    pedirConfirmacionCambioA = null
-                },
-                onCancelar = { pedirConfirmacionCambioA = null }
-            )
-        }
-        null -> Unit
+    if (mostrarAgregarPersona) {
+        DialogoAgregarPersona(
+            onConfirmar = { nueva ->
+                val actualizado = datos.copy(acompanantes = personas + nueva)
+                datos = actualizado
+                onActualizarPerfil(actualizado)
+                mostrarAgregarPersona = false
+            },
+            onCancelar = { mostrarAgregarPersona = false }
+        )
     }
 }
 
@@ -499,110 +415,125 @@ private fun FilaDato(
     }
 }
 
-@Composable
-private fun SelectorTipoPerfil(
-    tipo: TipoPerfil,
-    icon: ImageVector,
-    seleccionado: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val fondo = if (seleccionado) Blue700 else Blue100.copy(alpha = 0.25f)
-    val colorTitulo = if (seleccionado) Color.White else Blue700
-    val colorTexto = if (seleccionado) Color.White.copy(alpha = 0.85f) else TextSecondary
+private val PERSONAS_EJEMPLO = listOf(
+    PersonaVinculada(nombre = "Elena Ramírez", relacion = "Madre", codigo = "HC4F7K"),
+    PersonaVinculada(nombre = "Carlos Gómez", relacion = "Hermano", codigo = "HC9M2P")
+)
 
-    Column(
-        modifier = modifier
-            .clip(RoundedCornerShape(18.dp))
-            .background(fondo)
-            .clickable(onClick = onClick)
-            .padding(14.dp)
+private val ColoresAvatar = listOf(
+    Color(0xFF2F6FDE), Color(0xFF1FA37A), Color(0xFFE08A1E), Color(0xFF8E5BD9)
+)
+
+@Composable
+private fun AvatarPersona(nombre: String, colorIndice: Int, tamano: Dp = 52.dp) {
+    val iniciales = nombre.trim().split(" ")
+        .filter { it.isNotBlank() }
+        .take(2)
+        .joinToString("") { it.first().uppercase() }
+    val color = ColoresAvatar[colorIndice % ColoresAvatar.size]
+    Box(
+        modifier = Modifier
+            .size(tamano)
+            .background(color.copy(alpha = 0.15f), CircleShape),
+        contentAlignment = Alignment.Center
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(icon, null, tint = colorTitulo, modifier = Modifier.size(22.dp))
-            if (seleccionado) {
-                Icon(Icons.Outlined.CheckCircle, null, tint = Color.White, modifier = Modifier.size(18.dp))
-            }
+        if (iniciales.isEmpty()) {
+            Icon(Icons.Outlined.Person, null, tint = color, modifier = Modifier.size(tamano / 2))
+        } else {
+            Text(
+                text = iniciales,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = color
+            )
         }
-
-        Spacer(Modifier.height(10.dp))
-
-        Text(
-            text = tipo.titulo,
-            style = MaterialTheme.typography.labelLarge,
-            fontWeight = FontWeight.Bold,
-            color = colorTitulo
-        )
-        Spacer(Modifier.height(2.dp))
-        Text(
-            text = tipo.descripcion,
-            style = MaterialTheme.typography.bodySmall,
-            color = colorTexto,
-            lineHeight = 14.sp
-        )
     }
 }
 
 @Composable
-private fun InfoVinculacion(texto: String, colorFondo: Color, colorTexto: Color) {
-    Surface(
-        color = colorFondo,
-        shape = RoundedCornerShape(14.dp),
-        modifier = Modifier.fillMaxWidth()
+private fun FilaPersona(persona: PersonaVinculada, colorIndice: Int) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(
-            text = texto,
-            modifier = Modifier.padding(12.dp),
-            style = MaterialTheme.typography.bodySmall,
-            fontWeight = FontWeight.Medium,
-            color = colorTexto
-        )
+        AvatarPersona(persona.nombre, colorIndice)
+        Spacer(Modifier.width(14.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = persona.nombre,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = TextPrimary
+            )
+            Text(
+                text = persona.relacion.ifBlank { "Familiar" },
+                style = MaterialTheme.typography.bodySmall,
+                color = TextSecondary
+            )
+        }
     }
 }
 
-/**
- * Pasar a Acompañante exige un código de invitación válido: se pide y se
- * valida aquí mismo antes de aplicar el cambio de rol.
- */
 @Composable
-private fun DialogoVincularAcompanante(
+private fun FilaAgregarPersona(onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .clickable(onClick = onClick)
+            .padding(vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(52.dp)
+                .background(Blue100.copy(alpha = 0.4f), CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(Icons.Outlined.PersonAdd, null, tint = Blue700, modifier = Modifier.size(24.dp))
+        }
+        Spacer(Modifier.width(14.dp))
+        Text(
+            text = "Añadir una nueva persona en mi HealthControl",
+            style = MaterialTheme.typography.bodyLarge,
+            fontWeight = FontWeight.SemiBold,
+            color = Blue700,
+            modifier = Modifier.weight(1f)
+        )
+        Icon(Icons.Outlined.ChevronRight, null, tint = Blue500)
+    }
+}
+
+/** Pide el ID de la persona a añadir. Sin backend, el ID se resuelve con el simulador. */
+@Composable
+private fun DialogoAgregarPersona(
     onConfirmar: (PersonaVinculada) -> Unit,
     onCancelar: () -> Unit
 ) {
-    var codigo by remember { mutableStateOf("") }
-    var relacion by remember { mutableStateOf("") }
+    var id by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
 
     AlertDialog(
         onDismissRequest = onCancelar,
-        title = { Text("Vincularte como acompañante") },
+        title = { Text("Añadir una persona") },
         text = {
             Column {
                 Text(
-                    "Ingresa el código que te compartió la persona a la que darás seguimiento.",
+                    "Ingresa el ID de la persona que quieres añadir a tu HealthControl.",
                     style = MaterialTheme.typography.bodySmall,
                     color = TextSecondary
                 )
                 Spacer(Modifier.height(12.dp))
                 OutlinedTextField(
-                    value = codigo,
+                    value = id,
                     onValueChange = {
-                        codigo = it.uppercase().filter { c -> c.isLetterOrDigit() }.take(6)
+                        id = it.uppercase().filter { c -> c.isLetterOrDigit() }.take(VinculacionSimulator.LONGITUD_CODIGO)
                         error = null
                     },
-                    label = { Text("Código de invitación") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Spacer(Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = relacion,
-                    onValueChange = { relacion = it; error = null },
-                    label = { Text("Tu relación con esa persona") },
+                    label = { Text("ID de la persona") },
+                    placeholder = { Text("Ej. 7K3PQ9") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -614,18 +545,18 @@ private fun DialogoVincularAcompanante(
         },
         confirmButton = {
             TextButton(onClick = {
-                when {
-                    codigo.length != 6 -> error = "El código debe tener 6 caracteres"
-                    relacion.isBlank() -> error = "Indica tu relación con esa persona"
-                    else -> onConfirmar(
+                if (id.length != VinculacionSimulator.LONGITUD_CODIGO) {
+                    error = "El ID debe tener ${VinculacionSimulator.LONGITUD_CODIGO} caracteres"
+                } else {
+                    onConfirmar(
                         PersonaVinculada(
-                            nombre = VinculacionSimulator.nombreParaCodigo(codigo),
-                            relacion = relacion.trim(),
-                            codigo = codigo
+                            nombre = VinculacionSimulator.nombreParaCodigo(id),
+                            relacion = "Familiar",
+                            codigo = id
                         )
                     )
                 }
-            }) { Text("Vincular", color = Blue700) }
+            }) { Text("Añadir", color = Blue700) }
         },
         dismissButton = {
             TextButton(onClick = onCancelar) { Text("Cancelar", color = TextSecondary) }

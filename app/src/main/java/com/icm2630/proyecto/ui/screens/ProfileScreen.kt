@@ -1,5 +1,6 @@
 package com.icm2630.proyecto.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -18,6 +19,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
@@ -76,6 +79,17 @@ fun ProfileScreen(
     var datos by remember(perfil) { mutableStateOf(perfil) }
     // Mientras no haya backend se muestran dos personas de ejemplo.
     val personas = datos.acompanantes.ifEmpty { PERSONAS_EJEMPLO }
+    var solicitudes by remember { mutableStateOf(SOLICITUDES_EJEMPLO) }
+
+    // Un perfil creado antes de que existiera el ID recibe uno propio la primera vez.
+    val miId = datos.codigoVinculacion
+    LaunchedEffect(miId) {
+        if (miId == null) {
+            val conId = datos.copy(codigoVinculacion = VinculacionSimulator.generarCodigo())
+            datos = conId
+            onActualizarPerfil(conId)
+        }
+    }
     var campoEditando by remember { mutableStateOf<CampoPerfilEditable?>(null) }
 
     var mostrarAgregarPersona by remember { mutableStateOf(false) }
@@ -200,6 +214,15 @@ fun ProfileScreen(
 
             Spacer(Modifier.height(24.dp))
 
+            // ---------- Mi ID ----------
+            SeccionTitulo("Mi ID")
+            Spacer(Modifier.height(12.dp))
+            TarjetaBlanca {
+                FilaMiId(id = miId.orEmpty())
+            }
+
+            Spacer(Modifier.height(24.dp))
+
             // ---------- Personas en mi HealthControl ----------
             SeccionTitulo("Personas en mi HealthControl")
             Spacer(Modifier.height(12.dp))
@@ -212,6 +235,39 @@ fun ProfileScreen(
                 if (personas.isNotEmpty()) DivisorFila()
 
                 FilaAgregarPersona(onClick = { mostrarAgregarPersona = true })
+            }
+
+            Spacer(Modifier.height(24.dp))
+
+            // ---------- Solicitudes ----------
+            SeccionTitulo("Solicitudes")
+            Spacer(Modifier.height(12.dp))
+            TarjetaBlanca {
+                if (solicitudes.isEmpty()) {
+                    Text(
+                        text = "No tienes solicitudes pendientes",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = TextSecondary
+                    )
+                }
+                solicitudes.forEachIndexed { indice, solicitud ->
+                    if (indice > 0) DivisorFila()
+                    FilaSolicitud(
+                        solicitud = solicitud,
+                        colorIndice = personas.size + indice,
+                        onAceptar = {
+                            // Si ya está en la lista (mismo ID) no se duplica.
+                            val yaEsta = personas.any { it.codigo == solicitud.codigo }
+                            val actualizado = datos.copy(
+                                acompanantes = if (yaEsta) personas else personas + solicitud
+                            )
+                            datos = actualizado
+                            onActualizarPerfil(actualizado)
+                            solicitudes = solicitudes - solicitud
+                        },
+                        onRechazar = { solicitudes = solicitudes - solicitud }
+                    )
+                }
             }
 
             Spacer(Modifier.height(24.dp))
@@ -420,6 +476,11 @@ private val PERSONAS_EJEMPLO = listOf(
     PersonaVinculada(nombre = "Carlos Gómez", relacion = "Hermano", codigo = "HC9M2P")
 )
 
+private val SOLICITUDES_EJEMPLO = listOf(
+    PersonaVinculada(nombre = "Lucía Torres", relacion = "Familiar", codigo = "HC7Q3N"),
+    PersonaVinculada(nombre = "Elena Ramírez", relacion = "Madre", codigo = "HC4F7K")
+)
+
 private val ColoresAvatar = listOf(
     Color(0xFF2F6FDE), Color(0xFF1FA37A), Color(0xFFE08A1E), Color(0xFF8E5BD9)
 )
@@ -503,6 +564,108 @@ private fun FilaAgregarPersona(onClick: () -> Unit) {
             modifier = Modifier.weight(1f)
         )
         Icon(Icons.Outlined.ChevronRight, null, tint = Blue500)
+    }
+}
+
+@Composable
+private fun FilaMiId(id: String) {
+    val portapapeles = LocalClipboardManager.current
+    var copiado by remember { mutableStateOf(false) }
+
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Surface(
+            color = Blue100.copy(alpha = 0.3f),
+            shape = RoundedCornerShape(12.dp),
+            modifier = Modifier.size(40.dp)
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(Icons.Outlined.VpnKey, null, tint = Blue500, modifier = Modifier.size(20.dp))
+            }
+        }
+        Spacer(Modifier.width(12.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = "Compártelo para que te añadan",
+                style = MaterialTheme.typography.labelSmall,
+                color = TextSecondary
+            )
+            Spacer(Modifier.height(2.dp))
+            Text(
+                text = id.ifBlank { "···" },
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = Blue700,
+                letterSpacing = 3.sp
+            )
+        }
+        TextButton(
+            enabled = id.isNotBlank(),
+            onClick = {
+                portapapeles.setText(AnnotatedString(id))
+                copiado = true
+            }
+        ) {
+            Icon(Icons.Outlined.ContentCopy, null, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(6.dp))
+            Text(if (copiado) "Copiado" else "Copiar", color = Blue700)
+        }
+    }
+}
+
+@Composable
+private fun FilaSolicitud(
+    solicitud: PersonaVinculada,
+    colorIndice: Int,
+    onAceptar: () -> Unit,
+    onRechazar: () -> Unit
+) {
+    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            AvatarPersona(solicitud.nombre, colorIndice)
+            Spacer(Modifier.width(14.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = solicitud.nombre,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = TextPrimary
+                )
+                Text(
+                    text = "ID: ${solicitud.codigo}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TextSecondary
+                )
+                Text(
+                    text = "Quiere añadirte en su HealthControl",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TextSecondary
+                )
+            }
+        }
+        Spacer(Modifier.height(12.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            OutlinedButton(
+                onClick = onRechazar,
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = ErrorRed),
+                border = BorderStroke(1.dp, ErrorRed.copy(alpha = 0.6f))
+            ) {
+                Icon(Icons.Outlined.Close, null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(6.dp))
+                Text("Rechazar")
+            }
+            Button(
+                onClick = onAceptar,
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Blue700, contentColor = Color.White)
+            ) {
+                Icon(Icons.Outlined.Check, null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(6.dp))
+                Text("Aceptar")
+            }
+        }
     }
 }
 

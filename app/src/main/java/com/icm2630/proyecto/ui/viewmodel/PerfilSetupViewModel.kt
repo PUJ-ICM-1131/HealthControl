@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import com.icm2630.proyecto.data.model.Genero
 import com.icm2630.proyecto.data.model.PerfilUsuario
 import com.icm2630.proyecto.data.model.TipoSangre
+import com.icm2630.proyecto.data.repository.VinculacionSimulator
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -85,6 +86,7 @@ class PerfilSetupViewModel : ViewModel() {
             condicionRelevante = condicionRelevante.trim(),
             permisoUbicacion = permisoUbicacion,
             notificacionesActivas = notificacionesActivas,
+            codigoVinculacion = VinculacionSimulator.generarCodigo(),
             configurado = true
         )
     }

@@ -1,8 +1,6 @@
 package com.icm2630.proyecto.ui.screens
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -13,13 +11,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.CalendarMonth
-import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.ExpandMore
-import androidx.compose.material.icons.outlined.FavoriteBorder
-import androidx.compose.material.icons.outlined.Groups
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.PhotoCamera
-import androidx.compose.material.icons.outlined.VpnKey
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -36,15 +30,12 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.icm2630.proyecto.data.model.Genero
 import com.icm2630.proyecto.data.model.PerfilUsuario
-import com.icm2630.proyecto.data.model.PersonaVinculada
-import com.icm2630.proyecto.data.model.TipoPerfil
+import com.icm2630.proyecto.ui.components.ChipsCondiciones
+import com.icm2630.proyecto.ui.components.ChipsTipoSangre
 import com.icm2630.proyecto.ui.theme.Blue100
 import com.icm2630.proyecto.ui.theme.Blue500
 import com.icm2630.proyecto.ui.theme.Blue700
-import com.icm2630.proyecto.ui.theme.ErrorRed
 import com.icm2630.proyecto.ui.theme.HealthControlTheme
-import com.icm2630.proyecto.ui.theme.SuccessGreen
-import com.icm2630.proyecto.ui.theme.SuccessGreenBg
 import com.icm2630.proyecto.ui.theme.TextPrimary
 import com.icm2630.proyecto.ui.theme.TextSecondary
 import com.icm2630.proyecto.ui.viewmodel.PerfilSetupViewModel
@@ -60,6 +51,8 @@ private val PlaceholderGris = Color(0xFF9CA9BC)
 
 @Composable
 fun ProfileSetupScreen(
+    nombre: String = "",
+    contacto: String = "",
     viewModel: PerfilSetupViewModel = viewModel(),
     onContinuar: (PerfilUsuario) -> Unit = {},
     onPedirPermisoUbicacion: () -> Unit = {},
@@ -103,7 +96,7 @@ fun ProfileSetupScreen(
             Spacer(Modifier.height(12.dp))
 
             Text(
-                text = "Selecciona cómo usarás HealthControl",
+                text = "Cuéntanos lo necesario sobre tu salud",
                 style = MaterialTheme.typography.bodyMedium,
                 color = TextSecondary,
                 textAlign = TextAlign.Center,
@@ -112,20 +105,10 @@ fun ProfileSetupScreen(
 
             Spacer(Modifier.height(20.dp))
 
-            //Tarjeta de datos personales
             TarjetaBlanca {
                 AvatarConCamara(modifier = Modifier.align(Alignment.CenterHorizontally))
 
                 Spacer(Modifier.height(20.dp))
-
-                CampoPerfil(
-                    label = "Nombre completo",
-                    value = state.nombre,
-                    onValueChange = viewModel::onNombreChange,
-                    placeholder = "Juan Pérez"
-                )
-
-                Spacer(Modifier.height(16.dp))
 
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     CampoFecha(
@@ -143,12 +126,34 @@ fun ProfileSetupScreen(
 
                 Spacer(Modifier.height(16.dp))
 
+                EtiquetaCampo("Tipo de sangre (Opcional)")
+                ChipsTipoSangre(
+                    seleccionado = state.tipoSangre,
+                    onSeleccionar = viewModel::onTipoSangreChange
+                )
+
+                Spacer(Modifier.height(16.dp))
+
                 CampoPerfil(
-                    label = "Teléfono o correo",
-                    value = state.contacto,
-                    onValueChange = viewModel::onContactoChange,
-                    placeholder = "juan.perez@example.com",
-                    keyboardType = KeyboardType.Email
+                    label = "Alergias (Opcional)",
+                    value = state.alergias,
+                    onValueChange = viewModel::onAlergiasChange,
+                    placeholder = "Ej. Penicilina, mariscos..."
+                )
+
+                Spacer(Modifier.height(16.dp))
+
+                EtiquetaCampo("Condiciones médicas (Opcional)")
+                ChipsCondiciones(
+                    seleccionadas = state.condiciones,
+                    onToggle = viewModel::onCondicionToggle
+                )
+                Spacer(Modifier.height(12.dp))
+                CampoPerfil(
+                    label = "Otra condición",
+                    value = state.condicionRelevante,
+                    onValueChange = viewModel::onCondicionChange,
+                    placeholder = "Ej. Migraña crónica"
                 )
 
                 Spacer(Modifier.height(16.dp))
@@ -160,67 +165,15 @@ fun ProfileSetupScreen(
                     onValueChange = viewModel::onContactoEmergenciaChange,
                     placeholder = "María Pérez (Hermana)"
                 )
-            }
 
-            Spacer(Modifier.height(24.dp))
-
-            // Tipo de perfil
-            Text(
-                text = "Tipo de perfil",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = Blue700,
-                modifier = Modifier.padding(start = 4.dp)
-            )
-
-            Spacer(Modifier.height(12.dp))
-
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                TarjetaTipoPerfil(
-                    tipo = TipoPerfil.TITULAR,
-                    icon = Icons.Outlined.FavoriteBorder,
-                    seleccionado = state.tipoPerfil == TipoPerfil.TITULAR,
-                    onClick = { viewModel.onTipoPerfilChange(TipoPerfil.TITULAR) },
-                    modifier = Modifier.weight(1f)
-                )
-                TarjetaTipoPerfil(
-                    tipo = TipoPerfil.ACOMPANANTE,
-                    icon = Icons.Outlined.Groups,
-                    seleccionado = state.tipoPerfil == TipoPerfil.ACOMPANANTE,
-                    onClick = { viewModel.onTipoPerfilChange(TipoPerfil.ACOMPANANTE) },
-                    modifier = Modifier.weight(1f)
-                )
-            }
-
-            Spacer(Modifier.height(20.dp))
-
-            //Vinculación
-            TarjetaBlanca {
-                if (state.tipoPerfil == TipoPerfil.TITULAR) {
-                    SeccionVinculacionTitular(
-                        codigo = state.codigoGenerado,
-                        onGenerar = { viewModel.generarCodigoInvitacion() }
-                    )
-                } else {
-                    SeccionVinculacionAcompanante(
-                        codigoIngresado = state.codigoIngresado,
-                        onCodigoChange = viewModel::onCodigoIngresadoChange,
-                        relacion = state.relacionConTitular,
-                        onRelacionChange = viewModel::onRelacionChange,
-                        personaVinculada = state.personaVinculada,
-                        error = state.errorCodigo,
-                        onVincular = { viewModel.vincularConCodigo() },
-                        onCambiarCodigo = { viewModel.quitarVinculacion() }
-                    )
-                }
-
-                Spacer(Modifier.height(20.dp))
+                Spacer(Modifier.height(16.dp))
 
                 CampoPerfil(
-                    label = "Condición médica relevante (Opcional)",
-                    value = state.condicionRelevante,
-                    onValueChange = viewModel::onCondicionChange,
-                    placeholder = "Ej. Diabetes Tipo 2, Hipertensión...",
+                    label = "Teléfono de emergencia",
+                    value = state.telefonoEmergencia,
+                    onValueChange = viewModel::onTelefonoEmergenciaChange,
+                    placeholder = "3001234567",
+                    keyboardType = KeyboardType.Phone,
                     imeAction = ImeAction.Done
                 )
 
@@ -252,7 +205,7 @@ fun ProfileSetupScreen(
             Spacer(Modifier.height(24.dp))
 
             Button(
-                onClick = { onContinuar(viewModel.construirPerfil()) },
+                onClick = { onContinuar(viewModel.construirPerfil(nombre, contacto)) },
                 enabled = state.puedeContinuar && !state.guardando,
                 modifier = Modifier
                     .fillMaxWidth()
@@ -493,216 +446,6 @@ private fun coloresCampo() = TextFieldDefaults.colors(
     focusedTextColor = TextPrimary,
     unfocusedTextColor = TextPrimary
 )
-
-@Composable
-private fun TarjetaTipoPerfil(
-    tipo: TipoPerfil,
-    icon: ImageVector,
-    seleccionado: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val fondo = if (seleccionado) Blue700 else Color.White
-    val colorTitulo = if (seleccionado) Color.White else Blue700
-    val colorTexto = if (seleccionado) Color.White.copy(alpha = 0.85f) else TextSecondary
-
-    Column(
-        modifier = modifier
-            .height(150.dp)
-            .background(fondo, CardShape)
-            .clickable(onClick = onClick)
-            .padding(16.dp)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.Top
-        ) {
-            Icon(icon, null, tint = colorTitulo, modifier = Modifier.size(24.dp))
-            if (seleccionado) {
-                Box(
-                    modifier = Modifier
-                        .size(20.dp)
-                        .border(2.dp, Color.White, CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(10.dp)
-                            .background(Color.White, CircleShape)
-                    )
-                }
-            }
-        }
-
-        Spacer(Modifier.weight(1f))
-
-        Text(
-            text = tipo.titulo,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            color = colorTitulo
-        )
-        Spacer(Modifier.height(6.dp))
-        Text(
-            text = tipo.descripcion,
-            style = MaterialTheme.typography.bodySmall,
-            color = colorTexto,
-            lineHeight = 16.sp
-        )
-    }
-}
-
-@Composable
-private fun SeccionVinculacionTitular(
-    codigo: String?,
-    onGenerar: () -> Unit
-) {
-    Text(
-        text = "Comparte este código con un familiar o cuidador para que pueda ver tu salud",
-        style = MaterialTheme.typography.bodySmall,
-        color = TextSecondary
-    )
-
-    Spacer(Modifier.height(12.dp))
-
-    OutlinedButton(
-        onClick = onGenerar,
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(52.dp),
-        shape = CampoShape,
-        colors = ButtonDefaults.outlinedButtonColors(
-            containerColor = Color.White,
-            contentColor = Blue700
-        ),
-        border = BorderStroke(1.dp, Blue700)
-    ) {
-        Icon(Icons.Outlined.VpnKey, null, modifier = Modifier.size(18.dp))
-        Spacer(Modifier.width(8.dp))
-        Text(
-            text = if (codigo == null) "Generar código de invitación" else "Generar otro código",
-            style = MaterialTheme.typography.titleMedium
-        )
-    }
-
-    codigo?.let {
-        Spacer(Modifier.height(12.dp))
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(Blue100.copy(alpha = 0.4f), CampoShape)
-                .padding(vertical = 12.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = it,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = Blue700,
-                fontSize = 22.sp,
-                letterSpacing = 4.sp
-            )
-        }
-    }
-}
-
-@Composable
-private fun SeccionVinculacionAcompanante(
-    codigoIngresado: String,
-    onCodigoChange: (String) -> Unit,
-    relacion: String,
-    onRelacionChange: (String) -> Unit,
-    personaVinculada: PersonaVinculada?,
-    error: String?,
-    onVincular: () -> Unit,
-    onCambiarCodigo: () -> Unit
-) {
-    if (personaVinculada != null) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(SuccessGreenBg, CampoShape)
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(Icons.Outlined.CheckCircle, null, tint = SuccessGreen, modifier = Modifier.size(22.dp))
-            Spacer(Modifier.width(12.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "Vinculado con ${personaVinculada.nombre}",
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = SuccessGreen
-                )
-                Text(
-                    text = "Como ${personaVinculada.relacion.ifBlank { "acompañante" }} · código ${personaVinculada.codigo}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = TextSecondary
-                )
-            }
-            TextButton(onClick = onCambiarCodigo) {
-                Text("Cambiar", color = Blue700)
-            }
-        }
-        return
-    }
-
-    Text(
-        text = "Ingresa el código de invitación que te compartió la persona a la que darás seguimiento",
-        style = MaterialTheme.typography.bodySmall,
-        color = TextSecondary
-    )
-
-    Spacer(Modifier.height(16.dp))
-
-    CampoPerfil(
-        label = "Código de invitación",
-        value = codigoIngresado,
-        onValueChange = onCodigoChange,
-        placeholder = "Ej. 7K3PQ9"
-    )
-
-    Spacer(Modifier.height(16.dp))
-
-    CampoPerfil(
-        label = "Tu relación con esa persona",
-        value = relacion,
-        onValueChange = onRelacionChange,
-        placeholder = "Ej. Hija, cuidador, vecino de confianza",
-        imeAction = ImeAction.Done
-    )
-
-    Spacer(Modifier.height(4.dp))
-
-    error?.let {
-        Text(
-            text = it,
-            style = MaterialTheme.typography.bodySmall,
-            color = ErrorRed,
-            modifier = Modifier.padding(start = 4.dp, bottom = 12.dp)
-        )
-    }
-
-    Button(
-        onClick = onVincular,
-        enabled = codigoIngresado.isNotBlank() && relacion.isNotBlank(),
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(52.dp),
-        shape = CampoShape,
-        colors = ButtonDefaults.buttonColors(
-            containerColor = Blue700,
-            contentColor = Color.White,
-            disabledContainerColor = Blue700.copy(alpha = 0.35f),
-            disabledContentColor = Color.White
-        )
-    ) {
-        Icon(Icons.Outlined.VpnKey, null, modifier = Modifier.size(18.dp))
-        Spacer(Modifier.width(8.dp))
-        Text("Vincular cuenta", style = MaterialTheme.typography.titleMedium)
-    }
-}
 
 @Composable
 private fun FilaSwitch(

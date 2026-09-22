@@ -29,6 +29,28 @@ enum class Genero(val etiqueta: String) {
     SIN_ESPECIFICAR("Prefiero no decirlo")
 }
 
+enum class TipoSangre(val etiqueta: String) {
+    A_POSITIVO("A+"),
+    A_NEGATIVO("A-"),
+    B_POSITIVO("B+"),
+    B_NEGATIVO("B-"),
+    AB_POSITIVO("AB+"),
+    AB_NEGATIVO("AB-"),
+    O_POSITIVO("O+"),
+    O_NEGATIVO("O-")
+}
+
+/** Opciones rápidas para el selector de condiciones; lo demás va en "otra condición". */
+val CONDICIONES_COMUNES = listOf(
+    "Diabetes",
+    "Hipertensión",
+    "Asma",
+    "Cardiopatía",
+    "Colesterol alto",
+    "Artritis",
+    "Hipotiroidismo"
+)
+
 /**
  * Representa al otro extremo de una vinculación titular-acompañante.
  * Vista desde un ACOMPANANTE: el titular al que está dando seguimiento.
@@ -51,7 +73,13 @@ data class PerfilUsuario(
     val genero: Genero? = null,
     val contacto: String = "",
     val contactoEmergencia: String = "",
+    val telefonoEmergencia: String = "",
+    val tipoSangre: TipoSangre? = null,
+    val alergias: String = "",
+    /** Condiciones elegidas de [CONDICIONES_COMUNES]. */
+    val condiciones: List<String> = emptyList(),
     val tipoPerfil: TipoPerfil = TipoPerfil.TITULAR,
+    /** Texto libre para cualquier otra condición que no esté en la lista. */
     val condicionRelevante: String = "",
     val permisoUbicacion: Boolean = false,
     val notificacionesActivas: Boolean = true,

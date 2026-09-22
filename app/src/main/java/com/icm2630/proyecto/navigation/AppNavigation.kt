@@ -92,7 +92,10 @@ fun AppNavigation() {
 
                 RegisterScreen(
 
-                    onRegister = { _, _, _ ->
+                    onRegister = { nombre, correo, _ ->
+
+                        SesionRepository.nombreCuenta = nombre
+                        SesionRepository.correoCuenta = correo
 
                         backStack.clear()
 
@@ -117,6 +120,9 @@ fun AppNavigation() {
             entry<Routes.ProfileSetup> {
 
                 ProfileSetupScreen(
+
+                    nombre = SesionRepository.nombreCuenta,
+                    contacto = SesionRepository.correoCuenta,
 
                     onContinuar = { perfil ->
 
@@ -434,11 +440,11 @@ fun AppNavigation() {
                     },
 
 
-                    onEditarCampo = {
+                    // La edición de cada campo se resuelve dentro de ProfileScreen;
+                    // aquí solo se persiste el perfil actualizado.
+                    onActualizarPerfil = { actualizado ->
 
-                        /*
-                         * Conectar edición real del perfil
-                         */
+                        SesionRepository.perfil = actualizado
                     },
 
 

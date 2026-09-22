@@ -6,11 +6,17 @@ object SesionRepository {
 
     var perfil: PerfilUsuario? = null
 
+    /** Datos de cuenta capturados en el registro / login; el onboarding no los vuelve a pedir. */
+    var nombreCuenta: String = ""
+    var correoCuenta: String = ""
+
     val perfilConfigurado: Boolean
         get() = perfil?.configurado == true
 
     fun cerrarSesion() {
         perfil = null
+        nombreCuenta = ""
+        correoCuenta = ""
     }
 
     /**
@@ -20,6 +26,8 @@ object SesionRepository {
      */
     fun validarCredenciales(correo: String, password: String): Boolean {
         // Mock simple: campos no vacíos y coinciden con datos fijos
-        return correo == "test@gmail.com" && password == "12345678"
+        val valido = correo == "test@gmail.com" && password == "12345678"
+        if (valido) correoCuenta = correo
+        return valido
     }
 }

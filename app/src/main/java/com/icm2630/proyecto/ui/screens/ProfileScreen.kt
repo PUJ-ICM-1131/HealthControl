@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -18,10 +19,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.icm2630.proyecto.ui.components.ChipsCondiciones
+import com.icm2630.proyecto.ui.components.ChipsTipoSangre
 import com.icm2630.proyecto.ui.components.HealthBottomNavigation
+import com.icm2630.proyecto.data.model.Genero
 import com.icm2630.proyecto.data.model.PerfilUsuario
 import com.icm2630.proyecto.data.model.PersonaVinculada
 import com.icm2630.proyecto.data.model.TipoPerfil
@@ -44,15 +49,16 @@ import java.util.TimeZone
 private val Fondo = Color(0xFFF8FAFF)
 private val CardShape = RoundedCornerShape(24.dp)
 private val HairLine = Color(0xFFE5E7EB)
+private const val SIN_ESPECIFICAR = "Sin especificar"
 
 /**
- * Identifica qué campo del perfil se quiere editar. Por ahora ningún
- * valor dispara lógica real: sirve para que, cuando se conecte la
- * edición de verdad, cada fila ya sepa qué evento reportar sin tener
- * que tocar el layout de la pantalla.
+ * Identifica qué campo del perfil se está editando. Todos se pueden
+ * editar en cualquier momento, incluso si quedaron vacíos en el onboarding.
+ * FOTO solo se reporta hacia afuera (aún no hay selector de imagen).
  */
 enum class CampoPerfilEditable {
-    FOTO, NOMBRE, FECHA_NACIMIENTO, GENERO, CONTACTO, CONTACTO_EMERGENCIA, CONDICION_MEDICA
+    FOTO, NOMBRE, FECHA_NACIMIENTO, GENERO, CONTACTO,
+    TIPO_SANGRE, ALERGIAS, CONDICIONES, CONTACTO_EMERGENCIA
 }
 
 @Composable
@@ -60,15 +66,21 @@ fun ProfileScreen(
     perfil: PerfilUsuario = PerfilUsuario(),
     onNavigate: (Routes) -> Unit = {},
     onEditarCampo: (CampoPerfilEditable) -> Unit = {},
+    onActualizarPerfil: (PerfilUsuario) -> Unit = {},
     onCambiarTipoPerfil: (TipoPerfil, PersonaVinculada?) -> Unit = { _, _ -> },
     onCerrarSesion: () -> Unit = {}
 ) {
     var mostrarConfirmacionCierre by remember { mutableStateOf(false) }
 
+    // Copia local para que la pantalla refleje al instante lo editado;
+    // la fuente de verdad (SesionRepository) se actualiza vía onActualizarPerfil.
+    var datos by remember(perfil) { mutableStateOf(perfil) }
+    var campoEditando by remember { mutableStateOf<CampoPerfilEditable?>(null) }
+
     // Estado visual local para que la selección responda al tacto ya
     // mismo; la fuente de verdad real (SesionRepository) se actualiza
     // recién cuando la persona confirma el cambio de rol.
-    var tipoSeleccionado by remember(perfil.tipoPerfil) { mutableStateOf(perfil.tipoPerfil) }
+    var tipoSeleccionado by remember(datos.tipoPerfil) { mutableStateOf(datos.tipoPerfil) }
 
     // Cambiar de rol no es un simple toggle: pasar a Acompañante exige un
     // código válido y pasar a Titular implica perder la vinculación actual,
@@ -110,7 +122,7 @@ fun ProfileScreen(
                 Spacer(Modifier.height(12.dp))
 
                 Text(
-                    text = perfil.nombreCompleto.ifBlank { "Sin especificar" },
+                    text = datos.nombreCompleto.ifBlank { SIN_ESPECIFICAR },
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     color = Blue700
@@ -131,43 +143,70 @@ fun ProfileScreen(
                 FilaDato(
                     icon = Icons.Outlined.Person,
                     label = "Nombre completo",
-                    valor = perfil.nombreCompleto.ifBlank { "Sin especificar" },
-                    onEditar = { onEditarCampo(CampoPerfilEditable.NOMBRE) }
+                    valor = datos.nombreCompleto.ifBlank { SIN_ESPECIFICAR },
+                    onEditar = { campoEditando = CampoPerfilEditable.NOMBRE }
                 )
                 DivisorFila()
                 FilaDato(
                     icon = Icons.Outlined.CalendarMonth,
                     label = "Fecha de nacimiento",
-                    valor = formatearFecha(perfil.fechaNacimientoMillis),
-                    onEditar = { onEditarCampo(CampoPerfilEditable.FECHA_NACIMIENTO) }
+                    valor = formatearFecha(datos.fechaNacimientoMillis),
+                    onEditar = { campoEditando = CampoPerfilEditable.FECHA_NACIMIENTO }
                 )
                 DivisorFila()
                 FilaDato(
                     icon = Icons.Outlined.Info,
                     label = "Género",
-                    valor = perfil.genero?.etiqueta ?: "Sin especificar",
-                    onEditar = { onEditarCampo(CampoPerfilEditable.GENERO) }
+                    valor = datos.genero?.etiqueta ?: SIN_ESPECIFICAR,
+                    onEditar = { campoEditando = CampoPerfilEditable.GENERO }
                 )
                 DivisorFila()
                 FilaDato(
                     icon = Icons.Outlined.MailOutline,
                     label = "Teléfono o correo",
-                    valor = perfil.contacto.ifBlank { "Sin especificar" },
-                    onEditar = { onEditarCampo(CampoPerfilEditable.CONTACTO) }
+                    valor = datos.contacto.ifBlank { SIN_ESPECIFICAR },
+                    onEditar = { campoEditando = CampoPerfilEditable.CONTACTO }
+                )
+            }
+
+            Spacer(Modifier.height(24.dp))
+
+            // ---------- Información de salud ----------
+            SeccionTitulo("Información de salud")
+            Spacer(Modifier.height(12.dp))
+            TarjetaBlanca {
+                FilaDato(
+                    icon = Icons.Outlined.Bloodtype,
+                    label = "Tipo de sangre",
+                    valor = datos.tipoSangre?.etiqueta ?: SIN_ESPECIFICAR,
+                    onEditar = { campoEditando = CampoPerfilEditable.TIPO_SANGRE }
+                )
+                DivisorFila()
+                FilaDato(
+                    icon = Icons.Outlined.Warning,
+                    label = "Alergias",
+                    valor = datos.alergias.ifBlank { SIN_ESPECIFICAR },
+                    onEditar = { campoEditando = CampoPerfilEditable.ALERGIAS }
+                )
+                DivisorFila()
+                FilaDato(
+                    icon = Icons.Outlined.MedicalServices,
+                    label = "Condiciones médicas",
+                    valor = (datos.condiciones + datos.condicionRelevante.trim())
+                        .filter { it.isNotBlank() }
+                        .joinToString(", ")
+                        .ifBlank { SIN_ESPECIFICAR },
+                    onEditar = { campoEditando = CampoPerfilEditable.CONDICIONES }
                 )
                 DivisorFila()
                 FilaDato(
                     icon = Icons.Outlined.Shield,
                     label = "Contacto de emergencia",
-                    valor = perfil.contactoEmergencia.ifBlank { "Sin especificar" },
-                    onEditar = { onEditarCampo(CampoPerfilEditable.CONTACTO_EMERGENCIA) }
-                )
-                DivisorFila()
-                FilaDato(
-                    icon = Icons.Outlined.MedicalServices,
-                    label = "Condición médica relevante",
-                    valor = perfil.condicionRelevante.ifBlank { "Sin especificar" },
-                    onEditar = { onEditarCampo(CampoPerfilEditable.CONDICION_MEDICA) }
+                    valor = listOf(datos.contactoEmergencia, datos.telefonoEmergencia)
+                        .filter { it.isNotBlank() }
+                        .joinToString(" · ")
+                        .ifBlank { SIN_ESPECIFICAR },
+                    onEditar = { campoEditando = CampoPerfilEditable.CONTACTO_EMERGENCIA }
                 )
             }
 
@@ -211,7 +250,7 @@ fun ProfileScreen(
                 }
 
                 when (tipoSeleccionado) {
-                    TipoPerfil.TITULAR -> perfil.codigoVinculacion?.let { codigo ->
+                    TipoPerfil.TITULAR -> datos.codigoVinculacion?.let { codigo ->
                         Spacer(Modifier.height(16.dp))
                         InfoVinculacion(
                             texto = "Tu código de invitación es $codigo. Compártelo con quien quieras que te acompañe.",
@@ -219,7 +258,7 @@ fun ProfileScreen(
                             colorTexto = Blue700
                         )
                     }
-                    TipoPerfil.ACOMPANANTE -> perfil.personaVinculada?.let { vinculo ->
+                    TipoPerfil.ACOMPANANTE -> datos.personaVinculada?.let { vinculo ->
                         Spacer(Modifier.height(16.dp))
                         InfoVinculacion(
                             texto = "Estás dando seguimiento a ${vinculo.nombre} (${vinculo.relacion.ifBlank { "acompañante" }}).",
@@ -269,6 +308,19 @@ fun ProfileScreen(
         }
     }
 
+    campoEditando?.let { campo ->
+        DialogoEditarCampo(
+            campo = campo,
+            perfil = datos,
+            onGuardar = { nuevo ->
+                datos = nuevo
+                onActualizarPerfil(nuevo)
+                campoEditando = null
+            },
+            onCancelar = { campoEditando = null }
+        )
+    }
+
     if (mostrarConfirmacionCierre) {
         AlertDialog(
             onDismissRequest = { mostrarConfirmacionCierre = false },
@@ -298,7 +350,7 @@ fun ProfileScreen(
                 onDismissRequest = { pedirConfirmacionCambioA = null },
                 title = { Text("¿Pasar a Titular?") },
                 text = {
-                    val nombreVinculo = perfil.personaVinculada?.nombre
+                    val nombreVinculo = datos.personaVinculada?.nombre
                     Text(
                         if (nombreVinculo != null)
                             "Dejarás de ver la salud de $nombreVinculo y empezarás a gestionar la tuya propia."
@@ -581,8 +633,152 @@ private fun DialogoVincularAcompanante(
     )
 }
 
+/**
+ * Diálogo de edición de un solo campo. Guardar nunca exige que el campo
+ * tenga valor: se puede dejar vacío (salvo la fecha, que solo se cambia).
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DialogoEditarCampo(
+    campo: CampoPerfilEditable,
+    perfil: PerfilUsuario,
+    onGuardar: (PerfilUsuario) -> Unit,
+    onCancelar: () -> Unit
+) {
+    if (campo == CampoPerfilEditable.FECHA_NACIMIENTO) {
+        val estado = rememberDatePickerState(initialSelectedDateMillis = perfil.fechaNacimientoMillis)
+        DatePickerDialog(
+            onDismissRequest = onCancelar,
+            confirmButton = {
+                TextButton(
+                    enabled = estado.selectedDateMillis != null,
+                    onClick = { onGuardar(perfil.copy(fechaNacimientoMillis = estado.selectedDateMillis)) }
+                ) { Text("Guardar", color = Blue700) }
+            },
+            dismissButton = {
+                TextButton(onClick = onCancelar) { Text("Cancelar", color = TextSecondary) }
+            }
+        ) { DatePicker(state = estado) }
+        return
+    }
+
+    var nombre by remember { mutableStateOf(perfil.nombreCompleto) }
+    var contacto by remember { mutableStateOf(perfil.contacto) }
+    var genero by remember { mutableStateOf(perfil.genero) }
+    var tipoSangre by remember { mutableStateOf(perfil.tipoSangre) }
+    var alergias by remember { mutableStateOf(perfil.alergias) }
+    var condiciones by remember { mutableStateOf(perfil.condiciones) }
+    var otraCondicion by remember { mutableStateOf(perfil.condicionRelevante) }
+    var emergencia by remember { mutableStateOf(perfil.contactoEmergencia) }
+    var telefonoEmergencia by remember { mutableStateOf(perfil.telefonoEmergencia) }
+
+    val titulo = when (campo) {
+        CampoPerfilEditable.NOMBRE -> "Nombre completo"
+        CampoPerfilEditable.GENERO -> "Género"
+        CampoPerfilEditable.CONTACTO -> "Teléfono o correo"
+        CampoPerfilEditable.TIPO_SANGRE -> "Tipo de sangre"
+        CampoPerfilEditable.ALERGIAS -> "Alergias"
+        CampoPerfilEditable.CONDICIONES -> "Condiciones médicas"
+        CampoPerfilEditable.CONTACTO_EMERGENCIA -> "Contacto de emergencia"
+        else -> ""
+    }
+
+    AlertDialog(
+        onDismissRequest = onCancelar,
+        title = { Text(titulo) },
+        text = {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                when (campo) {
+                    CampoPerfilEditable.NOMBRE -> CampoDialogo("Nombre completo", nombre) { nombre = it }
+                    CampoPerfilEditable.CONTACTO -> CampoDialogo("Teléfono o correo", contacto) { contacto = it }
+                    CampoPerfilEditable.GENERO -> Genero.entries.forEach { opcion ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { genero = if (genero == opcion) null else opcion },
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(selected = genero == opcion, onClick = { genero = if (genero == opcion) null else opcion })
+                            Text(opcion.etiqueta, style = MaterialTheme.typography.bodyLarge)
+                        }
+                    }
+                    CampoPerfilEditable.TIPO_SANGRE -> ChipsTipoSangre(
+                        seleccionado = tipoSangre,
+                        onSeleccionar = { tipoSangre = if (tipoSangre == it) null else it }
+                    )
+                    CampoPerfilEditable.ALERGIAS -> CampoDialogo("Ej. Penicilina, mariscos...", alergias) { alergias = it }
+                    CampoPerfilEditable.CONDICIONES -> {
+                        ChipsCondiciones(
+                            seleccionadas = condiciones,
+                            onToggle = { c -> condiciones = if (c in condiciones) condiciones - c else condiciones + c }
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        CampoDialogo("Otra condición", otraCondicion) { otraCondicion = it }
+                    }
+                    CampoPerfilEditable.CONTACTO_EMERGENCIA -> {
+                        CampoDialogo("Nombre y relación", emergencia) { emergencia = it }
+                        Spacer(Modifier.height(8.dp))
+                        CampoDialogo("Teléfono", telefonoEmergencia, KeyboardType.Phone) {
+                            telefonoEmergencia = it.filter { c -> c.isDigit() || c == '+' }
+                        }
+                    }
+                    else -> Unit
+                }
+                Text(
+                    text = "Puedes dejarlo vacío y completarlo cuando quieras.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TextSecondary,
+                    modifier = Modifier.padding(top = 12.dp)
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                onGuardar(
+                    when (campo) {
+                        CampoPerfilEditable.NOMBRE -> perfil.copy(nombreCompleto = nombre.trim())
+                        CampoPerfilEditable.CONTACTO -> perfil.copy(contacto = contacto.trim())
+                        CampoPerfilEditable.GENERO -> perfil.copy(genero = genero)
+                        CampoPerfilEditable.TIPO_SANGRE -> perfil.copy(tipoSangre = tipoSangre)
+                        CampoPerfilEditable.ALERGIAS -> perfil.copy(alergias = alergias.trim())
+                        CampoPerfilEditable.CONDICIONES -> perfil.copy(
+                            condiciones = condiciones,
+                            condicionRelevante = otraCondicion.trim()
+                        )
+                        CampoPerfilEditable.CONTACTO_EMERGENCIA -> perfil.copy(
+                            contactoEmergencia = emergencia.trim(),
+                            telefonoEmergencia = telefonoEmergencia.trim()
+                        )
+                        else -> perfil
+                    }
+                )
+            }) { Text("Guardar", color = Blue700) }
+        },
+        dismissButton = {
+            TextButton(onClick = onCancelar) { Text("Cancelar", color = TextSecondary) }
+        }
+    )
+}
+
+@Composable
+private fun CampoDialogo(
+    label: String,
+    value: String,
+    keyboardType: KeyboardType = KeyboardType.Text,
+    onValueChange: (String) -> Unit
+) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        label = { Text(label) },
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
+        modifier = Modifier.fillMaxWidth()
+    )
+}
+
 private fun formatearFecha(millis: Long?): String {
-    if (millis == null) return "Sin especificar"
+    if (millis == null) return SIN_ESPECIFICAR
     val formato = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).apply {
         timeZone = TimeZone.getTimeZone("UTC")
     }

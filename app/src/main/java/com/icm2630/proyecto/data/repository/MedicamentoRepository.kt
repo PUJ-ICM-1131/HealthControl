@@ -74,20 +74,20 @@ object MedicamentoRepository {
 
     // OBTENER TODOS
     fun obtenerTodos(): List<Medicamento> {
-        return medicamentos.toList()
+        return medicamentos.filter { it.cuentaCodigo == SesionRepository.cuentaActiva }
     }
 
     // MEDICAMENTOS DEL PROPIO USUARIO
     fun obtenerPropios(): List<Medicamento> {
         return medicamentos.filter { medicamento ->
-            medicamento.personaId == null
+            medicamento.personaId == null && medicamento.cuentaCodigo == SesionRepository.cuentaActiva
         }
     }
 
     // MEDICAMENTOS DE UNA PERSONA ASOCIADA
     fun obtenerPorPersona(personaId: String): List<Medicamento> {
         return medicamentos.filter { medicamento ->
-            medicamento.personaId == personaId
+            medicamento.personaId == personaId && medicamento.cuentaCodigo == SesionRepository.cuentaActiva
         }
     }
 

@@ -34,6 +34,8 @@ import com.icm2630.proyecto.data.model.TipoCita
 import com.icm2630.proyecto.data.repository.CitaRepository
 import com.icm2630.proyecto.data.repository.MedicamentoRepository
 import com.icm2630.proyecto.data.repository.PersonaRepository
+import com.icm2630.proyecto.data.repository.SesionRepository
+import com.icm2630.proyecto.ui.components.BannerFamiliar
 import com.icm2630.proyecto.ui.components.HealthBottomNavigation
 import com.icm2630.proyecto.navigation.Routes
 import com.icm2630.proyecto.ui.theme.*
@@ -167,6 +169,11 @@ fun HistoryScreen(
             }
 
             Spacer(Modifier.height(20.dp))
+
+            SesionRepository.familiarActivo?.let { familiar ->
+                BannerFamiliar(persona = familiar)
+                Spacer(Modifier.height(20.dp))
+            }
 
             //Buscador:
             TextField(
@@ -761,7 +768,8 @@ private fun construirRegistroMedicamento(medicamento: Medicamento, hoyMillis: Lo
 private fun etiquetaPacienteHistorial(personaId: String?): String {
 
     if (personaId == null) {
-        return "Yo"
+        // En el perfil de un familiar, lo "propio" es de esa persona.
+        return SesionRepository.familiarActivo?.nombre?.substringBefore(" ") ?: "Yo"
     }
 
     val persona = PersonaRepository.obtenerPorId(personaId)

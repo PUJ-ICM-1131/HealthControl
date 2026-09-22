@@ -32,6 +32,8 @@ import com.icm2630.proyecto.data.model.TipoCita
 import com.icm2630.proyecto.data.repository.CitaRepository
 import com.icm2630.proyecto.data.repository.MedicamentoRepository
 import com.icm2630.proyecto.data.repository.PersonaRepository
+import com.icm2630.proyecto.data.repository.SesionRepository
+import com.icm2630.proyecto.ui.components.BannerFamiliar
 import com.icm2630.proyecto.ui.components.HealthBottomNavigation
 import com.icm2630.proyecto.navigation.Routes
 import com.icm2630.proyecto.ui.theme.*
@@ -120,6 +122,8 @@ fun RemindersScreen(
 
     var pacienteSeleccionado by remember { mutableStateOf<String?>(null) }
 
+    // Viendo el perfil de un familiar: solo sus pendientes y sin registrar nada.
+    val familiar = SesionRepository.familiarActivo
 
     val pacientes = construirPacientes()
     val grupos = construirRecordatorios(
@@ -156,10 +160,17 @@ fun RemindersScreen(
                     color = Blue700
                 )
 
-                BotonAgregar(onClick = { onNavigate(Routes.Registrar) })
+                if (familiar == null) {
+                    BotonAgregar(onClick = { onNavigate(Routes.Registrar) })
+                }
             }
 
             Spacer(Modifier.height(20.dp))
+
+            if (familiar != null) {
+                BannerFamiliar(persona = familiar)
+                Spacer(Modifier.height(20.dp))
+            }
 
             //Diseño: Filtro por tipo de recordatorio
             Row(
@@ -179,31 +190,33 @@ fun RemindersScreen(
 
             Spacer(Modifier.height(24.dp))
 
-            //Filtro por paciente
-            Text(
-                text = "Filtrar por paciente",
-                style = MaterialTheme.typography.labelLarge,
-                color = TextSecondary
-            )
+            //Filtro por paciente (solo en el perfil propio)
+            if (familiar == null) {
+                Text(
+                    text = "Filtrar por paciente",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = TextSecondary
+                )
 
-            Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(12.dp))
 
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                pacientes.forEach { paciente ->
-                    PacienteChip(
-                        paciente = paciente,
-                        seleccionado = paciente.personaId == pacienteSeleccionado,
-                        onClick = { pacienteSeleccionado = paciente.personaId }
-                    )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    pacientes.forEach { paciente ->
+                        PacienteChip(
+                            paciente = paciente,
+                            seleccionado = paciente.personaId == pacienteSeleccionado,
+                            onClick = { pacienteSeleccionado = paciente.personaId }
+                        )
+                    }
                 }
-            }
 
-            Spacer(Modifier.height(24.dp))
+                Spacer(Modifier.height(24.dp))
+            }
 
             if (grupos.isEmpty()) {
                 EstadoVacio()

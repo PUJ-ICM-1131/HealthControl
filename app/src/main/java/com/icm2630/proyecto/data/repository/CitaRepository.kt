@@ -78,21 +78,21 @@ object CitaRepository {
     // OBTENER TODAS
 
     fun obtenerTodas(): List<Cita> {
-        return citas.toList()
+        return citas.filter { it.cuentaCodigo == SesionRepository.cuentaActiva }
     }
 
     // CITAS DEL PROPIO USUARIO
 
     fun obtenerPropias(): List<Cita> {
         return citas.filter { cita ->
-            cita.personaId == null
+            cita.personaId == null && cita.cuentaCodigo == SesionRepository.cuentaActiva
         }
     }
 
     // CITAS DE UNA PERSONA ASOCIADA
     fun obtenerPorPersona(personaId: String): List<Cita> {
         return citas.filter { cita ->
-            cita.personaId == personaId
+            cita.personaId == personaId && cita.cuentaCodigo == SesionRepository.cuentaActiva
         }
     }
 

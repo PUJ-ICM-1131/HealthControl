@@ -8,6 +8,10 @@ data class Cita(
      //Si tiene valor, corresponde al id de una Persona asociada
     val personaId: String? = null,
 
+    //null = cita de mi cuenta. Si tiene valor, es el código del familiar
+    //en cuyo HealthControl está registrada (se ve en solo lectura)
+    val cuentaCodigo: String? = null,
+
     val tipo: TipoCita,
     val especialidad: String = "",
     val motivo: String,

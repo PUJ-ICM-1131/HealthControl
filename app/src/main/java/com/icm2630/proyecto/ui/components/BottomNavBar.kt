@@ -6,6 +6,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
+import com.icm2630.proyecto.data.repository.SesionRepository
 import com.icm2630.proyecto.navigation.Routes
 import com.icm2630.proyecto.ui.theme.Blue700
 import com.icm2630.proyecto.ui.theme.TextSecondary
@@ -14,6 +15,7 @@ import com.icm2630.proyecto.ui.theme.TextSecondary
  * [rutaInicio] es a qué destino lleva y qué resalta la pestaña "Inicio".
  * Un titular usa [Routes.Home]; un acompañante usa [Routes.Monitoreo], que
  * es su propia home (HU-25) pero comparte esta misma barra inferior.
+ * Mientras se ve el perfil de un familiar se oculta "Registrar" (solo lectura).
  */
 @Composable
 fun HealthBottomNavigation(
@@ -25,10 +27,11 @@ fun HealthBottomNavigation(
         containerColor = MaterialTheme.colorScheme.surface,
         tonalElevation = 8.dp
     ) {
-        val items = listOf(
+        val soloLectura = SesionRepository.familiarActivo != null
+        val items = listOfNotNull(
             BottomNavItem("Inicio", Icons.Outlined.Home, rutaInicio),
             BottomNavItem("Pendientes", Icons.Outlined.StickyNote2, Routes.Recordatorios),
-            BottomNavItem("Registrar", Icons.Outlined.Add, Routes.Registrar),
+            if (soloLectura) null else BottomNavItem("Registrar", Icons.Outlined.Add, Routes.Registrar),
             BottomNavItem("Historial", Icons.Outlined.Schedule, Routes.Historial),
             BottomNavItem("Mapa", Icons.Outlined.Map, Routes.Mapa)
         )

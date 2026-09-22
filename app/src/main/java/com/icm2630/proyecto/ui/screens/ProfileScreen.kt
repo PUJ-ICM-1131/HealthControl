@@ -29,10 +29,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.icm2630.proyecto.ui.components.ChipsCondiciones
 import com.icm2630.proyecto.ui.components.ChipsTipoSangre
+import com.icm2630.proyecto.ui.components.BannerFamiliar
 import com.icm2630.proyecto.ui.components.HealthBottomNavigation
 import com.icm2630.proyecto.data.model.Genero
 import com.icm2630.proyecto.data.model.PerfilUsuario
 import com.icm2630.proyecto.data.model.PersonaVinculada
+import com.icm2630.proyecto.data.repository.FamiliarSimulator
 import com.icm2630.proyecto.data.repository.VinculacionSimulator
 import com.icm2630.proyecto.navigation.Routes
 import com.icm2630.proyecto.ui.theme.Blue100
@@ -64,14 +66,31 @@ enum class CampoPerfilEditable {
     TIPO_SANGRE, ALERGIAS, CONDICIONES, CONTACTO_EMERGENCIA
 }
 
+/**
+ * Si llega [familiar] se muestra su perfil en solo lectura con la opción
+ * de volver al propio; si no, el perfil del usuario, editable.
+ */
 @Composable
 fun ProfileScreen(
     perfil: PerfilUsuario = PerfilUsuario(),
+    familiar: PersonaVinculada? = null,
     onNavigate: (Routes) -> Unit = {},
     onEditarCampo: (CampoPerfilEditable) -> Unit = {},
     onActualizarPerfil: (PerfilUsuario) -> Unit = {},
+    onVerFamiliar: (PersonaVinculada) -> Unit = {},
+    onVolverAMiPerfil: () -> Unit = {},
     onCerrarSesion: () -> Unit = {}
 ) {
+    if (familiar != null) {
+        PerfilFamiliar(
+            familiar = familiar,
+            miNombre = perfil.nombreCompleto,
+            onNavigate = onNavigate,
+            onVolverAMiPerfil = onVolverAMiPerfil
+        )
+        return
+    }
+
     var mostrarConfirmacionCierre by remember { mutableStateOf(false) }
 
     // Copia local para que la pantalla refleje al instante lo editado;
@@ -229,7 +248,11 @@ fun ProfileScreen(
             TarjetaBlanca {
                 personas.forEachIndexed { indice, persona ->
                     if (indice > 0) DivisorFila()
-                    FilaPersona(persona = persona, colorIndice = indice)
+                    FilaPersona(
+                        persona = persona,
+                        colorIndice = indice,
+                        onClick = { onVerFamiliar(persona) }
+                    )
                 }
 
                 if (personas.isNotEmpty()) DivisorFila()
@@ -432,7 +455,7 @@ private fun FilaDato(
     icon: ImageVector,
     label: String,
     valor: String,
-    onEditar: () -> Unit
+    onEditar: (() -> Unit)? = null
 ) {
     Row(
         modifier = Modifier
@@ -460,13 +483,15 @@ private fun FilaDato(
                 fontWeight = FontWeight.Medium
             )
         }
-        IconButton(onClick = onEditar) {
-            Icon(
-                Icons.Outlined.Edit,
-                contentDescription = "Editar $label",
-                tint = Blue500,
-                modifier = Modifier.size(20.dp)
-            )
+        if (onEditar != null) {
+            IconButton(onClick = onEditar) {
+                Icon(
+                    Icons.Outlined.Edit,
+                    contentDescription = "Editar $label",
+                    tint = Blue500,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
         }
     }
 }
@@ -512,10 +537,12 @@ private fun AvatarPersona(nombre: String, colorIndice: Int, tamano: Dp = 52.dp) 
 }
 
 @Composable
-private fun FilaPersona(persona: PersonaVinculada, colorIndice: Int) {
+private fun FilaPersona(persona: PersonaVinculada, colorIndice: Int, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .clickable(onClick = onClick)
             .padding(vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -533,6 +560,122 @@ private fun FilaPersona(persona: PersonaVinculada, colorIndice: Int) {
                 style = MaterialTheme.typography.bodySmall,
                 color = TextSecondary
             )
+        }
+        Icon(
+            Icons.Outlined.ChevronRight,
+            contentDescription = "Ver perfil de ${persona.nombre}",
+            tint = Blue500
+        )
+    }
+}
+
+/* ---------------------------------------------------------------- */
+/*  Perfil de un familiar (solo lectura)                             */
+/* ---------------------------------------------------------------- */
+
+@Composable
+private fun PerfilFamiliar(
+    familiar: PersonaVinculada,
+    miNombre: String,
+    onNavigate: (Routes) -> Unit,
+    onVolverAMiPerfil: () -> Unit
+) {
+    val datos = remember(familiar) {
+        FamiliarSimulator.perfilDe(familiar, contactoEmergencia = miNombre)
+    }
+
+    Scaffold(
+        bottomBar = {
+            HealthBottomNavigation(
+                currentRoute = Routes.Perfil,
+                onNavigate = onNavigate
+            )
+        },
+        containerColor = Fondo
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .verticalScroll(rememberScrollState())
+                .padding(20.dp)
+        ) {
+            Text(
+                text = "Perfil de ${familiar.nombre.substringBefore(" ")}",
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold,
+                color = Blue700
+            )
+
+            Spacer(Modifier.height(16.dp))
+
+            BannerFamiliar(
+                persona = familiar,
+                onVolverAMiPerfil = onVolverAMiPerfil
+            )
+
+            Spacer(Modifier.height(24.dp))
+
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                AvatarPersona(familiar.nombre, colorIndice = 0, tamano = 96.dp)
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    text = familiar.nombre,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = Blue700
+                )
+                Text(
+                    text = familiar.relacion.ifBlank { "Familiar" },
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = TextSecondary
+                )
+            }
+
+            Spacer(Modifier.height(28.dp))
+
+            SeccionTitulo("Datos personales")
+            Spacer(Modifier.height(12.dp))
+            TarjetaBlanca {
+                FilaDato(Icons.Outlined.Person, "Nombre completo", datos.nombreCompleto)
+                DivisorFila()
+                FilaDato(Icons.Outlined.CalendarMonth, "Fecha de nacimiento", formatearFecha(datos.fechaNacimientoMillis))
+                DivisorFila()
+                FilaDato(Icons.Outlined.Info, "Género", datos.genero?.etiqueta ?: SIN_ESPECIFICAR)
+                DivisorFila()
+                FilaDato(Icons.Outlined.MailOutline, "Teléfono o correo", datos.contacto.ifBlank { SIN_ESPECIFICAR })
+            }
+
+            Spacer(Modifier.height(24.dp))
+
+            SeccionTitulo("Información de salud")
+            Spacer(Modifier.height(12.dp))
+            TarjetaBlanca {
+                FilaDato(Icons.Outlined.Bloodtype, "Tipo de sangre", datos.tipoSangre?.etiqueta ?: SIN_ESPECIFICAR)
+                DivisorFila()
+                FilaDato(Icons.Outlined.Warning, "Alergias", datos.alergias.ifBlank { "Ninguna conocida" })
+                DivisorFila()
+                FilaDato(
+                    Icons.Outlined.MedicalServices,
+                    "Condiciones médicas",
+                    datos.condiciones.joinToString(", ").ifBlank { SIN_ESPECIFICAR }
+                )
+                DivisorFila()
+                FilaDato(Icons.Outlined.Shield, "Contacto de emergencia", datos.contactoEmergencia.ifBlank { SIN_ESPECIFICAR })
+            }
+
+            Spacer(Modifier.height(24.dp))
+
+            SeccionTitulo("ID de ${familiar.nombre.substringBefore(" ")}")
+            Spacer(Modifier.height(12.dp))
+            TarjetaBlanca {
+                FilaDato(Icons.Outlined.VpnKey, "ID de HealthControl", familiar.codigo)
+            }
+
+            Spacer(Modifier.height(24.dp))
         }
     }
 }

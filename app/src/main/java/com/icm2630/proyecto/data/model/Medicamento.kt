@@ -9,6 +9,9 @@
          * Si tiene valor, corresponde al id de una Persona asociada
          */
         val personaId: String? = null,
+        //null = medicamento de mi cuenta. Si tiene valor, es el código del
+        //familiar en cuyo HealthControl está registrado (se ve en solo lectura)
+        val cuentaCodigo: String? = null,
         val nombre: String,
         val forma: FormaMedicamento,
         val dosis: String,

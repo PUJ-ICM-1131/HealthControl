@@ -24,6 +24,8 @@ import com.icm2630.proyecto.data.model.Cita
 import com.icm2630.proyecto.data.model.ModalidadCita
 import com.icm2630.proyecto.data.repository.CitaRepository
 import com.icm2630.proyecto.data.repository.PersonaRepository
+import com.icm2630.proyecto.data.repository.SesionRepository
+import com.icm2630.proyecto.ui.components.descripcionConParentesco
 import com.icm2630.proyecto.ui.theme.Blue100
 import com.icm2630.proyecto.ui.theme.Blue500
 import com.icm2630.proyecto.ui.theme.Blue700
@@ -264,7 +266,15 @@ fun DetalleCitaScreen(
 
                 Spacer(Modifier.height(28.dp))
 
-                if (esHistorico) {
+                val familiar = SesionRepository.familiarActivo
+
+                if (familiar != null) {
+
+                    AvisoSoloLectura(
+                        mensaje = "Esta cita pertenece al perfil de ${familiar.descripcionConParentesco()}. Solo puedes consultarla."
+                    )
+
+                } else if (esHistorico) {
 
                     AvisoSoloLectura(
                         mensaje = "Esta cita ya ocurrió, por lo que queda como registro del historial y no se puede editar ni eliminar."

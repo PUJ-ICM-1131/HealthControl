@@ -27,10 +27,22 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.icm2630.proyecto.R
+import com.icm2630.proyecto.data.model.Cita
+import com.icm2630.proyecto.data.model.Medicamento
 import com.icm2630.proyecto.data.model.PerfilUsuario
+import com.icm2630.proyecto.data.model.PersonaVinculada
+import com.icm2630.proyecto.data.repository.CitaRepository
+import com.icm2630.proyecto.data.repository.MedicamentoRepository
+import com.icm2630.proyecto.data.repository.PersonaRepository
 import com.icm2630.proyecto.navigation.Routes
+import com.icm2630.proyecto.ui.components.BannerFamiliar
 import com.icm2630.proyecto.ui.components.HealthBottomNavigation
 import com.icm2630.proyecto.ui.theme.*
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
+import java.util.TimeZone
 
 private data class QuickAction(
     val id: String,
@@ -40,12 +52,19 @@ private data class QuickAction(
     val route: Routes?
 )
 
-/** Home del rol Titular (HU-02): siempre es la salud de la propia persona. */
+/**
+ * Home del Titular (HU-02). Si llega [familiar], se está consultando el
+ * HealthControl de esa persona: se muestra su información en solo lectura.
+ */
 @Composable
 fun HomeScreen(
     perfil: PerfilUsuario = PerfilUsuario(),
-    onNavigate: (Routes) -> Unit = {}
+    familiar: PersonaVinculada? = null,
+    onNavigate: (Routes) -> Unit = {},
+    onVolverAMiPerfil: () -> Unit = {}
 ) {
+    val soloLectura = familiar != null
+
     val allActions = remember {
         listOf(
             QuickAction("dosis", "Registrar Dosis", "Toma rápida", Icons.Outlined.Medication, Routes.RegistrarMedicamento()),
@@ -58,9 +77,22 @@ fun HomeScreen(
         )
     }
 
+    // En solo lectura solo se ofrecen acciones de consulta.
+    val accionesFamiliar = remember {
+        listOf(
+            QuickAction("pendientes", "Pendientes", "Sus recordatorios", Icons.Outlined.StickyNote2, Routes.Recordatorios),
+            QuickAction("historial", "Historial", "Sus registros", Icons.Outlined.History, Routes.Historial),
+            QuickAction("perfil", "Su Perfil", "Datos de salud", Icons.Outlined.Person, Routes.Perfil),
+            QuickAction("mapa", "Ver Mapa", "Ubicaciones", Icons.Outlined.Map, Routes.Mapa)
+        )
+    }
+
     var selectedActionIds by remember { mutableStateOf(setOf("dosis", "cita", "signos", "cuidador")) }
     var showCustomizer by remember { mutableStateOf(false) }
     var dosisTomada by remember { mutableStateOf(false) }
+
+    val nombrePropio = familiar?.nombre?.substringBefore(" ") ?: "Yo"
+    val resumen = construirResumenHome(nombrePropio)
 
     Scaffold(
         bottomBar = {
@@ -121,7 +153,15 @@ fun HomeScreen(
                 color = Blue700
             )
 
-            perfil.acompanantes.takeIf { it.isNotEmpty() }?.let { acompanantes ->
+            if (familiar != null) {
+                Spacer(Modifier.height(16.dp))
+                BannerFamiliar(
+                    persona = familiar,
+                    onVolverAMiPerfil = onVolverAMiPerfil
+                )
+            }
+
+            perfil.acompanantes.takeIf { it.isNotEmpty() && !soloLectura }?.let { acompanantes ->
                 Spacer(Modifier.height(12.dp))
                 Surface(
                     color = Blue100.copy(alpha = 0.3f),
@@ -158,15 +198,21 @@ fun HomeScreen(
                     fontWeight = FontWeight.Bold,
                     color = Blue700
                 )
-                IconButton(onClick = { showCustomizer = true }) {
-                    Icon(Icons.Outlined.Settings, "Personalizar", tint = Blue500)
+                if (!soloLectura) {
+                    IconButton(onClick = { showCustomizer = true }) {
+                        Icon(Icons.Outlined.Settings, "Personalizar", tint = Blue500)
+                    }
                 }
             }
 
             Spacer(Modifier.height(8.dp))
 
             // Grid Dinámico de Acciones Rápidas
-            val currentActions = allActions.filter { it.id in selectedActionIds }
+            val currentActions = if (soloLectura) {
+                accionesFamiliar
+            } else {
+                allActions.filter { it.id in selectedActionIds }
+            }
             currentActions.chunked(2).forEach { rowActions ->
                 Row(modifier = Modifier.fillMaxWidth()) {
                     rowActions.forEachIndexed { index, action ->
@@ -207,7 +253,7 @@ fun HomeScreen(
                     modifier = Modifier.clickable { onNavigate(Routes.Recordatorios) }
                 ) {
                     Text(
-                        text = "3 pendientes",
+                        text = "${resumen.pendientes} pendientes",
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
                         style = MaterialTheme.typography.labelSmall,
                         color = Color.Red
@@ -218,20 +264,36 @@ fun HomeScreen(
             Spacer(Modifier.height(16.dp))
 
             // Card Recordatorio Medicamento
-            MedicationReminderCard(
-                personName = "Yo",
-                isTaken = dosisTomada,
-                onTakenChange = { dosisTomada = it },
-                onClick = { onNavigate(Routes.Recordatorios) }
-            )
-
-            Spacer(Modifier.height(16.dp))
+            resumen.medicamento?.let { toma ->
+                MedicationReminderCard(
+                    titulo = toma.titulo,
+                    hora = toma.hora,
+                    personName = toma.paciente,
+                    isTaken = dosisTomada,
+                    soloLectura = soloLectura,
+                    onTakenChange = { dosisTomada = it },
+                    onClick = { onNavigate(Routes.Recordatorios) }
+                )
+                Spacer(Modifier.height(16.dp))
+            }
 
             // Card Cita Médica
-            AppointmentReminderCard(
-                personName = "Mamá Elena",
-                onClick = { onNavigate(Routes.Recordatorios) }
-            )
+            resumen.cita?.let { cita ->
+                AppointmentReminderCard(
+                    medico = cita.medico,
+                    cuando = cita.cuando,
+                    personName = cita.paciente,
+                    onClick = { onNavigate(Routes.Recordatorios) }
+                )
+            }
+
+            if (resumen.medicamento == null && resumen.cita == null) {
+                Text(
+                    text = "No hay recordatorios próximos",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = TextSecondary
+                )
+            }
         }
     }
 
@@ -343,8 +405,11 @@ private fun QuickActionCard(
 
 @Composable
 private fun MedicationReminderCard(
+    titulo: String,
+    hora: String,
     personName: String = "Yo",
     isTaken: Boolean = false,
+    soloLectura: Boolean = false,
     onTakenChange: (Boolean) -> Unit = {},
     onClick: () -> Unit = {}
 ) {
@@ -377,7 +442,7 @@ private fun MedicationReminderCard(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("Losartán 50mg", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Blue700)
+                        Text(titulo, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Blue700)
                         
                         // Etiqueta de la persona
                         Surface(
@@ -411,24 +476,26 @@ private fun MedicationReminderCard(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Outlined.Schedule, null, modifier = Modifier.size(16.dp), tint = TextSecondary)
                         Spacer(Modifier.width(4.dp))
-                        Text("08:00 AM", fontSize = 14.sp, color = Blue700, fontWeight = FontWeight.Bold)
+                        Text(hora, fontSize = 14.sp, color = Blue700, fontWeight = FontWeight.Bold)
                     }
                 }
             }
-            Spacer(Modifier.height(20.dp))
-            Button(
-                onClick = { 
-                    onTakenChange(!isTaken)
-                },
-                modifier = Modifier.fillMaxWidth().height(50.dp),
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = if (isTaken) SuccessGreen else Blue700
-                )
-            ) {
-                Icon(Icons.Outlined.CheckCircle, null, modifier = Modifier.size(20.dp))
-                Spacer(Modifier.width(8.dp))
-                Text(if (isTaken) "Tomada" else "Marcar como tomada")
+            if (!soloLectura) {
+                Spacer(Modifier.height(20.dp))
+                Button(
+                    onClick = { 
+                        onTakenChange(!isTaken)
+                    },
+                    modifier = Modifier.fillMaxWidth().height(50.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (isTaken) SuccessGreen else Blue700
+                    )
+                ) {
+                    Icon(Icons.Outlined.CheckCircle, null, modifier = Modifier.size(20.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(if (isTaken) "Tomada" else "Marcar como tomada")
+                }
             }
         }
     }
@@ -436,6 +503,8 @@ private fun MedicationReminderCard(
 
 @Composable
 private fun AppointmentReminderCard(
+    medico: String,
+    cuando: String,
     personName: String = "Yo",
     onClick: () -> Unit = {}
 ) {
@@ -465,7 +534,7 @@ private fun AppointmentReminderCard(
                     ) {
                         Column {
                             Text("CITA MÉDICA", style = MaterialTheme.typography.labelSmall, color = Blue500, fontWeight = FontWeight.Bold)
-                            Text("Dr. Andrés Valenzuela", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Blue700)
+                            Text(medico, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Blue700)
                         }
                         
                         // Etiqueta de la persona
@@ -494,11 +563,99 @@ private fun AppointmentReminderCard(
                 Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Outlined.CalendarMonth, null, modifier = Modifier.size(18.dp), tint = Blue500)
                     Spacer(Modifier.width(8.dp))
-                    Text("Hoy a las 04:30 PM", style = MaterialTheme.typography.bodyMedium, color = Blue700)
+                    Text(cuando, style = MaterialTheme.typography.bodyMedium, color = Blue700)
                 }
             }
         }
     }
+}
+
+// RESUMEN DE RECORDATORIOS DEL PERFIL ACTIVO (propio o del familiar)
+
+private data class ProximaToma(val titulo: String, val hora: String, val paciente: String)
+
+private data class ProximaCita(val medico: String, val cuando: String, val paciente: String)
+
+private data class ResumenHome(
+    val pendientes: Int,
+    val medicamento: ProximaToma?,
+    val cita: ProximaCita?
+)
+
+/** [nombrePropio] es la etiqueta de lo que no es de una persona asociada. */
+private fun construirResumenHome(nombrePropio: String): ResumenHome {
+
+    val hoy = hoyUtcMillisHome()
+
+    val medicamentosActivos = MedicamentoRepository.obtenerTodos().filter { medicamento ->
+        medicamento.tratamientoPermanente ||
+                medicamento.fechaFinMillis == null ||
+                medicamento.fechaFinMillis >= hoy
+    }
+
+    val citasProximas = CitaRepository.obtenerTodas()
+        .filter { it.fechaMillis >= hoy }
+        .sortedWith(compareBy({ it.fechaMillis }, { it.hora }, { it.minuto }))
+
+    val toma = medicamentosActivos.firstOrNull()?.let { medicamento: Medicamento ->
+        ProximaToma(
+            titulo = "${medicamento.nombre} ${medicamento.dosis}${medicamento.unidad}",
+            hora = medicamento.horarios.firstOrNull() ?: "--:--",
+            paciente = etiquetaPacienteHome(medicamento.personaId, nombrePropio)
+        )
+    }
+
+    val cita = citasProximas.firstOrNull()?.let { proxima: Cita ->
+        ProximaCita(
+            medico = proxima.nombreMedico.ifBlank { proxima.especialidad.ifBlank { proxima.tipo.titulo } },
+            cuando = cuandoCita(proxima, hoy),
+            paciente = etiquetaPacienteHome(proxima.personaId, nombrePropio)
+        )
+    }
+
+    val tomas = medicamentosActivos.sumOf { it.horarios.ifEmpty { listOf("") }.size }
+
+    return ResumenHome(
+        pendientes = citasProximas.size + tomas,
+        medicamento = toma,
+        cita = cita
+    )
+}
+
+private fun etiquetaPacienteHome(personaId: String?, nombrePropio: String): String =
+    if (personaId == null) {
+        nombrePropio
+    } else {
+        PersonaRepository.obtenerPorId(personaId)?.nombre ?: "Familiar"
+    }
+
+private fun cuandoCita(cita: Cita, hoy: Long): String {
+
+    val unDia = 24L * 60L * 60L * 1000L
+    val hora12 = when {
+        cita.hora == 0 -> 12
+        cita.hora > 12 -> cita.hora - 12
+        else -> cita.hora
+    }
+    val hora = String.format(Locale.getDefault(), "%02d:%02d %s", hora12, cita.minuto, if (cita.hora < 12) "AM" else "PM")
+
+    val dia = when (cita.fechaMillis) {
+        hoy -> "Hoy"
+        hoy + unDia -> "Mañana"
+        else -> SimpleDateFormat("d 'de' MMMM", Locale("es", "ES"))
+            .apply { timeZone = TimeZone.getTimeZone("UTC") }
+            .format(Date(cita.fechaMillis))
+    }
+
+    return "$dia a las $hora"
+}
+
+private fun hoyUtcMillisHome(): Long {
+    val local = Calendar.getInstance()
+    return Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply {
+        clear()
+        set(local.get(Calendar.YEAR), local.get(Calendar.MONTH), local.get(Calendar.DAY_OF_MONTH))
+    }.timeInMillis
 }
 
 @Preview(showBackground = true)

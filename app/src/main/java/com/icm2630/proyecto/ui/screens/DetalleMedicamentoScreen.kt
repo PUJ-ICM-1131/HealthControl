@@ -23,6 +23,8 @@ import androidx.compose.ui.unit.dp
 import com.icm2630.proyecto.data.model.Medicamento
 import com.icm2630.proyecto.data.repository.MedicamentoRepository
 import com.icm2630.proyecto.data.repository.PersonaRepository
+import com.icm2630.proyecto.data.repository.SesionRepository
+import com.icm2630.proyecto.ui.components.descripcionConParentesco
 import com.icm2630.proyecto.ui.theme.Blue100
 import com.icm2630.proyecto.ui.theme.Blue500
 import com.icm2630.proyecto.ui.theme.Blue700
@@ -224,7 +226,15 @@ fun DetalleMedicamentoScreen(
 
                 Spacer(Modifier.height(28.dp))
 
-                if (esHistorico) {
+                val familiar = SesionRepository.familiarActivo
+
+                if (familiar != null) {
+
+                    AvisoSoloLecturaMedicamento(
+                        mensaje = "Este medicamento pertenece al perfil de ${familiar.descripcionConParentesco()}. Solo puedes consultarlo."
+                    )
+
+                } else if (esHistorico) {
 
                     AvisoSoloLecturaMedicamento(
                         mensaje = "Este tratamiento ya finalizó, por lo que queda como registro del historial y no se puede editar ni eliminar."

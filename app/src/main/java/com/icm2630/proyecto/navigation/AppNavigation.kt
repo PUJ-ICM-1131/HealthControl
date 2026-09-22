@@ -165,12 +165,19 @@ fun AppNavigation() {
 
                     perfil = SesionRepository.perfil ?: PerfilUsuario(),
 
+                    familiar = SesionRepository.familiarActivo,
+
                     onNavigate = { route ->
 
                         navegarATab(
                             backStack = backStack,
                             destino = route
                         )
+                    },
+
+                    onVolverAMiPerfil = {
+
+                        SesionRepository.volverAMiPerfil()
                     }
                 )
             }
@@ -431,6 +438,8 @@ fun AppNavigation() {
 
                     perfil = SesionRepository.perfil ?: PerfilUsuario(),
 
+                    familiar = SesionRepository.familiarActivo,
+
                     onNavigate = { route ->
 
                         navegarATab(
@@ -445,6 +454,24 @@ fun AppNavigation() {
                     onActualizarPerfil = { actualizado ->
 
                         SesionRepository.perfil = actualizado
+                    },
+
+
+                    // Al elegir un familiar se consulta su HealthControl desde el inicio.
+                    onVerFamiliar = { persona ->
+
+                        SesionRepository.verFamiliar(persona)
+
+                        navegarATab(
+                            backStack = backStack,
+                            destino = Routes.Home
+                        )
+                    },
+
+
+                    onVolverAMiPerfil = {
+
+                        SesionRepository.volverAMiPerfil()
                     },
 
 

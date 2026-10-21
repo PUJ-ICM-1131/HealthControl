@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.google.services)
 }
 
 android {
@@ -36,6 +37,8 @@ android {
 }
 
 dependencies {
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.firestore)
     implementation("androidx.navigation3:navigation3-runtime:1.1.7")
     implementation("androidx.navigation3:navigation3-ui:1.1.7")
     implementation("androidx.compose.material:material-icons-extended")

@@ -31,7 +31,7 @@ import com.icm2630.proyecto.ui.screens.ProfileScreen
 import com.icm2630.proyecto.ui.screens.ProfileSetupScreen
 import com.icm2630.proyecto.ui.screens.RegisterScreen
 import com.icm2630.proyecto.ui.screens.RemindersScreen
-
+import com.icm2630.proyecto.data.repository.UsuarioRepository
 
 @Composable
 fun AppNavigation() {
@@ -128,6 +128,11 @@ fun AppNavigation() {
 
                         SesionRepository.perfil =
                             perfil
+
+                        UsuarioRepository.guardarPerfil(
+                            uid = SesionRepository.uidActual,
+                            perfil = perfil
+                        )
 
 
                         backStack.clear()

@@ -7,7 +7,8 @@ import com.icm2630.proyecto.data.model.PerfilUsuario
 import com.icm2630.proyecto.data.model.PersonaVinculada
 
 object SesionRepository {
-
+    val uidActual: String
+        get() = "usuario-demo"
     var perfil: PerfilUsuario? = null
 
     /** Datos de cuenta capturados en el registro / login; el onboarding no los vuelve a pedir. */

@@ -1,6 +1,11 @@
 package com.icm2630.proyecto.ui.screens
 
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.widget.Toast
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -16,10 +21,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import coil.compose.AsyncImage
 import com.icm2630.proyecto.data.model.Cita
 import com.icm2630.proyecto.data.model.ModalidadCita
 import com.icm2630.proyecto.data.repository.CitaRepository
@@ -256,11 +265,68 @@ fun DetalleCitaScreen(
                     Spacer(Modifier.height(16.dp))
 
                     TarjetaDetalle {
-                        DetalleCampo(
-                            icono = Icons.Outlined.AttachFile,
-                            etiqueta = "Soporte adjunto",
-                            valor = "Archivo adjunto al registrar la cita"
-                        )
+                        Column(modifier = Modifier.padding(vertical = 12.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Outlined.AttachFile,
+                                    contentDescription = null,
+                                    tint = Blue500,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(Modifier.width(14.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = "Soporte / Orden adjunta",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = TextSecondary
+                                    )
+                                    Text(
+                                        text = cita.nombreSoporte ?: "Archivo adjunto",
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = TextPrimary
+                                    )
+                                }
+                            }
+
+                            Spacer(Modifier.height(12.dp))
+
+                            val context = LocalContext.current
+                            val isImage = remember(cita.soporteUri) {
+                                val uriStr = cita.soporteUri.lowercase()
+                                uriStr.endsWith(".jpg") || uriStr.endsWith(".jpeg") ||
+                                        uriStr.endsWith(".png") || uriStr.contains("image") ||
+                                        uriStr.startsWith("file://")
+                            }
+
+                            if (isImage) {
+                                AsyncImage(
+                                    model = cita.soporteUri,
+                                    contentDescription = "Vista previa del soporte adjunto",
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(200.dp)
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .clickable { abrirArchivoCita(context, cita.soporteUri) },
+                                    contentScale = ContentScale.Crop
+                                )
+                                Spacer(Modifier.height(12.dp))
+                            }
+
+                            OutlinedButton(
+                                onClick = { abrirArchivoCita(context, cita.soporteUri) },
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Icon(
+                                    imageVector = if (isImage) Icons.Outlined.Visibility else Icons.Outlined.PictureAsPdf,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Text(if (isImage) "Ver imagen completa" else "Abrir soporte / PDF")
+                            }
+                        }
                     }
                 }
 
@@ -494,6 +560,25 @@ private fun AvisoSoloLectura(mensaje: String) {
                 color = TextSecondary
             )
         }
+    }
+}
+
+private fun abrirArchivoCita(context: Context, uriString: String) {
+    try {
+        val uri = Uri.parse(uriString)
+        val mimeType = context.contentResolver.getType(uri) ?: when {
+            uriString.lowercase().endsWith(".pdf") -> "application/pdf"
+            uriString.lowercase().endsWith(".png") -> "image/png"
+            uriString.lowercase().endsWith(".jpg") || uriString.lowercase().endsWith(".jpeg") -> "image/jpeg"
+            else -> "*/*"
+        }
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(uri, mimeType)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        context.startActivity(Intent.createChooser(intent, "Abrir soporte de cita"))
+    } catch (e: Exception) {
+        Toast.makeText(context, "No se encontró una aplicación para abrir este archivo", Toast.LENGTH_SHORT).show()
     }
 }
 

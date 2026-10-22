@@ -12,14 +12,22 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.ui.NavDisplay
 import com.icm2630.proyecto.data.model.PerfilUsuario
 import com.icm2630.proyecto.data.model.TipoPerfil
 import com.icm2630.proyecto.data.repository.SesionRepository
+import com.icm2630.proyecto.ui.components.AlertaCaidaDialog
 import com.icm2630.proyecto.ui.components.HealthBottomNavigation
+import com.icm2630.proyecto.ui.util.CaidaDetector
 import com.icm2630.proyecto.ui.screens.DetalleCitaScreen
 import com.icm2630.proyecto.ui.screens.DetalleMedicamentoScreen
 import com.icm2630.proyecto.ui.screens.HistoryScreen
@@ -39,6 +47,38 @@ fun AppNavigation() {
     val backStack = remember {
         mutableStateListOf<Routes>(
             Routes.Login
+        )
+    }
+
+    val context = LocalContext.current
+    var mostrarAlertaCaida by remember { mutableStateOf(false) }
+
+    // El detector de caídas solo funciona si el rol del usuario NO es ACOMPANANTE (es decir, funciona para el que es cuidado / TITULAR)
+    val esCuidado = SesionRepository.perfil?.tipoPerfil != TipoPerfil.ACOMPANANTE
+
+    DisposableEffect(esCuidado) {
+        if (esCuidado) {
+            val detector = CaidaDetector(context) {
+                mostrarAlertaCaida = true
+            }
+            detector.iniciar()
+            onDispose {
+                detector.detener()
+            }
+        } else {
+            onDispose { }
+        }
+    }
+
+    if (mostrarAlertaCaida) {
+        val telefonoEmergencia = SesionRepository.perfil?.telefonoEmergencia
+            ?.ifBlank { "3001234567" } ?: "3001234567"
+
+        AlertaCaidaDialog(
+            telefonoCuidador = telefonoEmergencia,
+            onCerrarAlerta = {
+                mostrarAlertaCaida = false
+            }
         )
     }
 

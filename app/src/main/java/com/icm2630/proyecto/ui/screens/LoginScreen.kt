@@ -1,5 +1,8 @@
 package com.icm2630.proyecto.ui.screens
 
+import android.widget.Toast
+import androidx.biometric.BiometricManager
+import androidx.biometric.BiometricPrompt
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -22,6 +25,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -31,6 +35,8 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
+import androidx.fragment.app.FragmentActivity
 import com.icm2630.proyecto.R
 import com.icm2630.proyecto.data.repository.SesionRepository
 import com.icm2630.proyecto.ui.theme.*
@@ -53,6 +59,7 @@ fun LoginScreen(
 
     // Estado para errores de validación
     var errorTexto by remember { mutableStateOf<String?>(null) }
+    val context = LocalContext.current
 
     Column(
         modifier = Modifier
@@ -200,30 +207,65 @@ fun LoginScreen(
 
                 Spacer(Modifier.height(24.dp))
 
-                Button(
-                    onClick = { 
-                        if (correo.isBlank() || password.isBlank()) {
-                            errorTexto = "Por favor, completa todos los campos"
-                        } else if (SesionRepository.validarCredenciales(correo, password)) {
-                            onLogin()
-                        } else {
-                            errorTexto = "Credenciales incorrectas"
-                        }
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(58.dp),
-                    shape = FieldShape,
-                    colors = ButtonDefaults.buttonColors(containerColor = Blue700)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = "Iniciar Sesión",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Icon(Icons.AutoMirrored.Outlined.ArrowForward, null, modifier = Modifier.size(20.dp))
+                    Button(
+                        onClick = { 
+                            if (correo.isBlank() || password.isBlank()) {
+                                errorTexto = "Por favor, completa todos los campos"
+                            } else if (SesionRepository.validarCredenciales(correo, password)) {
+                                onLogin()
+                            } else {
+                                errorTexto = "Credenciales incorrectas"
+                            }
+                        },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(58.dp),
+                        shape = FieldShape,
+                        colors = ButtonDefaults.buttonColors(containerColor = Blue700)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = "Iniciar Sesión",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Icon(Icons.AutoMirrored.Outlined.ArrowForward, null, modifier = Modifier.size(20.dp))
+                        }
+                    }
+
+                    // Botón de autenticación por huella digital
+                    Surface(
+                        onClick = {
+                            val activity = context as? FragmentActivity
+                            if (activity != null) {
+                                mostrarBiometricPrompt(
+                                    activity = activity,
+                                    onExito = { onLogin() },
+                                    onError = { err -> errorTexto = err }
+                                )
+                            } else {
+                                errorTexto = "No se pudo iniciar la autenticación por huella."
+                            }
+                        },
+                        modifier = Modifier.size(58.dp),
+                        shape = FieldShape,
+                        color = Blue100.copy(alpha = 0.4f),
+                        border = BorderStroke(1.dp, Blue500.copy(alpha = 0.5f))
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Outlined.Fingerprint,
+                                contentDescription = "Iniciar sesión con huella digital",
+                                tint = Blue700,
+                                modifier = Modifier.size(28.dp)
+                            )
+                        }
                     }
                 }
             }
@@ -375,6 +417,51 @@ private fun BotonSocial(
             style = MaterialTheme.typography.titleMedium
         )
     }
+}
+
+private fun mostrarBiometricPrompt(
+    activity: FragmentActivity,
+    onExito: () -> Unit,
+    onError: (String) -> Unit
+) {
+    val biometricManager = BiometricManager.from(activity)
+    val autenticacionDisponible = biometricManager.canAuthenticate(
+        BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.BIOMETRIC_WEAK
+    )
+
+    if (autenticacionDisponible != BiometricManager.BIOMETRIC_SUCCESS) {
+        onError("La huella digital o biometría no está disponible en este dispositivo.")
+        return
+    }
+
+    val executor = ContextCompat.getMainExecutor(activity)
+    val callback = object : BiometricPrompt.AuthenticationCallback() {
+        override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
+            super.onAuthenticationSucceeded(result)
+            onExito()
+        }
+
+        override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
+            super.onAuthenticationError(errorCode, errString)
+            if (errorCode != BiometricPrompt.ERROR_USER_CANCELED && errorCode != BiometricPrompt.ERROR_NEGATIVE_BUTTON) {
+                onError(errString.toString())
+            }
+        }
+
+        override fun onAuthenticationFailed() {
+            super.onAuthenticationFailed()
+            onError("Huella no reconocida. Inténtalo de nuevo.")
+        }
+    }
+
+    val biometricPrompt = BiometricPrompt(activity, executor, callback)
+    val promptInfo = BiometricPrompt.PromptInfo.Builder()
+        .setTitle("Iniciar sesión con huella")
+        .setSubtitle("Confirma tu identidad con tu huella digital")
+        .setNegativeButtonText("Cancelar")
+        .build()
+
+    biometricPrompt.authenticate(promptInfo)
 }
 
 @Preview(showBackground = true)

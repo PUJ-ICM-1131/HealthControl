@@ -1,5 +1,13 @@
 package com.icm2630.proyecto.ui.screens
 
+import android.Manifest
+import android.content.Context
+import android.graphics.Bitmap
+import android.net.Uri
+import android.os.Build
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -14,12 +22,16 @@ import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.PhotoCamera
+import androidx.compose.material.icons.outlined.PhotoLibrary
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -27,7 +39,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
+import androidx.core.content.PermissionChecker
 import androidx.lifecycle.viewmodel.compose.viewModel
+import coil.compose.AsyncImage
 import com.icm2630.proyecto.data.model.Genero
 import com.icm2630.proyecto.data.model.PerfilUsuario
 import com.icm2630.proyecto.ui.components.ChipsCondiciones
@@ -39,6 +54,8 @@ import com.icm2630.proyecto.ui.theme.HealthControlTheme
 import com.icm2630.proyecto.ui.theme.TextPrimary
 import com.icm2630.proyecto.ui.theme.TextSecondary
 import com.icm2630.proyecto.ui.viewmodel.PerfilSetupViewModel
+import java.io.File
+import java.io.FileOutputStream
 import java.text.SimpleDateFormat
 import java.util.Locale
 import java.util.TimeZone
@@ -61,6 +78,49 @@ fun ProfileSetupScreen(
 ) {
     val state by viewModel.uiState.collectAsState()
     var mostrarDatePicker by remember { mutableStateOf(false) }
+    var mostrarOpcionesFoto by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+
+    // Launchers para la foto de perfil (Galería y Cámara)
+    val launcherGaleria = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri?.let { viewModel.onFotoUriChange(it.toString()) }
+    }
+
+    val launcherCamara = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicturePreview()
+    ) { bitmap: Bitmap? ->
+        bitmap?.let {
+            val uri = guardarBitmapEnCache(context, it)
+            uri?.let { u -> viewModel.onFotoUriChange(u.toString()) }
+        }
+    }
+
+    val launcherPermisoCamara = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { concedido ->
+        if (concedido) {
+            launcherCamara.launch(null)
+        } else {
+            Toast.makeText(context, "Permiso de cámara denegado", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    // Launchers para permisos de Ubicación y Notificaciones
+    val launcherPermisosUbicacion = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { permisos ->
+        val concedido = permisos[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
+                permisos[Manifest.permission.ACCESS_COARSE_LOCATION] == true
+        viewModel.onPermisoUbicacionResultado(concedido)
+    }
+
+    val launcherPermisoNotificaciones = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { concedido ->
+        viewModel.onPermisoNotificacionesResultado(concedido)
+    }
 
     Column(
         modifier = Modifier
@@ -106,7 +166,11 @@ fun ProfileSetupScreen(
             Spacer(Modifier.height(20.dp))
 
             TarjetaBlanca {
-                AvatarConCamara(modifier = Modifier.align(Alignment.CenterHorizontally))
+                AvatarConCamara(
+                    fotoUri = state.fotoUri,
+                    onClickCambiarFoto = { mostrarOpcionesFoto = true },
+                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                )
 
                 Spacer(Modifier.height(20.dp))
 
@@ -158,7 +222,6 @@ fun ProfileSetupScreen(
 
                 Spacer(Modifier.height(16.dp))
 
-                //aquí se podría abrir el selector de contactos de la agenda.
                 CampoPerfil(
                     label = "Contacto de emergencia (Nombre y relación)",
                     value = state.contactoEmergencia,
@@ -184,8 +247,30 @@ fun ProfileSetupScreen(
                     subtitulo = "Para sugerir centros médicos cercanos",
                     checked = state.permisoUbicacion,
                     onCheckedChange = { activar ->
-                        if (activar) onPedirPermisoUbicacion()
-                        else viewModel.onPermisoUbicacionResultado(false)
+                        if (activar) {
+                            val fineGranted = ContextCompat.checkSelfPermission(
+                                context,
+                                Manifest.permission.ACCESS_FINE_LOCATION
+                            ) == PermissionChecker.PERMISSION_GRANTED
+                            val coarseGranted = ContextCompat.checkSelfPermission(
+                                context,
+                                Manifest.permission.ACCESS_COARSE_LOCATION
+                            ) == PermissionChecker.PERMISSION_GRANTED
+
+                            if (fineGranted || coarseGranted) {
+                                viewModel.onPermisoUbicacionResultado(true)
+                            } else {
+                                launcherPermisosUbicacion.launch(
+                                    arrayOf(
+                                        Manifest.permission.ACCESS_FINE_LOCATION,
+                                        Manifest.permission.ACCESS_COARSE_LOCATION
+                                    )
+                                )
+                            }
+                            onPedirPermisoUbicacion()
+                        } else {
+                            viewModel.onPermisoUbicacionResultado(false)
+                        }
                     }
                 )
 
@@ -196,8 +281,25 @@ fun ProfileSetupScreen(
                     subtitulo = "Recordatorios de medicación y citas",
                     checked = state.notificacionesActivas,
                     onCheckedChange = { activar ->
-                        if (activar) onPedirPermisoNotificaciones()
-                        else viewModel.onPermisoNotificacionesResultado(false)
+                        if (activar) {
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                val notifGranted = ContextCompat.checkSelfPermission(
+                                    context,
+                                    Manifest.permission.POST_NOTIFICATIONS
+                                ) == PermissionChecker.PERMISSION_GRANTED
+
+                                if (notifGranted) {
+                                    viewModel.onPermisoNotificacionesResultado(true)
+                                } else {
+                                    launcherPermisoNotificaciones.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                }
+                            } else {
+                                viewModel.onPermisoNotificacionesResultado(true)
+                            }
+                            onPedirPermisoNotificaciones()
+                        } else {
+                            viewModel.onPermisoNotificacionesResultado(false)
+                        }
                     }
                 )
             }
@@ -250,10 +352,38 @@ fun ProfileSetupScreen(
             onCerrar = { mostrarDatePicker = false }
         )
     }
+
+    if (mostrarOpcionesFoto) {
+        DialogoSeleccionarFoto(
+            onCamara = {
+                val camaraPermission = ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA)
+                if (camaraPermission == PermissionChecker.PERMISSION_GRANTED) {
+                    launcherCamara.launch(null)
+                } else {
+                    launcherPermisoCamara.launch(Manifest.permission.CAMERA)
+                }
+            },
+            onGaleria = {
+                launcherGaleria.launch("image/*")
+            },
+            onCerrar = { mostrarOpcionesFoto = false }
+        )
+    }
 }
 
+private fun guardarBitmapEnCache(context: Context, bitmap: Bitmap): Uri? {
+    return try {
+        val file = File(context.cacheDir, "foto_perfil_${System.currentTimeMillis()}.jpg")
+        FileOutputStream(file).use { out ->
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 90, out)
+        }
+        Uri.fromFile(file)
+    } catch (e: Exception) {
+        null
+    }
+}
 
-//Componentes
+// Componentes
 
 @Composable
 private fun TarjetaBlanca(contenido: @Composable ColumnScope.() -> Unit) {
@@ -285,27 +415,44 @@ private fun BotonCircular(
 }
 
 @Composable
-private fun AvatarConCamara(modifier: Modifier = Modifier) {
+private fun AvatarConCamara(
+    fotoUri: String?,
+    onClickCambiarFoto: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     Box(modifier = modifier.size(96.dp)) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Blue100.copy(alpha = 0.6f), CircleShape),
+                .clip(CircleShape)
+                .background(Blue100.copy(alpha = 0.6f))
+                .clickable(onClick = onClickCambiarFoto),
             contentAlignment = Alignment.Center
         ) {
-            Icon(
-                Icons.Outlined.Person,
-                contentDescription = "Foto de perfil",
-                tint = Blue700,
-                modifier = Modifier.size(46.dp)
-            )
+            if (!fotoUri.isNullOrBlank()) {
+                AsyncImage(
+                    model = fotoUri,
+                    contentDescription = "Foto de perfil",
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clip(CircleShape),
+                    contentScale = ContentScale.Crop
+                )
+            } else {
+                Icon(
+                    Icons.Outlined.Person,
+                    contentDescription = "Foto de perfil",
+                    tint = Blue700,
+                    modifier = Modifier.size(46.dp)
+                )
+            }
         }
         Box(
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .size(32.dp)
                 .background(Blue700, CircleShape)
-                .clickable { /* TODO: abrir cámara o galería */ },
+                .clickable(onClick = onClickCambiarFoto),
             contentAlignment = Alignment.Center
         ) {
             Icon(
@@ -316,6 +463,73 @@ private fun AvatarConCamara(modifier: Modifier = Modifier) {
             )
         }
     }
+}
+
+@Composable
+private fun DialogoSeleccionarFoto(
+    onCamara: () -> Unit,
+    onGaleria: () -> Unit,
+    onCerrar: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onCerrar,
+        title = { Text("Foto de perfil", style = MaterialTheme.typography.titleLarge, color = Blue700) },
+        text = {
+            Column {
+                Text(
+                    "Selecciona una opción para actualizar tu foto de perfil:",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = TextSecondary
+                )
+                Spacer(Modifier.height(16.dp))
+                Surface(
+                    color = CampoBg,
+                    shape = CampoShape,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            onCerrar()
+                            onCamara()
+                        }
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Outlined.PhotoCamera, null, tint = Blue700, modifier = Modifier.size(24.dp))
+                        Spacer(Modifier.width(12.dp))
+                        Text("Tomar foto con la cámara", style = MaterialTheme.typography.bodyLarge, color = TextPrimary, fontWeight = FontWeight.Medium)
+                    }
+                }
+                Spacer(Modifier.height(10.dp))
+                Surface(
+                    color = CampoBg,
+                    shape = CampoShape,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            onCerrar()
+                            onGaleria()
+                        }
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Outlined.PhotoLibrary, null, tint = Blue700, modifier = Modifier.size(24.dp))
+                        Spacer(Modifier.width(12.dp))
+                        Text("Seleccionar de la galería", style = MaterialTheme.typography.bodyLarge, color = TextPrimary, fontWeight = FontWeight.Medium)
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = onCerrar) {
+                Text("Cancelar", color = TextSecondary)
+            }
+        }
+    )
 }
 
 @Composable

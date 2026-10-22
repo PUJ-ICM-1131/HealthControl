@@ -1,6 +1,12 @@
 package com.icm2630.proyecto.ui.screens
 
+import android.Manifest
 import android.app.TimePickerDialog
+import android.content.Context
+import android.content.Intent
+import android.graphics.Bitmap
+import android.net.Uri
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
@@ -13,12 +19,16 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.outlined.PhotoCamera
+import androidx.compose.material.icons.outlined.PictureAsPdf
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -53,6 +63,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
+import androidx.core.content.PermissionChecker
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.icm2630.proyecto.data.model.FormaMedicamento
 import com.icm2630.proyecto.data.model.Persona
@@ -67,9 +79,13 @@ import com.icm2630.proyecto.ui.components.medication.MedicationSectionCard
 import com.icm2630.proyecto.ui.components.medication.MedicationSummaryCard
 import com.icm2630.proyecto.ui.theme.Blue50
 import com.icm2630.proyecto.ui.theme.Blue700
+import com.icm2630.proyecto.ui.theme.TextPrimary
+import com.icm2630.proyecto.ui.theme.TextSecondary
 import com.icm2630.proyecto.ui.util.obtenerNombreArchivo
 import com.icm2630.proyecto.ui.viewmodel.MedicationRegisterViewModel
 import kotlinx.coroutines.launch
+import java.io.File
+import java.io.FileOutputStream
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -108,6 +124,35 @@ fun MedicationRegisterScreen(
 
     var showEndDatePicker by remember {
         mutableStateOf(false)
+    }
+
+    var showAttachmentDialog by remember {
+        mutableStateOf(false)
+    }
+
+    // LAUNCHER PARA CÁMARA
+    val camaraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicturePreview()
+    ) { bitmap: Bitmap? ->
+        bitmap?.let {
+            val uri = guardarBitmapEnCacheMedication(context, it)
+            uri?.let { u ->
+                viewModel.onOrdenMedicaSeleccionada(
+                    uri = u.toString(),
+                    nombreArchivo = "orden_medica_foto.jpg"
+                )
+            }
+        }
+    }
+
+    val permisoCamaraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { concedido ->
+        if (concedido) {
+            camaraLauncher.launch(null)
+        } else {
+            Toast.makeText(context, "Permiso de cámara denegado", Toast.LENGTH_SHORT).show()
+        }
     }
 
     // CARGAR MEDICAMENTO A EDITAR (o limpiar el formulario)
@@ -637,13 +682,7 @@ fun MedicationRegisterScreen(
                         state.nombreOrdenMedica,
 
                     onAttachClick = {
-
-                        fileLauncher.launch(
-                            arrayOf(
-                                "image/*",
-                                "application/pdf"
-                            )
-                        )
+                        showAttachmentDialog = true
                     },
 
                     onRemoveClick = {
@@ -696,6 +735,29 @@ fun MedicationRegisterScreen(
                 modifier = Modifier.height(20.dp)
             )
         }
+    }
+
+    // DIÁLOGO PARA ADJUNTAR ORDEN MÉDICA
+    if (showAttachmentDialog) {
+        DialogoAdjuntarOrden(
+            onDocumento = {
+                fileLauncher.launch(
+                    arrayOf(
+                        "image/*",
+                        "application/pdf"
+                    )
+                )
+            },
+            onCamara = {
+                val camaraPermission = ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA)
+                if (camaraPermission == PermissionChecker.PERMISSION_GRANTED) {
+                    camaraLauncher.launch(null)
+                } else {
+                    permisoCamaraLauncher.launch(Manifest.permission.CAMERA)
+                }
+            },
+            onCerrar = { showAttachmentDialog = false }
+        )
     }
 
     // DIÁLOGO DE PERSONAS ASOCIADAS
@@ -769,6 +831,85 @@ fun MedicationRegisterScreen(
             }
         )
     }
+}
+
+private fun guardarBitmapEnCacheMedication(context: Context, bitmap: Bitmap): Uri? {
+    return try {
+        val file = File(context.cacheDir, "orden_medica_${System.currentTimeMillis()}.jpg")
+        FileOutputStream(file).use { out ->
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 90, out)
+        }
+        Uri.fromFile(file)
+    } catch (e: Exception) {
+        null
+    }
+}
+
+@Composable
+private fun DialogoAdjuntarOrden(
+    onDocumento: () -> Unit,
+    onCamara: () -> Unit,
+    onCerrar: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onCerrar,
+        title = { Text("Adjuntar orden médica", color = Blue700, fontWeight = FontWeight.Bold) },
+        text = {
+            Column {
+                Text(
+                    "Selecciona una opción para adjuntar tu orden o receta médica:",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = TextSecondary
+                )
+                Spacer(Modifier.height(16.dp))
+                Surface(
+                    color = Blue50,
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            onCerrar()
+                            onDocumento()
+                        }
+                ) {
+                    Row(
+                        modifier = Modifier.padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Outlined.PictureAsPdf, null, tint = Blue700, modifier = Modifier.size(24.dp))
+                        Spacer(Modifier.width(12.dp))
+                        Text("Imagen o documento (PDF/Galería)", style = MaterialTheme.typography.bodyLarge, color = TextPrimary, fontWeight = FontWeight.Medium)
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                Surface(
+                    color = Blue50,
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            onCerrar()
+                            onCamara()
+                        }
+                ) {
+                    Row(
+                        modifier = Modifier.padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Outlined.PhotoCamera, null, tint = Blue700, modifier = Modifier.size(24.dp))
+                        Spacer(Modifier.width(12.dp))
+                        Text("Tomar foto con la cámara", style = MaterialTheme.typography.bodyLarge, color = TextPrimary, fontWeight = FontWeight.Medium)
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = onCerrar) {
+                Text("Cancelar", color = TextSecondary)
+            }
+        }
+    )
 }
 
 // SELECTOR DE PERSONA

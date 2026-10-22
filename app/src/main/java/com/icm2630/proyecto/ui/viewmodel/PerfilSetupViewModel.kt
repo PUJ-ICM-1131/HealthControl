@@ -25,6 +25,7 @@ data class PerfilSetupUiState(
     val condicionRelevante: String = "",
     val permisoUbicacion: Boolean = false,
     val notificacionesActivas: Boolean = true,
+    val fotoUri: String? = null,
     val guardando: Boolean = false
 ) {
     /** Mínimo indispensable para continuar. Lo demás se completa después en Ajustes. */
@@ -71,6 +72,9 @@ class PerfilSetupViewModel : ViewModel() {
     fun onPermisoNotificacionesResultado(concedido: Boolean) =
         _uiState.update { it.copy(notificacionesActivas = concedido) }
 
+    fun onFotoUriChange(uri: String?) =
+        _uiState.update { it.copy(fotoUri = uri) }
+
     /** [nombre] y [contacto] vienen del registro/login; el tipo de perfil queda en TITULAR por defecto. */
     fun construirPerfil(nombre: String, contacto: String): PerfilUsuario = with(_uiState.value) {
         PerfilUsuario(
@@ -86,6 +90,7 @@ class PerfilSetupViewModel : ViewModel() {
             condicionRelevante = condicionRelevante.trim(),
             permisoUbicacion = permisoUbicacion,
             notificacionesActivas = notificacionesActivas,
+            fotoUri = fotoUri,
             codigoVinculacion = VinculacionSimulator.generarCodigo(),
             configurado = true
         )

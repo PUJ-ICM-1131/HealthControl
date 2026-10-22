@@ -31,7 +31,8 @@ data class Cita(
     val notas: String = "",
 
     //URI de una orden, autorización o soporte
-    val soporteUri: String? = null
+    val soporteUri: String? = null,
+    val nombreSoporte: String? = null
 )
 
 enum class TipoCita(

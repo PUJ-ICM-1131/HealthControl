@@ -37,8 +37,10 @@ android {
 }
 
 dependencies {
+    implementation("androidx.biometric:biometric:1.1.0")
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.firestore)
+    implementation("io.coil-kt:coil-compose:2.7.0")
     implementation("androidx.navigation3:navigation3-runtime:1.1.7")
     implementation("androidx.navigation3:navigation3-ui:1.1.7")
     implementation("androidx.compose.material:material-icons-extended")

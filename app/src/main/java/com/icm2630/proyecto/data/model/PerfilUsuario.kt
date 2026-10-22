@@ -83,6 +83,7 @@ data class PerfilUsuario(
     val condicionRelevante: String = "",
     val permisoUbicacion: Boolean = false,
     val notificacionesActivas: Boolean = true,
+    val fotoUri: String? = null,
     /** Código propio, vigente mientras no se genere uno nuevo (rol TITULAR). */
     val codigoVinculacion: String? = null,
     /** Acompañantes que, con ese código, quedaron vinculados a este titular. */

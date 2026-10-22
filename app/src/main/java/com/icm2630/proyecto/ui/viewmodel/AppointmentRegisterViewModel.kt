@@ -140,7 +140,8 @@ class AppointmentRegisterViewModel : ViewModel() {
                 enlaceVirtual = cita.enlaceVirtual,
                 nombreMedico = cita.nombreMedico,
                 notas = cita.notas,
-                soporteUri = cita.soporteUri
+                soporteUri = cita.soporteUri,
+                nombreSoporte = cita.nombreSoporte
             )
     }
 
@@ -377,7 +378,8 @@ class AppointmentRegisterViewModel : ViewModel() {
                 enlaceVirtual = estado.enlaceVirtual.trim(),
                 nombreMedico = estado.nombreMedico.trim(),
                 notas = estado.notas.trim(),
-                soporteUri = estado.soporteUri
+                soporteUri = estado.soporteUri,
+                nombreSoporte = estado.nombreSoporte
             )
 
         // ACTUALIZAR O REGISTRAR

@@ -101,7 +101,8 @@ class MedicationRegisterViewModel : ViewModel() {
                 fechaFinMillis = medicamento.fechaFinMillis,
                 tratamientoPermanente = medicamento.tratamientoPermanente,
                 indicaciones = medicamento.indicaciones,
-                ordenMedicaUri = medicamento.ordenMedicaUri
+                ordenMedicaUri = medicamento.ordenMedicaUri,
+                nombreOrdenMedica = medicamento.nombreOrdenMedica
             )
     }
 
@@ -327,7 +328,8 @@ class MedicationRegisterViewModel : ViewModel() {
                     },
                 tratamientoPermanente = estado.tratamientoPermanente,
                 indicaciones = estado.indicaciones.trim(),
-                ordenMedicaUri = estado.ordenMedicaUri
+                ordenMedicaUri = estado.ordenMedicaUri,
+                nombreOrdenMedica = estado.nombreOrdenMedica
             )
 
 

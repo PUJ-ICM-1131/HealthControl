@@ -1,5 +1,12 @@
 package com.icm2630.proyecto.ui.screens
 
+import android.Manifest
+import android.content.Context
+import android.graphics.Bitmap
+import android.net.Uri
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -19,7 +26,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -27,6 +36,11 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
+import androidx.core.content.PermissionChecker
+import coil.compose.AsyncImage
+import java.io.File
+import java.io.FileOutputStream
 import com.icm2630.proyecto.ui.components.ChipsCondiciones
 import com.icm2630.proyecto.ui.components.ChipsTipoSangre
 import com.icm2630.proyecto.ui.components.BannerFamiliar
@@ -92,10 +106,46 @@ fun ProfileScreen(
     }
 
     var mostrarConfirmacionCierre by remember { mutableStateOf(false) }
+    var mostrarOpcionesFoto by remember { mutableStateOf(false) }
+    val context = LocalContext.current
 
     // Copia local para que la pantalla refleje al instante lo editado;
     // la fuente de verdad (SesionRepository) se actualiza vía onActualizarPerfil.
     var datos by remember(perfil) { mutableStateOf(perfil) }
+
+    // Launchers para cambiar foto de perfil
+    val launcherGaleria = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri?.let {
+            val actualizado = datos.copy(fotoUri = it.toString())
+            datos = actualizado
+            onActualizarPerfil(actualizado)
+        }
+    }
+
+    val launcherCamara = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicturePreview()
+    ) { bitmap: Bitmap? ->
+        bitmap?.let {
+            val uri = guardarBitmapEnCache(context, it)
+            uri?.let { u ->
+                val actualizado = datos.copy(fotoUri = u.toString())
+                datos = actualizado
+                onActualizarPerfil(actualizado)
+            }
+        }
+    }
+
+    val launcherPermisoCamara = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { concedido ->
+        if (concedido) {
+            launcherCamara.launch(null)
+        } else {
+            Toast.makeText(context, "Permiso de cámara denegado", Toast.LENGTH_SHORT).show()
+        }
+    }
     // Mientras no haya backend se muestran dos personas de ejemplo.
     val personas = datos.acompanantes.ifEmpty { PERSONAS_EJEMPLO }
     var solicitudes by remember { mutableStateOf(SOLICITUDES_EJEMPLO) }
@@ -143,7 +193,10 @@ fun ProfileScreen(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                AvatarPerfil(onEditarFoto = { onEditarCampo(CampoPerfilEditable.FOTO) })
+                AvatarPerfil(
+                    fotoUri = datos.fotoUri,
+                    onEditarFoto = { mostrarOpcionesFoto = true }
+                )
 
                 Spacer(Modifier.height(12.dp))
 
@@ -379,11 +432,107 @@ fun ProfileScreen(
             onCancelar = { mostrarAgregarPersona = false }
         )
     }
+
+    if (mostrarOpcionesFoto) {
+        DialogoSeleccionarFoto(
+            onCamara = {
+                val camaraPermission = ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA)
+                if (camaraPermission == PermissionChecker.PERMISSION_GRANTED) {
+                    launcherCamara.launch(null)
+                } else {
+                    launcherPermisoCamara.launch(Manifest.permission.CAMERA)
+                }
+            },
+            onGaleria = {
+                launcherGaleria.launch("image/*")
+            },
+            onCerrar = { mostrarOpcionesFoto = false }
+        )
+    }
 }
 
 /* ---------------------------------------------------------------- */
 /*  Componentes                                                      */
 /* ---------------------------------------------------------------- */
+
+private fun guardarBitmapEnCache(context: Context, bitmap: Bitmap): Uri? {
+    return try {
+        val file = File(context.cacheDir, "foto_perfil_${System.currentTimeMillis()}.jpg")
+        FileOutputStream(file).use { out ->
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 90, out)
+        }
+        Uri.fromFile(file)
+    } catch (e: Exception) {
+        null
+    }
+}
+
+@Composable
+private fun DialogoSeleccionarFoto(
+    onCamara: () -> Unit,
+    onGaleria: () -> Unit,
+    onCerrar: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onCerrar,
+        title = { Text("Foto de perfil", style = MaterialTheme.typography.titleLarge, color = Blue700) },
+        text = {
+            Column {
+                Text(
+                    "Selecciona una opción para actualizar tu foto de perfil:",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = TextSecondary
+                )
+                Spacer(Modifier.height(16.dp))
+                Surface(
+                    color = Color(0xFFEFF5FC),
+                    shape = RoundedCornerShape(14.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            onCerrar()
+                            onCamara()
+                        }
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Outlined.PhotoCamera, null, tint = Blue700, modifier = Modifier.size(24.dp))
+                        Spacer(Modifier.width(12.dp))
+                        Text("Tomar foto con la cámara", style = MaterialTheme.typography.bodyLarge, color = TextPrimary, fontWeight = FontWeight.Medium)
+                    }
+                }
+                Spacer(Modifier.height(10.dp))
+                Surface(
+                    color = Color(0xFFEFF5FC),
+                    shape = RoundedCornerShape(14.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            onCerrar()
+                            onGaleria()
+                        }
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Outlined.PhotoLibrary, null, tint = Blue700, modifier = Modifier.size(24.dp))
+                        Spacer(Modifier.width(12.dp))
+                        Text("Seleccionar de la galería", style = MaterialTheme.typography.bodyLarge, color = TextPrimary, fontWeight = FontWeight.Medium)
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = onCerrar) {
+                Text("Cancelar", color = TextSecondary)
+            }
+        }
+    )
+}
 
 @Composable
 private fun SeccionTitulo(texto: String) {
@@ -417,20 +566,36 @@ private fun DivisorFila() {
 }
 
 @Composable
-private fun AvatarPerfil(onEditarFoto: () -> Unit) {
+private fun AvatarPerfil(
+    fotoUri: String?,
+    onEditarFoto: () -> Unit
+) {
     Box(modifier = Modifier.size(96.dp)) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Blue100.copy(alpha = 0.6f), CircleShape),
+                .clip(CircleShape)
+                .background(Blue100.copy(alpha = 0.6f))
+                .clickable(onClick = onEditarFoto),
             contentAlignment = Alignment.Center
         ) {
-            Icon(
-                Icons.Outlined.Person,
-                contentDescription = "Foto de perfil",
-                tint = Blue700,
-                modifier = Modifier.size(46.dp)
-            )
+            if (!fotoUri.isNullOrBlank()) {
+                AsyncImage(
+                    model = fotoUri,
+                    contentDescription = "Foto de perfil",
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clip(CircleShape),
+                    contentScale = ContentScale.Crop
+                )
+            } else {
+                Icon(
+                    Icons.Outlined.Person,
+                    contentDescription = "Foto de perfil",
+                    tint = Blue700,
+                    modifier = Modifier.size(46.dp)
+                )
+            }
         }
         Box(
             modifier = Modifier

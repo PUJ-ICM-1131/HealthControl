@@ -26,11 +26,10 @@
         val tratamientoPermanente: Boolean,
         val indicaciones: String = "",
         /**
-         * Por ahora se guarda únicamente la referencia al archivo
-         * seleccionado. En una implementación futura podría apuntar
-         * a un archivo almacenado en backend.
+         * Referencia al archivo seleccionado (imagen o PDF).
          */
-        val ordenMedicaUri: String? = null
+        val ordenMedicaUri: String? = null,
+        val nombreOrdenMedica: String? = null
     )
 
     enum class FormaMedicamento(

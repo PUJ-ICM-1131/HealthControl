@@ -8,8 +8,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import com.icm2630.proyecto.data.repository.SesionRepository
 import com.icm2630.proyecto.navigation.Routes
-import com.icm2630.proyecto.ui.theme.Blue700
-import com.icm2630.proyecto.ui.theme.TextSecondary
 
 /**
  * [rutaInicio] es a qué destino lleva y qué resalta la pestaña "Inicio".
@@ -45,18 +43,18 @@ fun HealthBottomNavigation(
                     Icon(
                         imageVector = item.icon,
                         contentDescription = item.label,
-                        tint = if (selected) Blue700 else TextSecondary
+                        tint = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 },
                 label = {
                     Text(
                         text = item.label,
                         style = MaterialTheme.typography.labelSmall,
-                        color = if (selected) Blue700 else TextSecondary
+                        color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 },
                 colors = NavigationBarItemDefaults.colors(
-                    indicatorColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f)
+                    indicatorColor = MaterialTheme.colorScheme.primaryContainer
                 )
             )
         }

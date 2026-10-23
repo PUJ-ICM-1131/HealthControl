@@ -30,6 +30,14 @@
           }
         },
         {
+          "client_id": "162655036631-fq9clbv6nkc07qgkphjn03u0njmfbnbb.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.icm2630.proyecto",
+            "certificate_hash": "1c4bf8cbbe33fd625c3bc7e7d06d9a6996b74397"
+          }
+        },
+        {
           "client_id": "162655036631-p0g7rrdo8htdn03cpglu3k10m17vd8th.apps.googleusercontent.com",
           "client_type": 3
         }

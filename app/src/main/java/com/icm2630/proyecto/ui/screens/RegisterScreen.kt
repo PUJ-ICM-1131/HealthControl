@@ -32,6 +32,7 @@ import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -43,6 +44,8 @@ import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -53,6 +56,7 @@ import androidx.compose.foundation.border
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -64,12 +68,15 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.icm2630.proyecto.R
+import com.icm2630.proyecto.data.remote.GoogleAuth
+import com.icm2630.proyecto.data.repository.SesionRepository
 import com.icm2630.proyecto.ui.theme.Blue100
 import com.icm2630.proyecto.ui.theme.Blue500
 import com.icm2630.proyecto.ui.theme.Blue700
 import com.icm2630.proyecto.ui.theme.HealthControlTheme
 import com.icm2630.proyecto.ui.theme.TextPrimary
 import com.icm2630.proyecto.ui.theme.TextSecondary
+import kotlinx.coroutines.launch
 
 private val FieldShape = RoundedCornerShape(50)
 private val PlaceholderBlue = Color(0xFF8FB3D9)
@@ -77,8 +84,8 @@ private val HairLine = Color(0xFFE5E7EB)
 
 @Composable
 fun RegisterScreen(
-    onRegister: (nombre: String, correo: String, password: String) -> Unit = { _, _, _ -> },
-    onGoogleClick: () -> Unit = {},
+    /** La cuenta ya quedó creada en Firebase (por correo o con Google). */
+    onRegister: () -> Unit = {},
     onIrALogin: () -> Unit = {}
 ) {
     var nombre by rememberSaveable { mutableStateOf("") }
@@ -87,6 +94,20 @@ fun RegisterScreen(
     var confirmar by rememberSaveable { mutableStateOf("") }
     var verPassword by rememberSaveable { mutableStateOf(false) }
     var verConfirmar by rememberSaveable { mutableStateOf(false) }
+
+    var errorTexto by remember { mutableStateOf<String?>(null) }
+    var cargando by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    val alEntrar = {
+        cargando = false
+        onRegister()
+    }
+    val alFallar = { mensaje: String ->
+        cargando = false
+        errorTexto = mensaje.ifBlank { null }
+    }
 
     Column(
         modifier = Modifier
@@ -169,10 +190,34 @@ fun RegisterScreen(
                 imeAction = ImeAction.Done
             )
 
+            if (errorTexto != null) {
+                Text(
+                    text = errorTexto!!,
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 4.dp)
+                )
+            }
+
             Spacer(Modifier.height(12.dp))
 
             Button(
-                onClick = { onRegister(nombre, correo, password) },
+                onClick = {
+                    errorTexto = when {
+                        nombre.isBlank() || correo.isBlank() || password.isBlank() ->
+                            "Por favor, completa todos los campos"
+                        password.length < 8 -> "La contraseña debe tener mínimo 8 caracteres"
+                        password != confirmar -> "Las contraseñas no coinciden"
+                        else -> null
+                    }
+                    if (errorTexto == null) {
+                        cargando = true
+                        SesionRepository.registrar(nombre, correo, password, alEntrar, alFallar)
+                    }
+                },
+                enabled = !cargando,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(58.dp),
@@ -183,7 +228,11 @@ fun RegisterScreen(
                 ),
                 elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
             ) {
-                Text(
+                if (cargando) CircularProgressIndicator(
+                    color = Color.White,
+                    strokeWidth = 2.dp,
+                    modifier = Modifier.size(24.dp)
+                ) else Text(
                     text = "Registrarse",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
@@ -201,7 +250,12 @@ fun RegisterScreen(
                 texto = "Google",
                 // Reemplaza por painterResource(R.drawable.ic_google) cuando agregues el asset oficial
                 icon = Icons.Outlined.Cancel,
-                onClick = onGoogleClick,
+                onClick = {
+                    errorTexto = null
+                    cargando = true
+                    scope.launch { GoogleAuth.iniciarSesion(context, alEntrar, alFallar) }
+                },
+                enabled = !cargando,
                 modifier = Modifier.fillMaxWidth()
             )
 
@@ -360,10 +414,12 @@ private fun BotonSocial(
     texto: String,
     icon: ImageVector,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true
 ) {
     OutlinedButton(
         onClick = onClick,
+        enabled = enabled,
         modifier = modifier.height(54.dp),
         shape = FieldShape,
         colors = ButtonDefaults.outlinedButtonColors(

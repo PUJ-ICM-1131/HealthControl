@@ -50,6 +50,21 @@ fun AppNavigation() {
         )
     }
 
+    // Tras autenticarse: onboarding si el perfil no está configurado, si no, al inicio.
+    val entrarALaApp: () -> Unit = {
+        backStack.clear()
+
+        val destino = when {
+            !SesionRepository.perfilConfigurado -> Routes.ProfileSetup
+            SesionRepository.perfil?.tipoPerfil == TipoPerfil.ACOMPANANTE -> Routes.Monitoreo
+            else -> Routes.Home
+        }
+
+        backStack.add(
+            destino
+        )
+    }
+
     val context = LocalContext.current
     var mostrarAlertaCaida by remember { mutableStateOf(false) }
 
@@ -103,20 +118,7 @@ fun AppNavigation() {
 
                 LoginScreen(
 
-                    onLogin = {
-
-                        backStack.clear()
-
-                        val destino = when {
-                            !SesionRepository.perfilConfigurado -> Routes.ProfileSetup
-                            SesionRepository.perfil?.tipoPerfil == TipoPerfil.ACOMPANANTE -> Routes.Monitoreo
-                            else -> Routes.Home
-                        }
-
-                        backStack.add(
-                            destino
-                        )
-                    },
+                    onLogin = entrarALaApp,
 
 
                     onIrARegister = {
@@ -132,17 +134,7 @@ fun AppNavigation() {
 
                 RegisterScreen(
 
-                    onRegister = { nombre, correo, _ ->
-
-                        SesionRepository.nombreCuenta = nombre
-                        SesionRepository.correoCuenta = correo
-
-                        backStack.clear()
-
-                        backStack.add(
-                            Routes.ProfileSetup
-                        )
-                    },
+                    onRegister = entrarALaApp,
 
 
                     onIrALogin = {
@@ -164,7 +156,13 @@ fun AppNavigation() {
                     nombre = SesionRepository.nombreCuenta,
                     contacto = SesionRepository.correoCuenta,
 
-                    onContinuar = { perfil ->
+                    onContinuar = { nuevo ->
+
+                        // Se conserva el código que Firestore reservó al crear la cuenta.
+                        val perfil = nuevo.copy(
+                            codigoVinculacion = SesionRepository.perfil?.codigoVinculacion
+                                ?: nuevo.codigoVinculacion
+                        )
 
                         SesionRepository.perfil =
                             perfil
@@ -499,6 +497,11 @@ fun AppNavigation() {
                     onActualizarPerfil = { actualizado ->
 
                         SesionRepository.perfil = actualizado
+
+                        UsuarioRepository.guardarPerfil(
+                            uid = SesionRepository.uidActual,
+                            perfil = actualizado
+                        )
                     },
 
 

@@ -38,7 +38,9 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
 import com.icm2630.proyecto.R
+import com.icm2630.proyecto.data.remote.GoogleAuth
 import com.icm2630.proyecto.data.repository.SesionRepository
+import kotlinx.coroutines.launch
 import com.icm2630.proyecto.ui.theme.*
 
 private val FieldShape = RoundedCornerShape(50)
@@ -48,7 +50,6 @@ private val HairLine = Color(0xFFE5E7EB)
 @Composable
 fun LoginScreen(
     onLogin: () -> Unit = {},
-    onGoogleClick: () -> Unit = {},
     onAppleClick: () -> Unit = {},
     onIrARegister: () -> Unit = {}
 ) {
@@ -59,7 +60,18 @@ fun LoginScreen(
 
     // Estado para errores de validación
     var errorTexto by remember { mutableStateOf<String?>(null) }
+    var cargando by remember { mutableStateOf(false) }
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    val alEntrar = {
+        cargando = false
+        onLogin()
+    }
+    val alFallar = { mensaje: String ->
+        cargando = false
+        errorTexto = mensaje.ifBlank { null }
+    }
 
     Column(
         modifier = Modifier
@@ -115,7 +127,7 @@ fun LoginScreen(
                         correo = it
                         errorTexto = null 
                     },
-                    placeholder = "test@gmail.com",
+                    placeholder = "ejemplo@correo.com",
                     leadingIcon = Icons.Outlined.MailOutline,
                     keyboardType = KeyboardType.Email
                 )
@@ -152,7 +164,7 @@ fun LoginScreen(
                     shape = FieldShape,
                     textStyle = MaterialTheme.typography.bodyLarge,
                     placeholder = {
-                        Text(text = "12345678", color = PlaceholderBlue)
+                        Text(text = "Tu contraseña", color = PlaceholderBlue)
                     },
                     leadingIcon = {
                         Icon(Icons.Outlined.Lock, null, tint = Blue700, modifier = Modifier.size(22.dp))
@@ -216,19 +228,25 @@ fun LoginScreen(
                         onClick = { 
                             if (correo.isBlank() || password.isBlank()) {
                                 errorTexto = "Por favor, completa todos los campos"
-                            } else if (SesionRepository.validarCredenciales(correo, password)) {
-                                onLogin()
                             } else {
-                                errorTexto = "Credenciales incorrectas"
+                                cargando = true
+                                SesionRepository.iniciarSesion(correo, password, alEntrar, alFallar)
                             }
                         },
+                        enabled = !cargando,
                         modifier = Modifier
                             .weight(1f)
                             .height(58.dp),
                         shape = FieldShape,
                         colors = ButtonDefaults.buttonColors(containerColor = Blue700)
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (cargando) {
+                            CircularProgressIndicator(
+                                color = Color.White,
+                                strokeWidth = 2.dp,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        } else Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
                                 text = "Iniciar Sesión",
                                 style = MaterialTheme.typography.titleMedium,
@@ -239,20 +257,27 @@ fun LoginScreen(
                         }
                     }
 
-                    // Botón de autenticación por huella digital
+                    // Botón de autenticación por huella digital: desbloquea la
+                    // sesión de Firebase que quedó guardada en el dispositivo.
                     Surface(
                         onClick = {
                             val activity = context as? FragmentActivity
-                            if (activity != null) {
+                            if (!SesionRepository.haySesionGuardada) {
+                                errorTexto = "Primero inicia sesión con tu correo o con Google."
+                            } else if (activity != null) {
                                 mostrarBiometricPrompt(
                                     activity = activity,
-                                    onExito = { onLogin() },
+                                    onExito = {
+                                        cargando = true
+                                        SesionRepository.reanudarSesion(alEntrar, alFallar)
+                                    },
                                     onError = { err -> errorTexto = err }
                                 )
                             } else {
                                 errorTexto = "No se pudo iniciar la autenticación por huella."
                             }
                         },
+                        enabled = !cargando,
                         modifier = Modifier.size(58.dp),
                         shape = FieldShape,
                         color = Blue100.copy(alpha = 0.4f),
@@ -283,7 +308,12 @@ fun LoginScreen(
                 BotonSocial(
                     texto = "Google",
                     icon = Icons.Outlined.Cancel, // Simulado
-                    onClick = onGoogleClick,
+                    onClick = {
+                        errorTexto = null
+                        cargando = true
+                        scope.launch { GoogleAuth.iniciarSesion(context, alEntrar, alFallar) }
+                    },
+                    enabled = !cargando,
                     modifier = Modifier.weight(1f)
                 )
             }
@@ -394,10 +424,12 @@ private fun BotonSocial(
     texto: String,
     icon: ImageVector,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true
 ) {
     OutlinedButton(
         onClick = onClick,
+        enabled = enabled,
         modifier = modifier.height(54.dp),
         shape = FieldShape,
         colors = ButtonDefaults.outlinedButtonColors(

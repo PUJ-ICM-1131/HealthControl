@@ -37,6 +37,12 @@ android {
 }
 
 dependencies {
+    // Misma versión y variantes NDK 27 de las diapositivas del profesor.
+    implementation("com.mapbox.maps:android-ndk27:11.31.0")
+    implementation("com.mapbox.extension:maps-compose-ndk27:11.31.0")
+    implementation("com.google.android.gms:play-services-location:21.4.0")
+    implementation(libs.androidx.lifecycle.runtime.compose)
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
     implementation("androidx.biometric:biometric:1.1.0")
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.firestore)
@@ -58,6 +64,8 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     testImplementation(libs.junit)
+    // Implementación de JSON para ejecutar las pruebas de rutas fuera de Android.
+    testImplementation("org.json:json:20240303")
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(libs.androidx.espresso.core)

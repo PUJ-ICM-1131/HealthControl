@@ -241,6 +241,10 @@ fun AppNavigation() {
                         )
                     },
 
+                    onOpenMap = {
+                        navegarATab(backStack = backStack, destino = Routes.Mapa)
+                    },
+
                     onCerrarSesion = {
 
                         SesionRepository.cerrarSesion()
@@ -261,6 +265,12 @@ fun AppNavigation() {
                     perfil =
                         SesionRepository.perfil
                             ?: PerfilUsuario(),
+
+                    familiar = SesionRepository.familiarActivo,
+
+                    onVolverAMiPerfil = {
+                        SesionRepository.volverAMiPerfil()
+                    },
 
                     onNavigate = { route ->
 

@@ -1,0 +1,6 @@
+<resources>
+    <!--  Estilo claro publicado por Kalel en Mapbox Studio.  -->
+    <string name="mapbox_style_claro" translatable="false">mapbox://styles/kalel2006/cmvkxs2r8005101s39tdnh6jr</string>
+    <!--  Estilo oscuro proporcionado por Kalel desde Mapbox Studio.  -->
+    <string name="mapbox_style_oscuro" translatable="false">mapbox://styles/kalel2006/cmvkzxd2r015b01rvccje3cci</string>
+</resources>

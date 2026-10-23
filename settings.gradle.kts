@@ -19,9 +19,12 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+        // Repositorio de Mapbox, igual que en la sesión 10.
+        maven {
+            url = uri("https://api.mapbox.com/downloads/v2/releases/maven")
+        }
     }
 }
 
 rootProject.name = "Proyecto"
 include(":app")
- 

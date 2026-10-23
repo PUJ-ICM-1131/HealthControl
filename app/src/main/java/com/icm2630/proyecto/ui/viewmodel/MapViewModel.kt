@@ -15,6 +15,10 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
+import com.google.firebase.firestore.ListenerRegistration
+import com.icm2630.proyecto.data.model.PersonaVinculada
+import com.icm2630.proyecto.data.repository.FamiliarSimulator
+import com.icm2630.proyecto.data.repository.SesionRepository
 
 /** Solo administra el mapa: no modifica perfiles, invitaciones ni familiares. */
 class MapViewModel(application: Application) : AndroidViewModel(application) {
@@ -27,6 +31,52 @@ class MapViewModel(application: Application) : AndroidViewModel(application) {
     private var tareaBusqueda: Job? = null
     private var revisionRuta = 0
     private var revisionBusqueda = 0
+
+    private var escuchaFamiliar: ListenerRegistration? = null
+
+    /** Empieza a escuchar la ubicación simulada del familiar que se está consultando. */
+    fun observarFamiliar(persona: PersonaVinculada) {
+        if (escuchaFamiliar != null) return
+        val uid = runCatching { SesionRepository.uidActual }.getOrNull() ?: return
+        escuchaFamiliar = FamiliarSimulator.escucharUbicacion(
+            uid = uid,
+            persona = persona,
+            onUbicacion = { punto, momento ->
+                _uiState.update { it.copy(ubicacionFamiliar = punto, momentoFamiliarMillis = momento) }
+            },
+            onError = {
+                _uiState.update { it.copy(mensajeError = "No se pudo cargar la ubicación de ${persona.nombre}.") }
+            }
+        )
+    }
+
+    override fun onCleared() {
+        escuchaFamiliar?.remove()
+        super.onCleared()
+    }
+
+    /** Pone al familiar como destino y calcula la ruta desde el origen actual (o mi ubicación). */
+    fun rutaHaciaFamiliar(token: String) {
+        val familiar = _uiState.value.ubicacionFamiliar ?: return
+        invalidarRuta()
+        cancelarBusqueda()
+        _uiState.update {
+            it.copy(
+                origen = it.origen ?: it.ubicacionActual?.copy(nombre = "Mi ubicación"),
+                origenDesdeUbicacion = if (it.origen == null) true else it.origenDesdeUbicacion,
+                destino = familiar,
+                seleccion = SeleccionMapa.DESTINO,
+                resultadosBusqueda = emptyList()
+            )
+        }
+        if (_uiState.value.origen == null) {
+            _uiState.update {
+                it.copy(mensajeError = "Activa tu ubicación o elige un origen para trazar la ruta hacia ${familiar.nombre}.")
+            }
+            return
+        }
+        calcularRuta(token)
+    }
 
     fun actualizarUbicacion(punto: PuntoMapa, precision: Float?, momentoMillis: Long) {
         _uiState.update { actual ->

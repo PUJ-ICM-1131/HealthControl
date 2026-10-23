@@ -22,6 +22,8 @@ import androidx.compose.material.icons.outlined.Call
 import androidx.compose.material.icons.outlined.MyLocation
 import androidx.compose.material.icons.outlined.DarkMode
 import androidx.compose.material.icons.outlined.LightMode
+import androidx.compose.material.icons.outlined.Place
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -136,6 +138,12 @@ private fun MapScreenContent(
     val snackbar = remember { SnackbarHostState() }
     val state by model.uiState.collectAsStateWithLifecycle()
 
+
+    // Ubicación simulada del familiar que se está consultando (Firestore).
+    LaunchedEffect(model, personaConsultada) {
+        personaConsultada?.let { model.observarFamiliar(it) }
+    }
+
     LaunchedEffect(model, state.mensajeError) {
         state.mensajeError?.let {
             snackbar.showSnackbar(it)
@@ -202,7 +210,11 @@ private fun MapScreenContent(
                     color = MaterialTheme.colorScheme.secondaryContainer
                 ) {
                     Text(
-                        "No hay una ubicación compartida de ${it.nombre}. Puedes planear una ruta desde este celular o elegir otro origen.",
+                        if (state.ubicacionFamiliar != null) {
+                            "Mostrando la ubicación simulada de ${it.nombre}. Pulsa Ruta para llegar hasta su posición."
+                        } else {
+                            "No hay una ubicación compartida de ${it.nombre}. Puedes planear una ruta desde este celular o elegir otro origen."
+                        },
                         modifier = Modifier.padding(10.dp), style = MaterialTheme.typography.bodySmall
                     )
                 }
@@ -459,6 +471,16 @@ private fun MapContent(model: MapViewModel, token: String, permisoInicial: Boole
                 state.destino?.let {
                     MapPointMarker(it.aMapbox(), "B", "Destino", colorDestino, colores.onTertiary)
                 }
+                // Familiar consultado, con su ubicación simulada (HU-16).
+                state.ubicacionFamiliar?.let { familiar ->
+                    MapPointMarker(
+                        familiar.aMapbox(),
+                        familiar.nombre.take(1).uppercase(),
+                        familiar.nombre.substringBefore(' '),
+                        colores.secondary,
+                        colores.onSecondary
+                    )
+                }
             }
         )
 
@@ -525,6 +547,22 @@ private fun MapContent(model: MapViewModel, token: String, permisoInicial: Boole
                     }
                 }
             }
+            state.ubicacionFamiliar?.let { familiar ->
+                UbicacionFamiliarCard(
+                    nombre = familiar.nombre,
+                    momentoMillis = state.momentoFamiliarMillis,
+                    onCentrar = {
+                        centradoInicial = true
+                        viewport.setCameraOptions { center(familiar.aMapbox()); zoom(16.0) }
+                    },
+                    onRuta = {
+                        keyboard?.hide()
+                        centradoInicial = true
+                        expandido = true
+                        model.rutaHaciaFamiliar(token)
+                    }
+                )
+            }
             if (permisoRechazado && !permitido) {
                 Surface(shape = RoundedCornerShape(12.dp)) {
                     TextButton(onClick = { abrirAjustes(ubicacion = false) }) {
@@ -567,3 +605,45 @@ private fun MapContent(model: MapViewModel, token: String, permisoInicial: Boole
 }
 
 private fun PuntoMapa.aMapbox(): Point = Point.fromLngLat(longitud, latitud)
+
+/** Ubicación simulada del familiar consultado: centrar en el mapa o trazar ruta. */
+@Composable
+private fun UbicacionFamiliarCard(
+    nombre: String,
+    momentoMillis: Long?,
+    onCentrar: () -> Unit,
+    onRuta: () -> Unit
+) {
+    Surface(
+        shape = RoundedCornerShape(16.dp), shadowElevation = 2.dp,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(start = 12.dp, top = 4.dp, bottom = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(
+                    "Ubicación de $nombre (simulada)",
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(tiempoDesde(momentoMillis), style = MaterialTheme.typography.labelSmall)
+            }
+            IconButton(onClick = onCentrar) {
+                Icon(Icons.Outlined.Place, contentDescription = "Ver a $nombre en el mapa")
+            }
+            TextButton(onClick = onRuta) { Text("Ruta") }
+        }
+    }
+}
+
+private fun tiempoDesde(millis: Long?): String {
+    if (millis == null) return "Última ubicación conocida"
+    val minutos = ((System.currentTimeMillis() - millis) / 60_000L).coerceAtLeast(0L)
+    return when {
+        minutos < 1L -> "Actualizada hace un momento"
+        minutos < 60L -> "Actualizada hace $minutos min"
+        else -> "Actualizada a las " + DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(millis))
+    }
+}

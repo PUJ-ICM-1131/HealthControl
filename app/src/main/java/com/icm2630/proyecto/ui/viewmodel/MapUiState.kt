@@ -20,5 +20,7 @@ data class MapUiState(
     val consulta: String = "",
     val buscandoDireccion: Boolean = false,
     val resultadosBusqueda: List<PuntoMapa> = emptyList(),
+    val ubicacionFamiliar: PuntoMapa? = null,
+    val momentoFamiliarMillis: Long? = null,
     val mensajeError: String? = null
 )

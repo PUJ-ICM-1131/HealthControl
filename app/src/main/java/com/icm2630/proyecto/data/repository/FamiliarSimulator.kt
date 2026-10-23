@@ -9,6 +9,11 @@ import com.icm2630.proyecto.data.model.PerfilUsuario
 import com.icm2630.proyecto.data.model.PersonaVinculada
 import com.icm2630.proyecto.data.model.TipoCita
 import com.icm2630.proyecto.data.model.TipoSangre
+import com.icm2630.proyecto.data.model.PuntoMapa
+import com.icm2630.proyecto.data.remote.FirebaseDb
+import com.google.firebase.firestore.FieldValue
+import com.google.firebase.firestore.GeoPoint
+import com.google.firebase.firestore.ListenerRegistration
 import java.util.Calendar
 import java.util.TimeZone
 
@@ -230,5 +235,56 @@ object FamiliarSimulator {
             clear()
             set(local.get(Calendar.YEAR), local.get(Calendar.MONTH), local.get(Calendar.DAY_OF_MONTH))
         }.timeInMillis
+    }
+
+    // UBICACIÓN SIMULADA
+
+
+
+    private val UBICACIONES_INICIALES = listOf(
+        GeoPoint(4.6767, -74.0485),   // Parque de la 93
+        GeoPoint(4.6288, -74.0649),   // Hospital San Ignacio
+        GeoPoint(4.7016, -74.0419),   // Unicentro
+        GeoPoint(4.6584, -74.0939)    // Parque Simón Bolívar
+    )
+
+
+    fun escucharUbicacion(
+        uid: String,
+        persona: PersonaVinculada,
+        onUbicacion: (punto: PuntoMapa, actualizadoMillis: Long?) -> Unit,
+        onError: (Exception) -> Unit
+    ): ListenerRegistration {
+        val ref = FirebaseDb.firestore
+            .collection("usuarios").document(uid)
+            .collection("familiares").document(persona.codigo)
+
+        return ref.addSnapshotListener { snapshot, error ->
+            if (error != null) {
+                onError(error)
+                return@addSnapshotListener
+            }
+            val documento = snapshot ?: return@addSnapshotListener
+            val geo = documento.getGeoPoint("ubicacion")
+
+            if (geo == null) {
+                val indice = PLANTILLA_POR_CODIGO[persona.codigo]
+                    ?: persona.codigo.sumOf { it.code }.mod(UBICACIONES_INICIALES.size)
+                ref.set(
+                    mapOf(
+                        "nombre" to persona.nombre,
+                        "relacion" to persona.relacion,
+                        "ubicacion" to UBICACIONES_INICIALES[indice],
+                        "actualizadoEn" to FieldValue.serverTimestamp(),
+                        "simulado" to true
+                    )
+                )
+                return@addSnapshotListener
+            }
+
+            val punto = runCatching { PuntoMapa(geo.latitude, geo.longitude, persona.nombre) }.getOrNull()
+                ?: return@addSnapshotListener
+            onUbicacion(punto, documento.getTimestamp("actualizadoEn")?.toDate()?.time)
+        }
     }
 }

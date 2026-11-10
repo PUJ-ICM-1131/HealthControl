@@ -2,8 +2,7 @@ package com.icm2630.proyecto.ui.viewmodel
 
 import com.icm2630.proyecto.data.model.FormaMedicamento
 import com.icm2630.proyecto.data.model.PerfilUsuario
-import com.icm2630.proyecto.data.model.Persona
-import com.icm2630.proyecto.data.model.TipoPerfil
+import com.icm2630.proyecto.data.model.PersonaVinculada
 
 
 data class MedicationRegisterUiState(
@@ -22,7 +21,7 @@ data class MedicationRegisterUiState(
      * Personas que puede supervisar cuando el usuario
      * tiene un perfil ASOCIADO.
      */
-    val personasAsociadas: List<Persona> = emptyList(),
+    val personasAsociadas: List<PersonaVinculada> = emptyList(),
     /**
      * null = medicamento para el propio usuario.
      * id   = medicamento para una persona asociada.
@@ -56,7 +55,7 @@ data class MedicationRegisterUiState(
     val mensajeError: String? = null
 ) {
     // PERSONA SELECCIONADA
-    val personaSeleccionada: Persona?
+    val personaSeleccionada: PersonaVinculada?
         get() = personasAsociadas.find { persona ->
             persona.id == personaSeleccionadaId
         }
@@ -77,13 +76,8 @@ data class MedicationRegisterUiState(
     // VALIDACIÓN GENERAL
     val formularioValido: Boolean
         get() {
-            val personaValida =
-                when (perfilUsuario?.tipoPerfil) {
-                    TipoPerfil.TITULAR -> true
-                    TipoPerfil.ACOMPANANTE -> personaSeleccionadaId != null
-                    null -> false
-                }
-
+            val personaValida = perfilUsuario != null &&
+                (personaSeleccionadaId == null || personaSeleccionada != null)
 
             val duracionValida =
                 if (tratamientoPermanente) {

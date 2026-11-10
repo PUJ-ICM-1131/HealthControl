@@ -10,20 +10,27 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.mutableStateListOf
+import androidx.navigation3.runtime.NavKey
+import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.runtime.LaunchedEffect
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.ui.NavDisplay
+import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
+import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.icm2630.proyecto.ui.viewmodel.AuthViewModel
+import com.icm2630.proyecto.ui.viewmodel.PerfilViewModel
+import com.icm2630.proyecto.ui.viewmodel.PerfilUiState
 import com.icm2630.proyecto.data.model.PerfilUsuario
-import com.icm2630.proyecto.data.model.TipoPerfil
 import com.icm2630.proyecto.data.repository.SesionRepository
 import com.icm2630.proyecto.ui.components.AlertaCaidaDialog
 import com.icm2630.proyecto.ui.components.HealthBottomNavigation
@@ -34,21 +41,26 @@ import com.icm2630.proyecto.ui.screens.HistoryScreen
 import com.icm2630.proyecto.ui.screens.HomeScreen
 import com.icm2630.proyecto.ui.screens.LoginScreen
 import com.icm2630.proyecto.ui.screens.MedicationRegisterScreen
-import com.icm2630.proyecto.ui.screens.MonitoreoScreen
 import com.icm2630.proyecto.ui.screens.ProfileScreen
 import com.icm2630.proyecto.ui.screens.ProfileSetupScreen
 import com.icm2630.proyecto.ui.screens.RegisterScreen
 import com.icm2630.proyecto.ui.screens.RemindersScreen
-import com.icm2630.proyecto.data.repository.UsuarioRepository
 
 @Composable
 fun AppNavigation() {
-
-    val backStack = remember {
-        mutableStateListOf<Routes>(
-            Routes.Login
-        )
+    // Una sola instancia compartida por login, registro y el resto del grafo.
+    val authViewModel: AuthViewModel = viewModel()
+    val authState by authViewModel.uiState.collectAsStateWithLifecycle()
+    val perfilViewModel: PerfilViewModel? =
+        if (authState.autenticado) viewModel(key = "perfil:${authState.uid}") else null
+    val estadoPerfil = perfilViewModel?.uiState?.collectAsStateWithLifecycle()?.value
+        ?: PerfilUiState()
+    DisposableEffect(perfilViewModel, authState.uid) {
+        authState.uid?.let { perfilViewModel?.iniciar(it) }
+        onDispose { perfilViewModel?.detener() }
     }
+
+    val backStack = rememberNavBackStack(Routes.Login)
 
     // Tras autenticarse: onboarding si el perfil no está configurado, si no, al inicio.
     val entrarALaApp: () -> Unit = {
@@ -56,7 +68,6 @@ fun AppNavigation() {
 
         val destino = when {
             !SesionRepository.perfilConfigurado -> Routes.ProfileSetup
-            SesionRepository.perfil?.tipoPerfil == TipoPerfil.ACOMPANANTE -> Routes.Monitoreo
             else -> Routes.Home
         }
 
@@ -65,29 +76,45 @@ fun AppNavigation() {
         )
     }
 
+    LaunchedEffect(authState.autenticado, authState.cargando) {
+        if (!authState.cargando) {
+            val acceso = backStack.lastOrNull() == Routes.Login || backStack.lastOrNull() == Routes.Register
+            if (authState.autenticado && acceso) entrarALaApp()
+            else if (!authState.autenticado && !acceso) {
+                backStack.clear()
+                backStack.add(Routes.Login)
+            }
+        }
+    }
+
     val context = LocalContext.current
     var mostrarAlertaCaida by remember { mutableStateOf(false) }
 
-    // El detector de caídas solo funciona si el rol del usuario NO es ACOMPANANTE (es decir, funciona para el que es cuidado / TITULAR)
-    val esCuidado = SesionRepository.perfil?.tipoPerfil != TipoPerfil.ACOMPANANTE
-
-    DisposableEffect(esCuidado) {
-        if (esCuidado) {
-            val detector = CaidaDetector(context) {
-                mostrarAlertaCaida = true
+    // El sensor pertenece a la cuenta autenticada y se pausa al salir de primer plano.
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    val sesionActiva = authState.autenticado && SesionRepository.perfilConfigurado &&
+        backStack.lastOrNull() != Routes.Login && backStack.lastOrNull() != Routes.Register
+    DisposableEffect(lifecycleOwner, sesionActiva) {
+        val detector = CaidaDetector(context) { mostrarAlertaCaida = true }
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            when (event) {
+                androidx.lifecycle.Lifecycle.Event.ON_RESUME -> if (sesionActiva) detector.iniciar()
+                androidx.lifecycle.Lifecycle.Event.ON_PAUSE -> detector.detener()
+                else -> Unit
             }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        if (sesionActiva && lifecycleOwner.lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)) {
             detector.iniciar()
-            onDispose {
-                detector.detener()
-            }
-        } else {
-            onDispose { }
+        }
+        onDispose {
+            detector.detener()
+            lifecycleOwner.lifecycle.removeObserver(observer)
         }
     }
 
     if (mostrarAlertaCaida) {
-        val telefonoEmergencia = SesionRepository.perfil?.telefonoEmergencia
-            ?.ifBlank { "3001234567" } ?: "3001234567"
+        val telefonoEmergencia = SesionRepository.perfil?.telefonoEmergencia.orEmpty()
 
         AlertaCaidaDialog(
             telefonoCuidador = telefonoEmergencia,
@@ -98,7 +125,18 @@ fun AppNavigation() {
     }
 
 
+    if (authState.restaurando) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            androidx.compose.material3.CircularProgressIndicator()
+        }
+        return
+    }
+
     NavDisplay(
+        entryDecorators = listOf(
+            rememberSaveableStateHolderNavEntryDecorator(),
+            rememberViewModelStoreNavEntryDecorator()
+        ),
 
         backStack = backStack,
 
@@ -118,6 +156,7 @@ fun AppNavigation() {
 
                 LoginScreen(
 
+                    viewModel = authViewModel,
                     onLogin = entrarALaApp,
 
 
@@ -134,6 +173,7 @@ fun AppNavigation() {
 
                 RegisterScreen(
 
+                    viewModel = authViewModel,
                     onRegister = entrarALaApp,
 
 
@@ -156,41 +196,14 @@ fun AppNavigation() {
                     nombre = SesionRepository.nombreCuenta,
                     contacto = SesionRepository.correoCuenta,
 
-                    onContinuar = { nuevo ->
-
-                        // Se conserva el código que Firestore reservó al crear la cuenta.
-                        val perfil = nuevo.copy(
-                            codigoVinculacion = SesionRepository.perfil?.codigoVinculacion
-                                ?: nuevo.codigoVinculacion
-                        )
-
-                        SesionRepository.perfil =
-                            perfil
-
-                        UsuarioRepository.guardarPerfil(
-                            uid = SesionRepository.uidActual,
-                            perfil = perfil
-                        )
-
-
+                    onContinuar = {
                         backStack.clear()
-
-                        val destino = if (perfil.tipoPerfil == TipoPerfil.ACOMPANANTE) {
-                            Routes.Monitoreo
-                        } else {
-                            Routes.Home
-                        }
-
-                        backStack.add(
-                            destino
-                        )
+                        backStack.add(Routes.Home)
                     },
-
 
                     onCerrarSesion = {
 
-                        SesionRepository
-                            .cerrarSesion()
+                        authViewModel.cerrarSesion()
 
 
                         backStack.clear()
@@ -221,39 +234,6 @@ fun AppNavigation() {
                     onVolverAMiPerfil = {
 
                         SesionRepository.volverAMiPerfil()
-                    }
-                )
-            }
-
-            entry<Routes.Monitoreo> {
-
-                MonitoreoScreen(
-
-                    perfil =
-                        SesionRepository.perfil
-                            ?: PerfilUsuario(),
-
-                    onNavigate = { route ->
-
-                        navegarATab(
-                            backStack = backStack,
-                            destino = route
-                        )
-                    },
-
-                    onOpenMap = {
-                        navegarATab(backStack = backStack, destino = Routes.Mapa)
-                    },
-
-                    onCerrarSesion = {
-
-                        SesionRepository.cerrarSesion()
-
-                        backStack.clear()
-
-                        backStack.add(
-                            Routes.Login
-                        )
                     }
                 )
             }
@@ -504,16 +484,15 @@ fun AppNavigation() {
 
                     // La edición de cada campo se resuelve dentro de ProfileScreen;
                     // aquí solo se persiste el perfil actualizado.
-                    onActualizarPerfil = { actualizado ->
-
-                        SesionRepository.perfil = actualizado
-
-                        UsuarioRepository.guardarPerfil(
-                            uid = SesionRepository.uidActual,
-                            perfil = actualizado
-                        )
-                    },
-
+                    miUid = authState.uid.orEmpty(),
+                    estado = estadoPerfil,
+                    onActualizarPerfil = { perfilViewModel?.guardarPerfil(it) },
+                    onEnviarCodigo = { perfilViewModel?.enviar(it) },
+                    onResponder = { invitacion, aceptar -> perfilViewModel?.responder(invitacion, aceptar) },
+                    onCancelarSolicitud = { perfilViewModel?.cancelar(it) },
+                    onDesvincular = { perfilViewModel?.desvincular(it) },
+                    onConsumirMensaje = { perfilViewModel?.consumirMensaje() },
+                    onConsumirEnvio = { perfilViewModel?.consumirEnvio() },
 
                     // Al elegir un familiar se consulta su HealthControl desde el inicio.
                     onVerFamiliar = { persona ->
@@ -535,8 +514,7 @@ fun AppNavigation() {
 
                     onCerrarSesion = {
 
-                        SesionRepository
-                            .cerrarSesion()
+                        authViewModel.cerrarSesion()
 
 
                         backStack.clear()
@@ -554,7 +532,7 @@ fun AppNavigation() {
 
 
 private fun navegarATab(
-    backStack: MutableList<Routes>,
+    backStack: MutableList<NavKey>,
     destino: Routes
 ) {
 
@@ -575,7 +553,7 @@ private fun navegarATab(
 fun PlaceholderScreen(
     currentRoute: Routes,
     title: String,
-    backStack: MutableList<Routes>
+    backStack: MutableList<NavKey>
 ) {
 
     Scaffold(

@@ -41,11 +41,11 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -68,15 +68,15 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.icm2630.proyecto.R
-import com.icm2630.proyecto.data.remote.GoogleAuth
-import com.icm2630.proyecto.data.repository.SesionRepository
 import com.icm2630.proyecto.ui.theme.Blue100
 import com.icm2630.proyecto.ui.theme.Blue500
 import com.icm2630.proyecto.ui.theme.Blue700
 import com.icm2630.proyecto.ui.theme.HealthControlTheme
 import com.icm2630.proyecto.ui.theme.TextPrimary
 import com.icm2630.proyecto.ui.theme.TextSecondary
-import kotlinx.coroutines.launch
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.icm2630.proyecto.ui.viewmodel.AuthViewModel
 
 private val FieldShape = RoundedCornerShape(50)
 private val PlaceholderBlue = Color(0xFF8FB3D9)
@@ -86,7 +86,8 @@ private val HairLine = Color(0xFFE5E7EB)
 fun RegisterScreen(
     /** La cuenta ya quedó creada en Firebase (por correo o con Google). */
     onRegister: () -> Unit = {},
-    onIrALogin: () -> Unit = {}
+    onIrALogin: () -> Unit = {},
+    viewModel: AuthViewModel = viewModel()
 ) {
     var nombre by rememberSaveable { mutableStateOf("") }
     var correo by rememberSaveable { mutableStateOf("") }
@@ -95,18 +96,15 @@ fun RegisterScreen(
     var verPassword by rememberSaveable { mutableStateOf(false) }
     var verConfirmar by rememberSaveable { mutableStateOf(false) }
 
-    var errorTexto by remember { mutableStateOf<String?>(null) }
-    var cargando by remember { mutableStateOf(false) }
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val errorTexto = state.error
+    val cargando = state.cargando
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
 
-    val alEntrar = {
-        cargando = false
-        onRegister()
-    }
-    val alFallar = { mensaje: String ->
-        cargando = false
-        errorTexto = mensaje.ifBlank { null }
+    LaunchedEffect(state.autenticado) {
+        if (state.autenticado) {
+            onRegister()
+        }
     }
 
     Column(
@@ -205,17 +203,7 @@ fun RegisterScreen(
 
             Button(
                 onClick = {
-                    errorTexto = when {
-                        nombre.isBlank() || correo.isBlank() || password.isBlank() ->
-                            "Por favor, completa todos los campos"
-                        password.length < 8 -> "La contraseña debe tener mínimo 8 caracteres"
-                        password != confirmar -> "Las contraseñas no coinciden"
-                        else -> null
-                    }
-                    if (errorTexto == null) {
-                        cargando = true
-                        SesionRepository.registrar(nombre, correo, password, alEntrar, alFallar)
-                    }
+                    viewModel.registrar(nombre, correo, password, confirmar)
                 },
                 enabled = !cargando,
                 modifier = Modifier
@@ -251,9 +239,7 @@ fun RegisterScreen(
                 // Reemplaza por painterResource(R.drawable.ic_google) cuando agregues el asset oficial
                 icon = Icons.Outlined.Cancel,
                 onClick = {
-                    errorTexto = null
-                    cargando = true
-                    scope.launch { GoogleAuth.iniciarSesion(context, alEntrar, alFallar) }
+                    viewModel.iniciarSesionGoogle(context)
                 },
                 enabled = !cargando,
                 modifier = Modifier.fillMaxWidth()

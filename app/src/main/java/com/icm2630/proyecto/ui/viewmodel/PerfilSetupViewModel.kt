@@ -1,10 +1,14 @@
 package com.icm2630.proyecto.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.CancellationException
 import com.icm2630.proyecto.data.model.Genero
 import com.icm2630.proyecto.data.model.PerfilUsuario
 import com.icm2630.proyecto.data.model.TipoSangre
-import com.icm2630.proyecto.data.repository.VinculacionSimulator
+import com.icm2630.proyecto.data.repository.SesionRepository
+import com.icm2630.proyecto.data.repository.UsuarioRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -24,9 +28,11 @@ data class PerfilSetupUiState(
     val telefonoEmergencia: String = "",
     val condicionRelevante: String = "",
     val permisoUbicacion: Boolean = false,
-    val notificacionesActivas: Boolean = true,
+    val notificacionesActivas: Boolean = false,
     val fotoUri: String? = null,
-    val guardando: Boolean = false
+    val guardando: Boolean = false,
+    val perfilGuardado: PerfilUsuario? = null,
+    val mensajeError: String? = null
 ) {
     /** Mínimo indispensable para continuar. Lo demás se completa después en Ajustes. */
     val puedeContinuar: Boolean
@@ -75,7 +81,29 @@ class PerfilSetupViewModel : ViewModel() {
     fun onFotoUriChange(uri: String?) =
         _uiState.update { it.copy(fotoUri = uri) }
 
-    /** [nombre] y [contacto] vienen del registro/login; el tipo de perfil queda en TITULAR por defecto. */
+    fun guardarPerfil(nombre: String, contacto: String) {
+        if (!_uiState.value.puedeContinuar || _uiState.value.guardando) return
+        val perfil = construirPerfil(nombre, contacto)
+        _uiState.update { it.copy(guardando = true, mensajeError = null) }
+        val uid = SesionRepository.uidActual
+        viewModelScope.launch {
+            try {
+                UsuarioRepository.guardarPerfil(uid, perfil)
+                if (SesionRepository.haySesionGuardada && SesionRepository.uidActual == uid) {
+                    SesionRepository.perfil = perfil
+                    _uiState.update { it.copy(guardando = false, perfilGuardado = perfil) }
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _uiState.update { it.copy(guardando = false, mensajeError = "No se pudo guardar el perfil. Revisa tu conexión e inténtalo de nuevo.") }
+            }
+        }
+    }
+
+    fun consumirGuardado() = _uiState.update { it.copy(perfilGuardado = null) }
+
+    /** El nombre y el correo vienen del registro; el código ya fue reservado para esta cuenta. */
     fun construirPerfil(nombre: String, contacto: String): PerfilUsuario = with(_uiState.value) {
         PerfilUsuario(
             nombreCompleto = nombre.trim(),
@@ -91,7 +119,7 @@ class PerfilSetupViewModel : ViewModel() {
             permisoUbicacion = permisoUbicacion,
             notificacionesActivas = notificacionesActivas,
             fotoUri = fotoUri,
-            codigoVinculacion = VinculacionSimulator.generarCodigo(),
+            codigoVinculacion = SesionRepository.perfil?.codigoVinculacion,
             configurado = true
         )
     }

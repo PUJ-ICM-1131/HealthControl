@@ -2,7 +2,7 @@ package com.icm2630.proyecto.ui.screens
 
 import android.Manifest
 import android.content.Context
-import android.graphics.Bitmap
+import com.icm2630.proyecto.ui.util.rememberPhotoActions
 import android.net.Uri
 import android.os.Build
 import android.widget.Toast
@@ -54,8 +54,8 @@ import com.icm2630.proyecto.ui.theme.HealthControlTheme
 import com.icm2630.proyecto.ui.theme.TextPrimary
 import com.icm2630.proyecto.ui.theme.TextSecondary
 import com.icm2630.proyecto.ui.viewmodel.PerfilSetupViewModel
-import java.io.File
-import java.io.FileOutputStream
+import com.icm2630.proyecto.ui.util.rememberLocationPermissionRequest
+import com.icm2630.proyecto.ui.util.rememberNotificationPermissionRequest
 import java.text.SimpleDateFormat
 import java.util.Locale
 import java.util.TimeZone
@@ -77,50 +77,41 @@ fun ProfileSetupScreen(
     onCerrarSesion: () -> Unit = {}
 ) {
     val state by viewModel.uiState.collectAsState()
+    LaunchedEffect(state.perfilGuardado) {
+        state.perfilGuardado?.let {
+            viewModel.consumirGuardado()
+            onContinuar(it)
+        }
+    }
     var mostrarDatePicker by remember { mutableStateOf(false) }
     var mostrarOpcionesFoto by remember { mutableStateOf(false) }
     val context = LocalContext.current
-
-    // Launchers para la foto de perfil (Galería y Cámara)
-    val launcherGaleria = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
-    ) { uri: Uri? ->
-        uri?.let { viewModel.onFotoUriChange(it.toString()) }
-    }
-
-    val launcherCamara = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.TakePicturePreview()
-    ) { bitmap: Bitmap? ->
-        bitmap?.let {
-            val uri = guardarBitmapEnCache(context, it)
-            uri?.let { u -> viewModel.onFotoUriChange(u.toString()) }
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner, context) {
+        fun comprobarPermisos() {
+            val ubicacion = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) ==
+                PermissionChecker.PERMISSION_GRANTED ||
+                ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) ==
+                PermissionChecker.PERMISSION_GRANTED
+            viewModel.onPermisoUbicacionResultado(ubicacion)
+            viewModel.onPermisoNotificacionesResultado(
+                androidx.core.app.NotificationManagerCompat.from(context).areNotificationsEnabled()
+            )
         }
-    }
-
-    val launcherPermisoCamara = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission()
-    ) { concedido ->
-        if (concedido) {
-            launcherCamara.launch(null)
-        } else {
-            Toast.makeText(context, "Permiso de cámara denegado", Toast.LENGTH_SHORT).show()
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) comprobarPermisos()
         }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        comprobarPermisos()
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    // Launchers para permisos de Ubicación y Notificaciones
-    val launcherPermisosUbicacion = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestMultiplePermissions()
-    ) { permisos ->
-        val concedido = permisos[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
-                permisos[Manifest.permission.ACCESS_COARSE_LOCATION] == true
-        viewModel.onPermisoUbicacionResultado(concedido)
+    val fotos = rememberPhotoActions { uri ->
+        viewModel.onFotoUriChange(uri.toString())
     }
 
-    val launcherPermisoNotificaciones = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission()
-    ) { concedido ->
-        viewModel.onPermisoNotificacionesResultado(concedido)
-    }
+    val pedirUbicacion = rememberLocationPermissionRequest(viewModel::onPermisoUbicacionResultado)
+    val pedirNotificaciones = rememberNotificationPermissionRequest(viewModel::onPermisoNotificacionesResultado)
 
     Column(
         modifier = Modifier
@@ -247,30 +238,7 @@ fun ProfileSetupScreen(
                     subtitulo = "Para sugerir centros médicos cercanos",
                     checked = state.permisoUbicacion,
                     onCheckedChange = { activar ->
-                        if (activar) {
-                            val fineGranted = ContextCompat.checkSelfPermission(
-                                context,
-                                Manifest.permission.ACCESS_FINE_LOCATION
-                            ) == PermissionChecker.PERMISSION_GRANTED
-                            val coarseGranted = ContextCompat.checkSelfPermission(
-                                context,
-                                Manifest.permission.ACCESS_COARSE_LOCATION
-                            ) == PermissionChecker.PERMISSION_GRANTED
-
-                            if (fineGranted || coarseGranted) {
-                                viewModel.onPermisoUbicacionResultado(true)
-                            } else {
-                                launcherPermisosUbicacion.launch(
-                                    arrayOf(
-                                        Manifest.permission.ACCESS_FINE_LOCATION,
-                                        Manifest.permission.ACCESS_COARSE_LOCATION
-                                    )
-                                )
-                            }
-                            onPedirPermisoUbicacion()
-                        } else {
-                            viewModel.onPermisoUbicacionResultado(false)
-                        }
+                        if (activar) pedirUbicacion() else viewModel.onPermisoUbicacionResultado(false)
                     }
                 )
 
@@ -281,33 +249,19 @@ fun ProfileSetupScreen(
                     subtitulo = "Recordatorios de medicación y citas",
                     checked = state.notificacionesActivas,
                     onCheckedChange = { activar ->
-                        if (activar) {
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                                val notifGranted = ContextCompat.checkSelfPermission(
-                                    context,
-                                    Manifest.permission.POST_NOTIFICATIONS
-                                ) == PermissionChecker.PERMISSION_GRANTED
-
-                                if (notifGranted) {
-                                    viewModel.onPermisoNotificacionesResultado(true)
-                                } else {
-                                    launcherPermisoNotificaciones.launch(Manifest.permission.POST_NOTIFICATIONS)
-                                }
-                            } else {
-                                viewModel.onPermisoNotificacionesResultado(true)
-                            }
-                            onPedirPermisoNotificaciones()
-                        } else {
-                            viewModel.onPermisoNotificacionesResultado(false)
-                        }
+                        if (activar) pedirNotificaciones() else viewModel.onPermisoNotificacionesResultado(false)
                     }
                 )
             }
 
             Spacer(Modifier.height(24.dp))
 
+            state.mensajeError?.let {
+                Text(it, color = MaterialTheme.colorScheme.error)
+                Spacer(Modifier.height(8.dp))
+            }
             Button(
-                onClick = { onContinuar(viewModel.construirPerfil(nombre, contacto)) },
+                onClick = { viewModel.guardarPerfil(nombre, contacto) },
                 enabled = state.puedeContinuar && !state.guardando,
                 modifier = Modifier
                     .fillMaxWidth()
@@ -355,33 +309,15 @@ fun ProfileSetupScreen(
 
     if (mostrarOpcionesFoto) {
         DialogoSeleccionarFoto(
-            onCamara = {
-                val camaraPermission = ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA)
-                if (camaraPermission == PermissionChecker.PERMISSION_GRANTED) {
-                    launcherCamara.launch(null)
-                } else {
-                    launcherPermisoCamara.launch(Manifest.permission.CAMERA)
-                }
-            },
+            onCamara = fotos.camara,
             onGaleria = {
-                launcherGaleria.launch("image/*")
+                fotos.galeria()
             },
             onCerrar = { mostrarOpcionesFoto = false }
         )
     }
 }
 
-private fun guardarBitmapEnCache(context: Context, bitmap: Bitmap): Uri? {
-    return try {
-        val file = File(context.cacheDir, "foto_perfil_${System.currentTimeMillis()}.jpg")
-        FileOutputStream(file).use { out ->
-            bitmap.compress(Bitmap.CompressFormat.JPEG, 90, out)
-        }
-        Uri.fromFile(file)
-    } catch (e: Exception) {
-        null
-    }
-}
 
 // Componentes
 

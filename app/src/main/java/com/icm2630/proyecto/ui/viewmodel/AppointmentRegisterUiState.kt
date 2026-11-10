@@ -2,9 +2,8 @@ package com.icm2630.proyecto.ui.viewmodel
 
 import com.icm2630.proyecto.data.model.ModalidadCita
 import com.icm2630.proyecto.data.model.PerfilUsuario
-import com.icm2630.proyecto.data.model.Persona
+import com.icm2630.proyecto.data.model.PersonaVinculada
 import com.icm2630.proyecto.data.model.TipoCita
-import com.icm2630.proyecto.data.model.TipoPerfil
 
 
 data class AppointmentRegisterUiState(
@@ -15,7 +14,7 @@ data class AppointmentRegisterUiState(
     // PERFIL Y PERSONA
     val perfilUsuario: PerfilUsuario? = null,
 
-    val personasAsociadas: List<Persona> = emptyList(),
+    val personasAsociadas: List<PersonaVinculada> = emptyList(),
 
     /**
      * true  = la cita es para el propio usuario ("Yo").
@@ -75,7 +74,7 @@ data class AppointmentRegisterUiState(
 ) {
 
     // PERSONA SELECCIONADA
-    val personaSeleccionada: Persona?
+    val personaSeleccionada: PersonaVinculada?
         get() {
 
             if (citaParaMi) {
@@ -89,41 +88,7 @@ data class AppointmentRegisterUiState(
 
     // VALIDACIÓN DE PERSONA
     val personaValida: Boolean
-        get() {
-
-            return when (
-                perfilUsuario?.tipoPerfil
-            ) {
-
-                // El titular siempre puede registrar
-                // una cita para sí mismo.
-                TipoPerfil.TITULAR -> {
-                    true
-                }
-
-
-                // El acompañante puede elegir:
-                //
-                // 1. "Yo"
-                // 2. Una persona asociada
-                TipoPerfil.ACOMPANANTE -> {
-
-                    if (citaParaMi) {
-
-                        true
-
-                    } else {
-
-                        personaSeleccionadaId != null
-                    }
-                }
-
-
-                null -> {
-                    false
-                }
-            }
-        }
+        get() = perfilUsuario != null && (citaParaMi || personaSeleccionada != null)
 
     // VALIDACIÓN DE ESPECIALIDAD
     val especialidadValida: Boolean

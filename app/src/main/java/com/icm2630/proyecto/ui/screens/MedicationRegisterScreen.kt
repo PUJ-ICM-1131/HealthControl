@@ -4,7 +4,7 @@ import android.Manifest
 import android.app.TimePickerDialog
 import android.content.Context
 import android.content.Intent
-import android.graphics.Bitmap
+import com.icm2630.proyecto.ui.util.rememberPhotoActions
 import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -67,8 +67,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.PermissionChecker
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.icm2630.proyecto.data.model.FormaMedicamento
-import com.icm2630.proyecto.data.model.Persona
-import com.icm2630.proyecto.data.model.TipoPerfil
+import com.icm2630.proyecto.data.model.PersonaVinculada
 import com.icm2630.proyecto.ui.components.medication.MedicationAttachmentCard
 import com.icm2630.proyecto.ui.components.medication.MedicationDoseSelector
 import com.icm2630.proyecto.ui.components.medication.MedicationDurationSelector
@@ -84,8 +83,6 @@ import com.icm2630.proyecto.ui.theme.TextSecondary
 import com.icm2630.proyecto.ui.util.obtenerNombreArchivo
 import com.icm2630.proyecto.ui.viewmodel.MedicationRegisterViewModel
 import kotlinx.coroutines.launch
-import java.io.File
-import java.io.FileOutputStream
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -130,29 +127,8 @@ fun MedicationRegisterScreen(
         mutableStateOf(false)
     }
 
-    // LAUNCHER PARA CÁMARA
-    val camaraLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.TakePicturePreview()
-    ) { bitmap: Bitmap? ->
-        bitmap?.let {
-            val uri = guardarBitmapEnCacheMedication(context, it)
-            uri?.let { u ->
-                viewModel.onOrdenMedicaSeleccionada(
-                    uri = u.toString(),
-                    nombreArchivo = "orden_medica_foto.jpg"
-                )
-            }
-        }
-    }
-
-    val permisoCamaraLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission()
-    ) { concedido ->
-        if (concedido) {
-            camaraLauncher.launch(null)
-        } else {
-            Toast.makeText(context, "Permiso de cámara denegado", Toast.LENGTH_SHORT).show()
-        }
+    val fotos = rememberPhotoActions { uri ->
+        viewModel.onOrdenMedicaSeleccionada(uri.toString(), "orden_medica_foto.jpg")
     }
 
     // CARGAR MEDICAMENTO A EDITAR (o limpiar el formulario)
@@ -208,6 +184,11 @@ fun MedicationRegisterScreen(
         ) { uri ->
 
             if (uri != null) {
+                try {
+                    context.contentResolver.takePersistableUriPermission(uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                } catch (_: SecurityException) {
+                    // El proveedor puede limitar el acceso al documento a esta sesión.
+                }
 
                 val nombreArchivo =
                     obtenerNombreArchivo(
@@ -224,43 +205,10 @@ fun MedicationRegisterScreen(
         }
 
     // PERSONA QUE SE MOSTRARÁ
-    val nombrePersona =
-        when (state.perfilUsuario?.tipoPerfil) {
-
-            TipoPerfil.TITULAR -> {
-                state.perfilUsuario
-                    ?.nombreCompleto
-                    ?.ifBlank {
-                        "Mi perfil"
-                    }
-                    ?: "Mi perfil"
-            }
-
-            TipoPerfil.ACOMPANANTE -> {
-                state.personaSeleccionada
-                    ?.nombreCompleto
-                    ?: "Selecciona una persona"
-            }
-
-            null -> {
-                "Mi perfil"
-            }
-        }
-
-
-    val tipoPersona =
-        if (
-            state.perfilUsuario?.tipoPerfil ==
-            TipoPerfil.ACOMPANANTE
-        ) {
-
-            "Persona asociada"
-
-        } else {
-
-            "Perfil personal"
-        }
-
+    val nombrePersona = state.personaSeleccionada?.nombreCompleto
+        ?: state.perfilUsuario?.nombreCompleto?.ifBlank { "Mi perfil" }
+        ?: "Mi perfil"
+    val tipoPersona = if (state.personaSeleccionadaId == null) "Perfil personal" else "Persona vinculada"
 
     Scaffold(
 
@@ -419,8 +367,7 @@ fun MedicationRegisterScreen(
                 personType = tipoPersona,
 
                 canChangePerson =
-                    state.perfilUsuario?.tipoPerfil ==
-                            TipoPerfil.ACOMPANANTE,
+                    state.personasAsociadas.isNotEmpty(),
 
                 onChangePerson = {
                     showPersonDialog = true
@@ -748,14 +695,7 @@ fun MedicationRegisterScreen(
                     )
                 )
             },
-            onCamara = {
-                val camaraPermission = ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA)
-                if (camaraPermission == PermissionChecker.PERMISSION_GRANTED) {
-                    camaraLauncher.launch(null)
-                } else {
-                    permisoCamaraLauncher.launch(Manifest.permission.CAMERA)
-                }
-            },
+                onCamara = fotos.camara,
             onCerrar = { showAttachmentDialog = false }
         )
     }
@@ -833,17 +773,6 @@ fun MedicationRegisterScreen(
     }
 }
 
-private fun guardarBitmapEnCacheMedication(context: Context, bitmap: Bitmap): Uri? {
-    return try {
-        val file = File(context.cacheDir, "orden_medica_${System.currentTimeMillis()}.jpg")
-        FileOutputStream(file).use { out ->
-            bitmap.compress(Bitmap.CompressFormat.JPEG, 90, out)
-        }
-        Uri.fromFile(file)
-    } catch (e: Exception) {
-        null
-    }
-}
 
 @Composable
 private fun DialogoAdjuntarOrden(
@@ -915,10 +844,10 @@ private fun DialogoAdjuntarOrden(
 // SELECTOR DE PERSONA
 @Composable
 private fun PersonSelectorDialog(
-    personas: List<Persona>,
+    personas: List<PersonaVinculada>,
     selectedPersonId: String?,
     onDismiss: () -> Unit,
-    onPersonSelected: (Persona) -> Unit
+    onPersonSelected: (PersonaVinculada) -> Unit
 ) {
 
     AlertDialog(

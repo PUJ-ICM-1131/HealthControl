@@ -38,9 +38,10 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
 import com.icm2630.proyecto.R
-import com.icm2630.proyecto.data.remote.GoogleAuth
 import com.icm2630.proyecto.data.repository.SesionRepository
-import kotlinx.coroutines.launch
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.icm2630.proyecto.ui.viewmodel.AuthViewModel
 import com.icm2630.proyecto.ui.theme.*
 
 private val FieldShape = RoundedCornerShape(50)
@@ -51,26 +52,23 @@ private val HairLine = Color(0xFFE5E7EB)
 fun LoginScreen(
     onLogin: () -> Unit = {},
     onAppleClick: () -> Unit = {},
-    onIrARegister: () -> Unit = {}
+    onIrARegister: () -> Unit = {},
+    viewModel: AuthViewModel = viewModel()
 ) {
     var correo by rememberSaveable { mutableStateOf("") }
     var password by rememberSaveable { mutableStateOf("") }
     var verPassword by rememberSaveable { mutableStateOf(false) }
     var recordar by rememberSaveable { mutableStateOf(false) }
 
-    // Estado para errores de validación
-    var errorTexto by remember { mutableStateOf<String?>(null) }
-    var cargando by remember { mutableStateOf(false) }
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val errorTexto = state.error
+    val cargando = state.cargando
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
 
-    val alEntrar = {
-        cargando = false
-        onLogin()
-    }
-    val alFallar = { mensaje: String ->
-        cargando = false
-        errorTexto = mensaje.ifBlank { null }
+    LaunchedEffect(state.autenticado) {
+        if (state.autenticado) {
+            onLogin()
+        }
     }
 
     Column(
@@ -125,7 +123,7 @@ fun LoginScreen(
                     value = correo,
                     onValueChange = { 
                         correo = it
-                        errorTexto = null 
+                        viewModel.limpiarError()
                     },
                     placeholder = "ejemplo@correo.com",
                     leadingIcon = Icons.Outlined.MailOutline,
@@ -147,7 +145,7 @@ fun LoginScreen(
                         text = "¿Olvidaste tu contraseña?",
                         style = MaterialTheme.typography.labelMedium,
                         color = Blue500,
-                        modifier = Modifier.clickable { /* Olvidé contraseña */ }
+                        modifier = Modifier.clickable { viewModel.recuperarPassword(correo) }
                     )
                 }
 
@@ -157,7 +155,7 @@ fun LoginScreen(
                     value = password,
                     onValueChange = { 
                         password = it
-                        errorTexto = null 
+                        viewModel.limpiarError()
                     },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
@@ -190,6 +188,9 @@ fun LoginScreen(
                     )
                 )
 
+                state.mensaje?.let {
+                    Text(it, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp))
+                }
                 if (errorTexto != null) {
                     Text(
                         text = errorTexto!!,
@@ -226,12 +227,7 @@ fun LoginScreen(
                 ) {
                     Button(
                         onClick = { 
-                            if (correo.isBlank() || password.isBlank()) {
-                                errorTexto = "Por favor, completa todos los campos"
-                            } else {
-                                cargando = true
-                                SesionRepository.iniciarSesion(correo, password, alEntrar, alFallar)
-                            }
+                            viewModel.iniciarSesion(correo, password)
                         },
                         enabled = !cargando,
                         modifier = Modifier
@@ -263,18 +259,17 @@ fun LoginScreen(
                         onClick = {
                             val activity = context as? FragmentActivity
                             if (!SesionRepository.haySesionGuardada) {
-                                errorTexto = "Primero inicia sesión con tu correo o con Google."
+                                viewModel.mostrarError("Primero inicia sesión con tu correo o con Google.")
                             } else if (activity != null) {
                                 mostrarBiometricPrompt(
                                     activity = activity,
                                     onExito = {
-                                        cargando = true
-                                        SesionRepository.reanudarSesion(alEntrar, alFallar)
+                                        viewModel.reanudarSesion()
                                     },
-                                    onError = { err -> errorTexto = err }
+                                    onError = viewModel::mostrarError
                                 )
                             } else {
-                                errorTexto = "No se pudo iniciar la autenticación por huella."
+                                viewModel.mostrarError("No se pudo iniciar la autenticación por huella.")
                             }
                         },
                         enabled = !cargando,
@@ -307,11 +302,9 @@ fun LoginScreen(
             ) {
                 BotonSocial(
                     texto = "Google",
-                    icon = Icons.Outlined.Cancel, // Simulado
+                    icon = Icons.Outlined.Cancel,
                     onClick = {
-                        errorTexto = null
-                        cargando = true
-                        scope.launch { GoogleAuth.iniciarSesion(context, alEntrar, alFallar) }
+                        viewModel.iniciarSesionGoogle(context)
                     },
                     enabled = !cargando,
                     modifier = Modifier.weight(1f)

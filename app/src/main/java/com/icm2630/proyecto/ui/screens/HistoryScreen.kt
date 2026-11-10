@@ -33,7 +33,7 @@ import com.icm2630.proyecto.data.model.Medicamento
 import com.icm2630.proyecto.data.model.TipoCita
 import com.icm2630.proyecto.data.repository.CitaRepository
 import com.icm2630.proyecto.data.repository.MedicamentoRepository
-import com.icm2630.proyecto.data.repository.PersonaRepository
+import com.icm2630.proyecto.data.repository.VinculacionRepository
 import com.icm2630.proyecto.data.repository.SesionRepository
 import com.icm2630.proyecto.ui.components.BannerFamiliar
 import com.icm2630.proyecto.ui.components.HealthBottomNavigation
@@ -772,7 +772,7 @@ private fun etiquetaPacienteHistorial(personaId: String?): String {
         return SesionRepository.familiarActivo?.nombre?.substringBefore(" ") ?: "Yo"
     }
 
-    val persona = PersonaRepository.obtenerPorId(personaId)
+    val persona = VinculacionRepository.obtenerPorId(personaId)
 
     return if (persona != null) {
         "Para ${persona.nombre}"

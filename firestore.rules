@@ -1,0 +1,247 @@
+// Modelo: usuarios/{uid} privado; codigos/{codigo} -> {uid,nombre}.
+// perfilesCompartidos/{uid}: salud consentida, sin correo, teléfono ni ajustes.
+// invitaciones/{emisorUid}_{destinatarioUid}: UIDs y nombres, codigoDestino,
+// estado, creadaEn y actualizadaEn (timestamps de servidor).
+// usuarios/{uid}/citas y medicamentos: registros propios; lectura con vínculo.
+// ubicaciones/{uid}: {punto:latlng, actualizadoEn:timestamp}, opt-in del titular.
+// Prototipo de reglas: revisar el informe de pruebas antes de distribuir ampliamente.
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function owner(uid) { return signedIn() && request.auth.uid == uid; }
+    function uidValido(uid) { return uid is string && uid.size() > 0 && uid.size() <= 128; }
+    function str(v, max) { return v is string && v.size() <= max; }
+    function textoOpcional(d, campo, max) {
+      return !(campo in d) || str(d[campo], max);
+    }
+    function textoNulo(d, campo, max) {
+      return !(campo in d) || d[campo] == null || str(d[campo], max);
+    }
+    function correoValido(d) {
+      return !('correo' in d) || d.correo == ''
+        || (str(d.correo,254) && d.correo.matches('^[^\\s@]+@[^\\s@]+[.][^\\s@]+$'));
+    }
+    function enlaceValido(d) {
+      return !('enlaceVirtual' in d) || d.enlaceVirtual == ''
+        || (str(d.enlaceVirtual,2048) && d.enlaceVirtual.matches('^https?://[^\\s]+$'));
+    }
+    function fotoValida(d) {
+      return !('fotoUri' in d) || d.fotoUri == null
+        || (str(d.fotoUri,4096) && d.fotoUri.matches('^(content|file|https?)://[^\\s]+$'));
+    }
+    function fecha(v) { return v is int && v >= -2208988800000 && v <= 4102444800000; }
+    function condicionesValidas(d) {
+      return !('condiciones' in d) || (d.condiciones is list && d.condiciones.size() <= 7
+        && d.condiciones.hasOnly(['Diabetes','Hipertensión','Asma','Cardiopatía','Colesterol alto','Artritis','Hipotiroidismo']));
+    }
+    function nacimientoValido(d) {
+      return !('fechaNacimientoMillis' in d) || d.fechaNacimientoMillis == null
+        || (fecha(d.fechaNacimientoMillis) && d.fechaNacimientoMillis <= request.time.toMillis());
+    }
+    function codigoValido(c) { return c is string && c.matches('^[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{6}$'); }
+    function sangreValida(d) {
+      return !('tipoSangre' in d) || d.tipoSangre == null
+        || d.tipoSangre in ['A_POSITIVO','A_NEGATIVO','B_POSITIVO','B_NEGATIVO','AB_POSITIVO','AB_NEGATIVO','O_POSITIVO','O_NEGATIVO'];
+    }
+    function generoValido(d) {
+      return !('genero' in d) || d.genero == null
+        || d.genero in ['MASCULINO','FEMENINO','OTRO','SIN_ESPECIFICAR'];
+    }
+    function saludValida(d) {
+      return d.keys().hasAll(['nombreCompleto','codigoVinculacion','configurado'])
+        && str(d.nombreCompleto,150) && codigoValido(d.codigoVinculacion)
+        && d.configurado is bool && condicionesValidas(d) && nacimientoValido(d)
+        && sangreValida(d) && generoValido(d)
+        && textoOpcional(d,'alergias',2000) && textoOpcional(d,'condicionRelevante',2000);
+    }
+    function isValidUsuario(d) {
+      return d.keys().hasOnly(['nombreCompleto','correo','codigoVinculacion','configurado','creadoEn','actualizadoEn',
+        'fechaNacimientoMillis','genero','tipoSangre','alergias','condiciones','condicionRelevante',
+        'contacto','contactoEmergencia','telefonoEmergencia','permisoUbicacion','notificacionesActivas','fotoUri','compartirUbicacion'])
+        && saludValida(d) && correoValido(d) && textoOpcional(d,'contacto',300)
+        && textoOpcional(d,'contactoEmergencia',200) && textoOpcional(d,'telefonoEmergencia',30)
+        && fotoValida(d)
+        && (!('permisoUbicacion' in d) || d.permisoUbicacion is bool)
+        && (!('notificacionesActivas' in d) || d.notificacionesActivas is bool)
+        && (!('compartirUbicacion' in d) || d.compartirUbicacion is bool)
+        && (!('creadoEn' in d) || d.creadoEn is timestamp)
+        && (!('actualizadoEn' in d) || d.actualizadoEn is timestamp);
+    }
+    function codigoPropio(uid,d) {
+      let indice = getAfter(/databases/$(database)/documents/codigos/$(d.codigoVinculacion)).data;
+      return indice.uid == uid && indice.nombre == d.nombreCompleto;
+    }
+    function isValidCodigo(d) {
+      return d.keys().hasAll(['uid','nombre']) && d.keys().hasOnly(['uid','nombre'])
+        && uidValido(d.uid) && str(d.nombre,150);
+    }
+    function isValidCompartido(d) {
+      return d.keys().hasOnly(['nombreCompleto','codigoVinculacion','configurado','actualizadoEn',
+        'fechaNacimientoMillis','genero','tipoSangre','alergias','condiciones','condicionRelevante'])
+        && saludValida(d) && d.configurado == true && d.actualizadoEn == request.time;
+    }
+    function participantes(d) {
+      return signedIn() && (d.emisorUid == request.auth.uid || d.destinatarioUid == request.auth.uid);
+    }
+    function aceptada(a,b) {
+      let path = /databases/$(database)/documents/invitaciones/$(a + '_' + b);
+      return exists(path) && get(path).data.estado == 'ACEPTADA';
+    }
+    function puedeConsultar(uid) {
+      return signedIn() && exists(/databases/$(database)/documents/usuarios/$(uid))
+        && (request.auth.uid == uid || aceptada(request.auth.uid,uid) || aceptada(uid,request.auth.uid));
+    }
+    function isValidInvitacion(d,id) {
+      return d.keys().hasAll(['emisorUid','destinatarioUid','nombreEmisor','nombreDestinatario','codigoDestino','estado','creadaEn','actualizadaEn'])
+        && d.keys().hasOnly(['emisorUid','destinatarioUid','nombreEmisor','nombreDestinatario','codigoDestino','estado','creadaEn','actualizadaEn'])
+        && uidValido(d.emisorUid) && uidValido(d.destinatarioUid)
+        && d.emisorUid != d.destinatarioUid && id == d.emisorUid + '_' + d.destinatarioUid
+        && str(d.nombreEmisor,150) && str(d.nombreDestinatario,150) && codigoValido(d.codigoDestino)
+        && d.estado in ['PENDIENTE','ACEPTADA','RECHAZADA','CANCELADA','REVOCADA']
+        && d.creadaEn is timestamp && d.actualizadaEn == request.time;
+    }
+    function contraparteLibre(d) {
+      let path = /databases/$(database)/documents/invitaciones/$(d.destinatarioUid + '_' + d.emisorUid);
+      return !existsAfter(path) || !(getAfter(path).data.estado in ['PENDIENTE','ACEPTADA']);
+    }
+    function identidadesValidas(d) {
+      let indice = get(/databases/$(database)/documents/codigos/$(d.codigoDestino)).data;
+      let cuenta = get(/databases/$(database)/documents/usuarios/$(d.emisorUid)).data;
+      return indice.uid == d.destinatarioUid && indice.nombre == d.nombreDestinatario
+        && cuenta.nombreCompleto == d.nombreEmisor && cuenta.configurado == true;
+    }
+    function nuevaPendiente(d) {
+      return owner(d.emisorUid) && d.estado == 'PENDIENTE'
+        && d.creadaEn == request.time && identidadesValidas(d) && contraparteLibre(d);
+    }
+    function cambioDeEstado(d,antes) {
+      return d.diff(antes).affectedKeys().hasOnly(['estado','actualizadaEn'])
+        && d.creadaEn == antes.creadaEn
+        && ((antes.estado == 'PENDIENTE' && owner(antes.destinatarioUid) && d.estado in ['ACEPTADA','RECHAZADA'])
+          || (antes.estado == 'PENDIENTE' && owner(antes.emisorUid) && d.estado == 'CANCELADA')
+          || (antes.estado == 'ACEPTADA' && participantes(antes) && d.estado == 'REVOCADA'));
+    }
+
+    match /usuarios/{uid} {
+      allow get: if owner(uid);
+      allow list: if false;
+      allow create: if owner(uid) && isValidUsuario(request.resource.data)
+        && request.resource.data.creadoEn == request.time && codigoPropio(uid,request.resource.data);
+      allow update: if owner(uid) && isValidUsuario(request.resource.data)
+        && request.resource.data.get('creadoEn',null) == resource.data.get('creadoEn',null)
+        && (!('codigoVinculacion' in resource.data) || request.resource.data.codigoVinculacion == resource.data.codigoVinculacion)
+        && codigoPropio(uid,request.resource.data);
+      allow delete: if false;
+
+      match /citas/{id} {
+        allow read: if puedeConsultar(uid);
+        allow create, update: if owner(uid) && existeTitular(uid) && isValidCita(request.resource.data,id);
+        allow delete: if owner(uid) && existeTitular(uid);
+      }
+      match /medicamentos/{id} {
+        allow read: if puedeConsultar(uid);
+        allow create, update: if owner(uid) && existeTitular(uid) && isValidMedicamento(request.resource.data,id);
+        allow delete: if owner(uid) && existeTitular(uid);
+      }
+    }
+    match /codigos/{codigo} {
+      allow get: if signedIn();
+      allow list: if false;
+      allow create, update: if signedIn() && codigoValido(codigo) && isValidCodigo(request.resource.data)
+        && request.resource.data.uid == request.auth.uid
+        && (resource == null || resource.data.uid == request.auth.uid)
+        && getAfter(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.codigoVinculacion == codigo
+        && getAfter(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.nombreCompleto == request.resource.data.nombre;
+      allow delete: if false;
+    }
+    match /perfilesCompartidos/{uid} {
+      allow get: if puedeConsultar(uid);
+      allow list: if false;
+      allow create, update: if owner(uid) && isValidCompartido(request.resource.data)
+        && codigoPropio(uid,request.resource.data);
+      allow delete: if false;
+    }
+    match /invitaciones/{id} {
+      allow get: if signedIn() && (resource == null || participantes(resource.data));
+      allow list: if participantes(resource.data);
+      allow create: if signedIn() && isValidInvitacion(request.resource.data,id) && nuevaPendiente(request.resource.data);
+      allow update: if participantes(resource.data) && isValidInvitacion(request.resource.data,id)
+        && request.resource.data.emisorUid == resource.data.emisorUid
+        && request.resource.data.destinatarioUid == resource.data.destinatarioUid
+        && (cambioDeEstado(request.resource.data,resource.data)
+          || (resource.data.estado in ['RECHAZADA','CANCELADA','REVOCADA'] && nuevaPendiente(request.resource.data)));
+      allow delete: if false;
+    }
+    match /ubicaciones/{uid} {
+      allow get: if owner(uid) || (puedeConsultar(uid)
+        && get(/databases/$(database)/documents/usuarios/$(uid)).data.get('compartirUbicacion',false) == true);
+      allow list: if false;
+      allow create, update: if owner(uid) && isValidUbicacion(request.resource.data)
+        && getAfter(/databases/$(database)/documents/usuarios/$(uid)).data.get('compartirUbicacion',false) == true;
+      allow delete: if owner(uid);
+    }
+
+    function existeTitular(uid) { return exists(/databases/$(database)/documents/usuarios/$(uid)); }
+    function isValidUbicacion(d) {
+      return d.keys().hasAll(['punto','actualizadoEn']) && d.keys().hasOnly(['punto','actualizadoEn'])
+        && d.punto is latlng && d.actualizadoEn == request.time;
+    }
+    function isValidCita(d,id) {
+      return d.keys().hasAll(['id','tipo','motivo','fechaMillis','hora','minuto','modalidad'])
+        && d.keys().hasOnly(['id','personaId','tipo','especialidad','motivo','fechaMillis','hora','minuto','modalidad',
+          'institucion','direccion','enlaceVirtual','nombreMedico','notas','nombreSoporte'])
+        && d.id == id && str(d.id,128) && d.id.size() > 0 && d.get('personaId',null) == null
+        && d.tipo in ['MEDICINA_GENERAL','ESPECIALISTA','ODONTOLOGIA','EXAMENES']
+        && d.modalidad in ['PRESENCIAL','VIRTUAL'] && str(d.motivo,2000) && d.motivo.size() > 0
+        && fecha(d.fechaMillis) && d.hora is int && d.hora >= 0 && d.hora <= 23
+        && d.minuto is int && d.minuto >= 0 && d.minuto <= 59
+        && textoOpcional(d,'especialidad',200) && textoOpcional(d,'institucion',200)
+        && textoOpcional(d,'direccion',500) && enlaceValido(d)
+        && textoOpcional(d,'nombreMedico',200) && textoOpcional(d,'notas',4000)
+        && textoNulo(d,'nombreSoporte',255);
+    }
+    function horariosValidos(h) {
+      let n = h.size();
+      return h is list && n > 0 && n <= 24
+        && (n <= 0 || (h[0] is string && h[0].size() > 0 && h[0].size() <= 20))
+        && (n <= 1 || (h[1] is string && h[1].size() > 0 && h[1].size() <= 20))
+        && (n <= 2 || (h[2] is string && h[2].size() > 0 && h[2].size() <= 20))
+        && (n <= 3 || (h[3] is string && h[3].size() > 0 && h[3].size() <= 20))
+        && (n <= 4 || (h[4] is string && h[4].size() > 0 && h[4].size() <= 20))
+        && (n <= 5 || (h[5] is string && h[5].size() > 0 && h[5].size() <= 20))
+        && (n <= 6 || (h[6] is string && h[6].size() > 0 && h[6].size() <= 20))
+        && (n <= 7 || (h[7] is string && h[7].size() > 0 && h[7].size() <= 20))
+        && (n <= 8 || (h[8] is string && h[8].size() > 0 && h[8].size() <= 20))
+        && (n <= 9 || (h[9] is string && h[9].size() > 0 && h[9].size() <= 20))
+        && (n <= 10 || (h[10] is string && h[10].size() > 0 && h[10].size() <= 20))
+        && (n <= 11 || (h[11] is string && h[11].size() > 0 && h[11].size() <= 20))
+        && (n <= 12 || (h[12] is string && h[12].size() > 0 && h[12].size() <= 20))
+        && (n <= 13 || (h[13] is string && h[13].size() > 0 && h[13].size() <= 20))
+        && (n <= 14 || (h[14] is string && h[14].size() > 0 && h[14].size() <= 20))
+        && (n <= 15 || (h[15] is string && h[15].size() > 0 && h[15].size() <= 20))
+        && (n <= 16 || (h[16] is string && h[16].size() > 0 && h[16].size() <= 20))
+        && (n <= 17 || (h[17] is string && h[17].size() > 0 && h[17].size() <= 20))
+        && (n <= 18 || (h[18] is string && h[18].size() > 0 && h[18].size() <= 20))
+        && (n <= 19 || (h[19] is string && h[19].size() > 0 && h[19].size() <= 20))
+        && (n <= 20 || (h[20] is string && h[20].size() > 0 && h[20].size() <= 20))
+        && (n <= 21 || (h[21] is string && h[21].size() > 0 && h[21].size() <= 20))
+        && (n <= 22 || (h[22] is string && h[22].size() > 0 && h[22].size() <= 20))
+        && (n <= 23 || (h[23] is string && h[23].size() > 0 && h[23].size() <= 20));
+    }
+    function isValidMedicamento(d,id) {
+      return d.keys().hasAll(['id','nombre','forma','dosis','unidad','cantidadPorToma','horarios','fechaInicioMillis','tratamientoPermanente'])
+        && d.keys().hasOnly(['id','personaId','nombre','forma','dosis','unidad','cantidadPorToma','horarios','fechaInicioMillis',
+          'fechaFinMillis','tratamientoPermanente','indicaciones','nombreOrdenMedica'])
+        && d.id == id && str(d.id,128) && d.id.size() > 0 && d.get('personaId',null) == null
+        && str(d.nombre,150) && d.nombre.size() > 0 && d.forma in ['PASTILLA','JARABE','GOTAS','INYECCION']
+        && str(d.dosis,40) && d.dosis.size() > 0 && str(d.unidad,30) && d.unidad.size() > 0
+        && str(d.cantidadPorToma,30) && fecha(d.fechaInicioMillis) && d.tratamientoPermanente is bool
+        && ((d.tratamientoPermanente && d.get('fechaFinMillis',null) == null)
+          || (!d.tratamientoPermanente && fecha(d.fechaFinMillis) && d.fechaFinMillis >= d.fechaInicioMillis))
+        && textoOpcional(d,'indicaciones',4000) && textoNulo(d,'nombreOrdenMedica',255)
+        && horariosValidos(d.horarios);
+    }
+    match /{document=**} { allow read, write: if false; }
+  }
+}

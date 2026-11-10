@@ -1,5 +1,6 @@
 package com.icm2630.proyecto.ui.screens
 
+import com.icm2630.proyecto.ui.util.rememberLocationPermissionRequest
 import android.Manifest
 import android.content.ActivityNotFoundException
 import android.content.Intent
@@ -51,8 +52,6 @@ import com.icm2630.proyecto.R
 import com.icm2630.proyecto.data.model.PerfilUsuario
 import com.icm2630.proyecto.data.model.PersonaVinculada
 import com.icm2630.proyecto.data.model.PuntoMapa
-import com.icm2630.proyecto.data.model.TipoPerfil
-import com.icm2630.proyecto.data.repository.VinculacionSimulator
 import com.icm2630.proyecto.navigation.Routes
 import com.icm2630.proyecto.ui.components.HealthBottomNavigation
 import com.icm2630.proyecto.ui.components.map.MapRouteControls
@@ -124,22 +123,19 @@ private fun MapScreenContent(
     iluminacion: IluminacionMapa
 ) {
     val context = LocalContext.current
-    // El flujo actual usa familiarActivo. Se conserva compatibilidad con el rol antiguo.
-    val personaConsultada = familiar ?: perfil.personaVinculada
-        ?.takeIf { perfil.tipoPerfil == TipoPerfil.ACOMPANANTE }
-    // Mantiene la acción de llamada que tenía la pantalla del acompañante.
-    val telefonoAcompanado = perfil.personaVinculada
-        ?.takeIf { perfil.tipoPerfil == TipoPerfil.ACOMPANANTE && familiar == null }
-        ?.let { VinculacionSimulator.telefonoParaCodigo(it.codigo) }
+
+    // Persona elegida desde las invitaciones aceptadas.
+    val personaConsultada = familiar
+    val telefonoAcompanado = familiar?.telefono?.takeIf { it.isNotBlank() }
     val model: MapViewModel = viewModel(
-        key = "mapa:${perfil.codigoVinculacion}:${personaConsultada?.codigo}"
+        key = "mapa:${perfil.codigoVinculacion}:${personaConsultada?.uid}"
     )
     val token = stringResource(R.string.mapbox_access_token).trim()
     val snackbar = remember { SnackbarHostState() }
     val state by model.uiState.collectAsStateWithLifecycle()
 
 
-    // Ubicación simulada del familiar que se está consultando (Firestore).
+    // Ubicación real que la persona decidió compartir.
     LaunchedEffect(model, personaConsultada) {
         personaConsultada?.let { model.observarFamiliar(it) }
     }
@@ -159,7 +155,7 @@ private fun MapScreenContent(
             HealthBottomNavigation(
                 currentRoute = Routes.Mapa,
                 onNavigate = onNavigate,
-                rutaInicio = if (perfil.tipoPerfil == TipoPerfil.ACOMPANANTE) Routes.Monitoreo else Routes.Home
+                rutaInicio = Routes.Home
             )
         },
         snackbarHost = { SnackbarHost(snackbar) }
@@ -211,7 +207,7 @@ private fun MapScreenContent(
                 ) {
                     Text(
                         if (state.ubicacionFamiliar != null) {
-                            "Mostrando la ubicación simulada de ${it.nombre}. Pulsa Ruta para llegar hasta su posición."
+                            "Última ubicación compartida de ${it.nombre}. Pulsa Ruta para llegar hasta su posición."
                         } else {
                             "No hay una ubicación compartida de ${it.nombre}. Puedes planear una ruta desde este celular o elegir otro origen."
                         },
@@ -313,13 +309,11 @@ private fun MapContent(model: MapViewModel, token: String, permisoInicial: Boole
     var altoBusqueda by remember { mutableIntStateOf(0) }
     var altoControles by remember { mutableIntStateOf(0) }
 
-    val permisosLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permisos ->
-        preciso = permisos[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
-                tienePermiso(Manifest.permission.ACCESS_FINE_LOCATION)
-        permitido = preciso || permisos[Manifest.permission.ACCESS_COARSE_LOCATION] == true ||
-                tienePermiso(Manifest.permission.ACCESS_COARSE_LOCATION)
-        permisoRechazado = !permitido
-        usarUbicacion = permitido
+    val pedirUbicacion = rememberLocationPermissionRequest { concedido ->
+        preciso = tienePermiso(Manifest.permission.ACCESS_FINE_LOCATION)
+        permitido = concedido
+        permisoRechazado = !concedido
+        usarUbicacion = concedido
     }
     DisposableEffect(lifecycleOwner) {
         val observador = LifecycleEventObserver { _, event ->
@@ -349,9 +343,7 @@ private fun MapContent(model: MapViewModel, token: String, permisoInicial: Boole
         usarUbicacion = true
         errorUbicacion = null
         when {
-            !permitido -> permisosLauncher.launch(
-                arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
-            )
+            !permitido -> pedirUbicacion()
             !servicioActivo -> abrirAjustes(ubicacion = true)
             else -> reintento++
         }
@@ -471,7 +463,7 @@ private fun MapContent(model: MapViewModel, token: String, permisoInicial: Boole
                 state.destino?.let {
                     MapPointMarker(it.aMapbox(), "B", "Destino", colorDestino, colores.onTertiary)
                 }
-                // Familiar consultado, con su ubicación simulada (HU-16).
+                // Última ubicación compartida por la cuenta vinculada.
                 state.ubicacionFamiliar?.let { familiar ->
                     MapPointMarker(
                         familiar.aMapbox(),
@@ -606,7 +598,7 @@ private fun MapContent(model: MapViewModel, token: String, permisoInicial: Boole
 
 private fun PuntoMapa.aMapbox(): Point = Point.fromLngLat(longitud, latitud)
 
-/** Ubicación simulada del familiar consultado: centrar en el mapa o trazar ruta. */
+/** Última ubicación real compartida: centrar en el mapa o trazar ruta. */
 @Composable
 private fun UbicacionFamiliarCard(
     nombre: String,
@@ -624,7 +616,7 @@ private fun UbicacionFamiliarCard(
         ) {
             Column(Modifier.weight(1f)) {
                 Text(
-                    "Ubicación de $nombre (simulada)",
+                    "Última ubicación compartida de $nombre",
                     style = MaterialTheme.typography.bodySmall,
                     fontWeight = FontWeight.SemiBold
                 )

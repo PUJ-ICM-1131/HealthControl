@@ -10,3 +10,8 @@ local.properties
 
 # Claude Code
 .claude/worktrees/
+
+# Firebase local logs
+firebase-debug*.log
+firestore-debug.log
+ui-debug.log

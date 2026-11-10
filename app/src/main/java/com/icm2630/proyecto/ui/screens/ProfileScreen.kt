@@ -2,7 +2,7 @@ package com.icm2630.proyecto.ui.screens
 
 import android.Manifest
 import android.content.Context
-import android.graphics.Bitmap
+import com.icm2630.proyecto.ui.util.rememberPhotoActions
 import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -39,8 +39,6 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.core.content.PermissionChecker
 import coil.compose.AsyncImage
-import java.io.File
-import java.io.FileOutputStream
 import com.icm2630.proyecto.ui.components.ChipsCondiciones
 import com.icm2630.proyecto.ui.components.ChipsTipoSangre
 import com.icm2630.proyecto.ui.components.BannerFamiliar
@@ -48,8 +46,11 @@ import com.icm2630.proyecto.ui.components.HealthBottomNavigation
 import com.icm2630.proyecto.data.model.Genero
 import com.icm2630.proyecto.data.model.PerfilUsuario
 import com.icm2630.proyecto.data.model.PersonaVinculada
-import com.icm2630.proyecto.data.repository.FamiliarSimulator
-import com.icm2630.proyecto.data.repository.VinculacionSimulator
+import com.icm2630.proyecto.data.model.CodigoInvitacion
+import com.icm2630.proyecto.data.model.Invitacion
+import com.icm2630.proyecto.data.repository.SesionRepository
+import com.icm2630.proyecto.ui.viewmodel.PerfilUiState
+import com.icm2630.proyecto.ui.components.VinculacionesSection
 import com.icm2630.proyecto.navigation.Routes
 import com.icm2630.proyecto.ui.theme.Blue100
 import com.icm2630.proyecto.ui.theme.Blue500
@@ -93,12 +94,19 @@ fun ProfileScreen(
     onActualizarPerfil: (PerfilUsuario) -> Unit = {},
     onVerFamiliar: (PersonaVinculada) -> Unit = {},
     onVolverAMiPerfil: () -> Unit = {},
-    onCerrarSesion: () -> Unit = {}
+    onCerrarSesion: () -> Unit = {},
+    miUid: String = "",
+    estado: PerfilUiState = PerfilUiState(),
+    onEnviarCodigo: (String) -> Unit = {},
+    onResponder: (Invitacion, Boolean) -> Unit = { _, _ -> },
+    onCancelarSolicitud: (Invitacion) -> Unit = {},
+    onDesvincular: (Invitacion) -> Unit = {},
+    onConsumirMensaje: () -> Unit = {},
+    onConsumirEnvio: () -> Unit = {}
 ) {
     if (familiar != null) {
         PerfilFamiliar(
             familiar = familiar,
-            miNombre = perfil.nombreCompleto,
             onNavigate = onNavigate,
             onVolverAMiPerfil = onVolverAMiPerfil
         )
@@ -109,61 +117,38 @@ fun ProfileScreen(
     var mostrarOpcionesFoto by remember { mutableStateOf(false) }
     val context = LocalContext.current
 
-    // Copia local para que la pantalla refleje al instante lo editado;
-    // la fuente de verdad (SesionRepository) se actualiza vía onActualizarPerfil.
-    var datos by remember(perfil) { mutableStateOf(perfil) }
+    // El perfil cambia cuando Firestore confirma el guardado y publica el snapshot.
+    val datos = perfil
+    val snackbar = remember { SnackbarHostState() }
 
-    // Launchers para cambiar foto de perfil
-    val launcherGaleria = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
-    ) { uri: Uri? ->
-        uri?.let {
-            val actualizado = datos.copy(fotoUri = it.toString())
-            datos = actualizado
-            onActualizarPerfil(actualizado)
-        }
+    val fotos = rememberPhotoActions { uri ->
+        val actualizado = datos.copy(fotoUri = uri.toString())
+        onActualizarPerfil(actualizado)
     }
 
-    val launcherCamara = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.TakePicturePreview()
-    ) { bitmap: Bitmap? ->
-        bitmap?.let {
-            val uri = guardarBitmapEnCache(context, it)
-            uri?.let { u ->
-                val actualizado = datos.copy(fotoUri = u.toString())
-                datos = actualizado
-                onActualizarPerfil(actualizado)
-            }
-        }
+    val pedirUbicacion = com.icm2630.proyecto.ui.util.rememberLocationPermissionRequest { concedido ->
+        if (concedido) onActualizarPerfil(datos.copy(compartirUbicacion = true))
     }
-
-    val launcherPermisoCamara = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission()
-    ) { concedido ->
-        if (concedido) {
-            launcherCamara.launch(null)
-        } else {
-            Toast.makeText(context, "Permiso de cámara denegado", Toast.LENGTH_SHORT).show()
-        }
-    }
-    // Mientras no haya backend se muestran dos personas de ejemplo.
-    val personas = datos.acompanantes.ifEmpty { PERSONAS_EJEMPLO }
-    var solicitudes by remember { mutableStateOf(SOLICITUDES_EJEMPLO) }
-
-    // Un perfil creado antes de que existiera el ID recibe uno propio la primera vez.
+    val personas = datos.acompanantes
     val miId = datos.codigoVinculacion
-    LaunchedEffect(miId) {
-        if (miId == null) {
-            val conId = datos.copy(codigoVinculacion = VinculacionSimulator.generarCodigo())
-            datos = conId
-            onActualizarPerfil(conId)
-        }
-    }
     var campoEditando by remember { mutableStateOf<CampoPerfilEditable?>(null) }
 
     var mostrarAgregarPersona by remember { mutableStateOf(false) }
+    LaunchedEffect(estado.solicitudEnviada) {
+        if (estado.solicitudEnviada) {
+            mostrarAgregarPersona = false
+            onConsumirEnvio()
+        }
+    }
+    LaunchedEffect(estado.error, estado.mensaje) {
+        (estado.error ?: estado.mensaje)?.let {
+            snackbar.showSnackbar(it)
+            onConsumirMensaje()
+        }
+    }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbar) },
         bottomBar = {
             HealthBottomNavigation(
                 currentRoute = Routes.Perfil,
@@ -286,8 +271,26 @@ fun ProfileScreen(
 
             Spacer(Modifier.height(24.dp))
 
+            TarjetaBlanca {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Compartir mi ubicación", style = MaterialTheme.typography.titleSmall)
+                        Text("Solo con personas vinculadas y mientras tienes abierto el mapa.",
+                            style = MaterialTheme.typography.bodySmall)
+                    }
+                    Switch(
+                        checked = datos.compartirUbicacion,
+                        enabled = !estado.guardando,
+                        onCheckedChange = { activar ->
+                            if (activar) pedirUbicacion()
+                            else onActualizarPerfil(datos.copy(compartirUbicacion = false))
+                        }
+                    )
+                }
+            }
+            Spacer(Modifier.height(24.dp))
             // ---------- Mi ID ----------
-            SeccionTitulo("Mi ID")
+            SeccionTitulo("Mi código de invitación")
             Spacer(Modifier.height(12.dp))
             TarjetaBlanca {
                 FilaMiId(id = miId.orEmpty())
@@ -295,57 +298,12 @@ fun ProfileScreen(
 
             Spacer(Modifier.height(24.dp))
 
-            // ---------- Personas en mi HealthControl ----------
-            SeccionTitulo("Personas en mi HealthControl")
-            Spacer(Modifier.height(12.dp))
-            TarjetaBlanca {
-                personas.forEachIndexed { indice, persona ->
-                    if (indice > 0) DivisorFila()
-                    FilaPersona(
-                        persona = persona,
-                        colorIndice = indice,
-                        onClick = { onVerFamiliar(persona) }
-                    )
-                }
-
-                if (personas.isNotEmpty()) DivisorFila()
-
-                FilaAgregarPersona(onClick = { mostrarAgregarPersona = true })
-            }
-
-            Spacer(Modifier.height(24.dp))
-
-            // ---------- Solicitudes ----------
-            SeccionTitulo("Solicitudes")
-            Spacer(Modifier.height(12.dp))
-            TarjetaBlanca {
-                if (solicitudes.isEmpty()) {
-                    Text(
-                        text = "No tienes solicitudes pendientes",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = TextSecondary
-                    )
-                }
-                solicitudes.forEachIndexed { indice, solicitud ->
-                    if (indice > 0) DivisorFila()
-                    FilaSolicitud(
-                        solicitud = solicitud,
-                        colorIndice = personas.size + indice,
-                        onAceptar = {
-                            // Si ya está en la lista (mismo ID) no se duplica.
-                            val yaEsta = personas.any { it.codigo == solicitud.codigo }
-                            val actualizado = datos.copy(
-                                acompanantes = if (yaEsta) personas else personas + solicitud
-                            )
-                            datos = actualizado
-                            onActualizarPerfil(actualizado)
-                            solicitudes = solicitudes - solicitud
-                        },
-                        onRechazar = { solicitudes = solicitudes - solicitud }
-                    )
-                }
-            }
-
+            VinculacionesSection(
+                miUid = miUid, personas = personas, estado = estado,
+                onAgregar = { mostrarAgregarPersona = true },
+                onVer = onVerFamiliar, onResponder = onResponder,
+                onCancelar = onCancelarSolicitud, onDesvincular = onDesvincular
+            )
             Spacer(Modifier.height(24.dp))
 
             // ---------- Cerrar sesión ----------
@@ -390,7 +348,6 @@ fun ProfileScreen(
             campo = campo,
             perfil = datos,
             onGuardar = { nuevo ->
-                datos = nuevo
                 onActualizarPerfil(nuevo)
                 campoEditando = null
             },
@@ -423,28 +380,18 @@ fun ProfileScreen(
 
     if (mostrarAgregarPersona) {
         DialogoAgregarPersona(
-            onConfirmar = { nueva ->
-                val actualizado = datos.copy(acompanantes = personas + nueva)
-                datos = actualizado
-                onActualizarPerfil(actualizado)
-                mostrarAgregarPersona = false
-            },
+            guardando = estado.guardando,
+            errorServidor = estado.error,
+            onConfirmar = onEnviarCodigo,
             onCancelar = { mostrarAgregarPersona = false }
         )
     }
 
     if (mostrarOpcionesFoto) {
         DialogoSeleccionarFoto(
-            onCamara = {
-                val camaraPermission = ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA)
-                if (camaraPermission == PermissionChecker.PERMISSION_GRANTED) {
-                    launcherCamara.launch(null)
-                } else {
-                    launcherPermisoCamara.launch(Manifest.permission.CAMERA)
-                }
-            },
+            onCamara = fotos.camara,
             onGaleria = {
-                launcherGaleria.launch("image/*")
+                fotos.galeria()
             },
             onCerrar = { mostrarOpcionesFoto = false }
         )
@@ -455,17 +402,6 @@ fun ProfileScreen(
 /*  Componentes                                                      */
 /* ---------------------------------------------------------------- */
 
-private fun guardarBitmapEnCache(context: Context, bitmap: Bitmap): Uri? {
-    return try {
-        val file = File(context.cacheDir, "foto_perfil_${System.currentTimeMillis()}.jpg")
-        FileOutputStream(file).use { out ->
-            bitmap.compress(Bitmap.CompressFormat.JPEG, 90, out)
-        }
-        Uri.fromFile(file)
-    } catch (e: Exception) {
-        null
-    }
-}
 
 @Composable
 private fun DialogoSeleccionarFoto(
@@ -661,16 +597,6 @@ private fun FilaDato(
     }
 }
 
-private val PERSONAS_EJEMPLO = listOf(
-    PersonaVinculada(nombre = "Elena Ramírez", relacion = "Madre", codigo = "HC4F7K"),
-    PersonaVinculada(nombre = "Carlos Gómez", relacion = "Hermano", codigo = "HC9M2P")
-)
-
-private val SOLICITUDES_EJEMPLO = listOf(
-    PersonaVinculada(nombre = "Lucía Torres", relacion = "Familiar", codigo = "HC7Q3N"),
-    PersonaVinculada(nombre = "Elena Ramírez", relacion = "Madre", codigo = "HC4F7K")
-)
-
 private val ColoresAvatar = listOf(
     Color(0xFF2F6FDE), Color(0xFF1FA37A), Color(0xFFE08A1E), Color(0xFF8E5BD9)
 )
@@ -701,38 +627,6 @@ private fun AvatarPersona(nombre: String, colorIndice: Int, tamano: Dp = 52.dp) 
     }
 }
 
-@Composable
-private fun FilaPersona(persona: PersonaVinculada, colorIndice: Int, onClick: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
-            .clickable(onClick = onClick)
-            .padding(vertical = 6.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        AvatarPersona(persona.nombre, colorIndice)
-        Spacer(Modifier.width(14.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = persona.nombre,
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.SemiBold,
-                color = TextPrimary
-            )
-            Text(
-                text = persona.relacion.ifBlank { "Familiar" },
-                style = MaterialTheme.typography.bodySmall,
-                color = TextSecondary
-            )
-        }
-        Icon(
-            Icons.Outlined.ChevronRight,
-            contentDescription = "Ver perfil de ${persona.nombre}",
-            tint = Blue500
-        )
-    }
-}
 
 /* ---------------------------------------------------------------- */
 /*  Perfil de un familiar (solo lectura)                             */
@@ -741,13 +635,11 @@ private fun FilaPersona(persona: PersonaVinculada, colorIndice: Int, onClick: ()
 @Composable
 private fun PerfilFamiliar(
     familiar: PersonaVinculada,
-    miNombre: String,
     onNavigate: (Routes) -> Unit,
     onVolverAMiPerfil: () -> Unit
 ) {
-    val datos = remember(familiar) {
-        FamiliarSimulator.perfilDe(familiar, contactoEmergencia = miNombre)
-    }
+    val datos = SesionRepository.perfilesVinculados[familiar.uid]
+        ?: PerfilUsuario(nombreCompleto = familiar.nombre)
 
     Scaffold(
         bottomBar = {
@@ -821,7 +713,7 @@ private fun PerfilFamiliar(
             TarjetaBlanca {
                 FilaDato(Icons.Outlined.Bloodtype, "Tipo de sangre", datos.tipoSangre?.etiqueta ?: SIN_ESPECIFICAR)
                 DivisorFila()
-                FilaDato(Icons.Outlined.Warning, "Alergias", datos.alergias.ifBlank { "Ninguna conocida" })
+                FilaDato(Icons.Outlined.Warning, "Alergias", datos.alergias.ifBlank { SIN_ESPECIFICAR })
                 DivisorFila()
                 FilaDato(
                     Icons.Outlined.MedicalServices,
@@ -845,35 +737,6 @@ private fun PerfilFamiliar(
     }
 }
 
-@Composable
-private fun FilaAgregarPersona(onClick: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
-            .clickable(onClick = onClick)
-            .padding(vertical = 6.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(
-            modifier = Modifier
-                .size(52.dp)
-                .background(Blue100.copy(alpha = 0.4f), CircleShape),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(Icons.Outlined.PersonAdd, null, tint = Blue700, modifier = Modifier.size(24.dp))
-        }
-        Spacer(Modifier.width(14.dp))
-        Text(
-            text = "Añadir una nueva persona en mi HealthControl",
-            style = MaterialTheme.typography.bodyLarge,
-            fontWeight = FontWeight.SemiBold,
-            color = Blue700,
-            modifier = Modifier.weight(1f)
-        )
-        Icon(Icons.Outlined.ChevronRight, null, tint = Blue500)
-    }
-}
 
 @Composable
 private fun FilaMiId(id: String) {
@@ -920,118 +783,47 @@ private fun FilaMiId(id: String) {
     }
 }
 
-@Composable
-private fun FilaSolicitud(
-    solicitud: PersonaVinculada,
-    colorIndice: Int,
-    onAceptar: () -> Unit,
-    onRechazar: () -> Unit
-) {
-    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            AvatarPersona(solicitud.nombre, colorIndice)
-            Spacer(Modifier.width(14.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = solicitud.nombre,
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.SemiBold,
-                    color = TextPrimary
-                )
-                Text(
-                    text = "ID: ${solicitud.codigo}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = TextSecondary
-                )
-                Text(
-                    text = "Quiere añadirte en su HealthControl",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = TextSecondary
-                )
-            }
-        }
-        Spacer(Modifier.height(12.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            OutlinedButton(
-                onClick = onRechazar,
-                modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = ErrorRed),
-                border = BorderStroke(1.dp, ErrorRed.copy(alpha = 0.6f))
-            ) {
-                Icon(Icons.Outlined.Close, null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(6.dp))
-                Text("Rechazar")
-            }
-            Button(
-                onClick = onAceptar,
-                modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Blue700, contentColor = Color.White)
-            ) {
-                Icon(Icons.Outlined.Check, null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(6.dp))
-                Text("Aceptar")
-            }
-        }
-    }
-}
 
-/** Pide el ID de la persona a añadir. Sin backend, el ID se resuelve con el simulador. */
+/** El código envía una solicitud real; no crea personas ni concede acceso localmente. */
 @Composable
 private fun DialogoAgregarPersona(
-    onConfirmar: (PersonaVinculada) -> Unit,
+    guardando: Boolean,
+    errorServidor: String?,
+    onConfirmar: (String) -> Unit,
     onCancelar: () -> Unit
 ) {
-    var id by remember { mutableStateOf("") }
-    var error by remember { mutableStateOf<String?>(null) }
-
+    var codigo by remember { mutableStateOf("") }
+    var errorLocal by remember { mutableStateOf<String?>(null) }
     AlertDialog(
-        onDismissRequest = onCancelar,
-        title = { Text("Añadir una persona") },
+        onDismissRequest = { if (!guardando) onCancelar() },
+        title = { Text("Enviar solicitud") },
         text = {
             Column {
-                Text(
-                    "Ingresa el ID de la persona que quieres añadir a tu HealthControl.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = TextSecondary
-                )
+                Text("Ingresa el código que la otra persona ve en su perfil. Cuando acepte, ambos podrán consultar sus datos de salud compartidos.",
+                    style = MaterialTheme.typography.bodySmall)
                 Spacer(Modifier.height(12.dp))
                 OutlinedTextField(
-                    value = id,
+                    value = codigo,
                     onValueChange = {
-                        id = it.uppercase().filter { c -> c.isLetterOrDigit() }.take(VinculacionSimulator.LONGITUD_CODIGO)
-                        error = null
+                        codigo = CodigoInvitacion.normalizar(it).filter { c -> c.isLetterOrDigit() }
+                            .take(CodigoInvitacion.LONGITUD)
+                        errorLocal = null
                     },
-                    label = { Text("ID de la persona") },
-                    placeholder = { Text("Ej. 7K3PQ9") },
+                    label = { Text("Código de invitación") },
                     singleLine = true,
+                    enabled = !guardando,
                     modifier = Modifier.fillMaxWidth()
                 )
-                error?.let {
-                    Spacer(Modifier.height(8.dp))
-                    Text(it, color = ErrorRed, style = MaterialTheme.typography.bodySmall)
-                }
+                (errorLocal ?: errorServidor)?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             }
         },
         confirmButton = {
-            TextButton(onClick = {
-                if (id.length != VinculacionSimulator.LONGITUD_CODIGO) {
-                    error = "El ID debe tener ${VinculacionSimulator.LONGITUD_CODIGO} caracteres"
-                } else {
-                    onConfirmar(
-                        PersonaVinculada(
-                            nombre = VinculacionSimulator.nombreParaCodigo(id),
-                            relacion = "Familiar",
-                            codigo = id
-                        )
-                    )
-                }
-            }) { Text("Añadir", color = Blue700) }
+            TextButton(enabled = !guardando, onClick = {
+                if (!CodigoInvitacion.esValido(codigo)) errorLocal = "Revisa las seis letras o números del código."
+                else onConfirmar(codigo)
+            }) { Text(if (guardando) "Enviando…" else "Enviar solicitud") }
         },
-        dismissButton = {
-            TextButton(onClick = onCancelar) { Text("Cancelar", color = TextSecondary) }
-        }
+        dismissButton = { TextButton(enabled = !guardando, onClick = onCancelar) { Text("Cancelar") } }
     )
 }
 

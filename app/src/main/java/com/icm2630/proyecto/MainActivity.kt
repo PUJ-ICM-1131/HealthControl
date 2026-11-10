@@ -9,13 +9,13 @@ import androidx.compose.ui.Modifier
 import androidx.fragment.app.FragmentActivity
 import com.icm2630.proyecto.navigation.AppNavigation
 import com.icm2630.proyecto.ui.theme.HealthControlTheme
-import com.icm2630.proyecto.data.remote.FirebaseDb
+import com.icm2630.proyecto.data.repository.AdjuntosLocales
 
 class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        FirebaseDb.probarConexion()
+        AdjuntosLocales.inicializar(applicationContext)
         setContent {
             HealthControlTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {

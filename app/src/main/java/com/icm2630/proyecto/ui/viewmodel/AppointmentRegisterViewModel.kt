@@ -1,12 +1,14 @@
 package com.icm2630.proyecto.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.CancellationException
 import com.icm2630.proyecto.data.model.Cita
 import com.icm2630.proyecto.data.model.ModalidadCita
 import com.icm2630.proyecto.data.model.TipoCita
-import com.icm2630.proyecto.data.model.TipoPerfil
 import com.icm2630.proyecto.data.repository.CitaRepository
-import com.icm2630.proyecto.data.repository.PersonaRepository
+import com.icm2630.proyecto.data.repository.VinculacionRepository
 import com.icm2630.proyecto.data.repository.SesionRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -38,20 +40,8 @@ class AppointmentRegisterViewModel : ViewModel() {
                 ?: return
 
 
-        val personas =
-            if (
-                perfilUsuario.tipoPerfil ==
-                TipoPerfil.ACOMPANANTE
-            ) {
-
-                PersonaRepository
-                    .obtenerPersonasAsociadas()
-
-            } else {
-
-                emptyList()
-            }
-
+        // Los vínculos autorizan consulta. Cada cuenta registra sus propios datos.
+        val personas = emptyList<com.icm2630.proyecto.data.model.PersonaVinculada>()
 
         _uiState.value =
             _uiState.value.copy(
@@ -335,7 +325,8 @@ class AppointmentRegisterViewModel : ViewModel() {
 
         val estado = _uiState.value
 
-        if (!estado.formularioValido) {
+        if (estado.guardando) return
+        if (SesionRepository.familiarActivo != null || !estado.formularioValido) {
 
             _uiState.value = estado.copy(
                     mensajeError =
@@ -382,18 +373,19 @@ class AppointmentRegisterViewModel : ViewModel() {
                 nombreSoporte = estado.nombreSoporte
             )
 
-        // ACTUALIZAR O REGISTRAR
-        if (estado.citaId != null) {
-            CitaRepository.actualizar(cita)
-        } else {
-            CitaRepository.registrar(cita)
+        // Se conserva el ID al reintentar para no crear registros duplicados.
+        _uiState.value = _uiState.value.copy(citaId = cita.id)
+        viewModelScope.launch {
+            try {
+                CitaRepository.registrar(cita)
+                _uiState.value = _uiState.value.copy(guardando = false, guardadoExitoso = true)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(guardando = false,
+                    mensajeError = "No se pudo guardar. Revisa la conexión y los datos del formulario.")
+            }
         }
-
-        _uiState.value = _uiState.value.copy(
-                citaId = cita.id,
-                guardando = false,
-                guardadoExitoso = true
-            )
     }
 
     // EVENTOS DE UI

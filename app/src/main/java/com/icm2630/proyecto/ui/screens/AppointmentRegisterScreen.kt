@@ -3,7 +3,7 @@ package com.icm2630.proyecto.ui.screens
 import android.Manifest
 import android.app.TimePickerDialog
 import android.content.Context
-import android.graphics.Bitmap
+import com.icm2630.proyecto.ui.util.rememberPhotoActions
 import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -66,9 +66,8 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.PermissionChecker
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.icm2630.proyecto.data.model.ModalidadCita
-import com.icm2630.proyecto.data.model.Persona
+import com.icm2630.proyecto.data.model.PersonaVinculada
 import com.icm2630.proyecto.data.model.TipoCita
-import com.icm2630.proyecto.data.model.TipoPerfil
 import com.icm2630.proyecto.ui.components.appointment.AppointmentAttachmentCard
 import com.icm2630.proyecto.ui.components.appointment.AppointmentDateTimeCard
 import com.icm2630.proyecto.ui.components.appointment.AppointmentLocationCard
@@ -82,8 +81,6 @@ import com.icm2630.proyecto.ui.theme.TextPrimary
 import com.icm2630.proyecto.ui.theme.TextSecondary
 import com.icm2630.proyecto.ui.util.obtenerNombreArchivo
 import com.icm2630.proyecto.ui.viewmodel.AppointmentRegisterViewModel
-import java.io.File
-import java.io.FileOutputStream
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -118,29 +115,8 @@ fun AppointmentRegisterScreen(
         mutableStateOf(false)
     }
 
-    // LAUNCHER PARA CÁMARA
-    val camaraLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.TakePicturePreview()
-    ) { bitmap: Bitmap? ->
-        bitmap?.let {
-            val uri = guardarBitmapEnCacheCita(context, it)
-            uri?.let { u ->
-                viewModel.onSoporteSeleccionado(
-                    uri = u.toString(),
-                    nombreArchivo = "soporte_cita_foto.jpg"
-                )
-            }
-        }
-    }
-
-    val permisoCamaraLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission()
-    ) { concedido ->
-        if (concedido) {
-            camaraLauncher.launch(null)
-        } else {
-            Toast.makeText(context, "Permiso de cámara denegado", Toast.LENGTH_SHORT).show()
-        }
+    val fotos = rememberPhotoActions { uri ->
+        viewModel.onSoporteSeleccionado(uri.toString(), "soporte_cita_foto.jpg")
     }
 
     val modoEdicion = citaId != null
@@ -198,6 +174,11 @@ fun AppointmentRegisterScreen(
         ) { uri ->
 
             if (uri != null) {
+                try {
+                    context.contentResolver.takePersistableUriPermission(uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                } catch (_: SecurityException) {
+                    // El proveedor puede limitar el acceso al documento a esta sesión.
+                }
 
                 val nombreArchivo =
                     obtenerNombreArchivo(
@@ -213,51 +194,12 @@ fun AppointmentRegisterScreen(
         }
 
     // PERSONA A MOSTRAR
-    val nombrePersona =
-        when (state.perfilUsuario?.tipoPerfil) {
-
-            TipoPerfil.TITULAR -> {
-                state.perfilUsuario
-                    ?.nombreCompleto
-                    ?.ifBlank { "Yo" }
-                    ?: "Yo"
-            }
-
-            TipoPerfil.ACOMPANANTE -> {
-                if (state.citaParaMi) {
-                    state.perfilUsuario
-                        ?.nombreCompleto
-                        ?.ifBlank { "Yo" }
-                        ?: "Yo"
-
-                } else {
-                    state.personaSeleccionada
-                        ?.nombreCompleto
-                        ?: "Selecciona una persona"
-                }
-            }
-
-            null -> {
-                "Yo"
-            }
-        }
-
-
-    val tipoPersona =
-        when {
-
-            state.perfilUsuario?.tipoPerfil == TipoPerfil.TITULAR -> {
-                "Mi perfil"
-            }
-
-            state.citaParaMi -> {
-                "Mi perfil"
-            }
-
-            else -> {
-                "Persona asociada"
-            }
-        }
+    val nombrePersona = if (state.citaParaMi) {
+        state.perfilUsuario?.nombreCompleto?.ifBlank { "Yo" } ?: "Yo"
+    } else {
+        state.personaSeleccionada?.nombreCompleto ?: "Selecciona una persona"
+    }
+    val tipoPersona = if (state.citaParaMi) "Mi perfil" else "Persona vinculada"
 
     Scaffold(
 
@@ -414,8 +356,7 @@ fun AppointmentRegisterScreen(
                 personType = tipoPersona,
 
                 canChangePerson =
-                    state.perfilUsuario?.tipoPerfil ==
-                            TipoPerfil.ACOMPANANTE,
+                    state.personasAsociadas.isNotEmpty(),
 
                 onChangePerson = {
                     showPersonDialog = true
@@ -763,14 +704,7 @@ fun AppointmentRegisterScreen(
                     )
                 )
             },
-            onCamara = {
-                val camaraPermission = ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA)
-                if (camaraPermission == PermissionChecker.PERMISSION_GRANTED) {
-                    camaraLauncher.launch(null)
-                } else {
-                    permisoCamaraLauncher.launch(Manifest.permission.CAMERA)
-                }
-            },
+                onCamara = fotos.camara,
             onCerrar = { showAttachmentDialog = false }
         )
     }
@@ -834,12 +768,12 @@ fun AppointmentRegisterScreen(
 // SELECTOR DE PERSONA
 @Composable
 private fun AppointmentPersonSelectorDialog(
-    personas: List<Persona>,
+    personas: List<PersonaVinculada>,
     citaParaMi: Boolean,
     selectedPersonId: String?,
     onDismiss: () -> Unit,
     onSelectSelf: () -> Unit,
-    onPersonSelected: (Persona) -> Unit
+    onPersonSelected: (PersonaVinculada) -> Unit
 ) {
 
     AlertDialog(
@@ -1084,17 +1018,6 @@ private fun formatAppointmentDate(
     )
 }
 
-private fun guardarBitmapEnCacheCita(context: Context, bitmap: Bitmap): Uri? {
-    return try {
-        val file = File(context.cacheDir, "soporte_cita_${System.currentTimeMillis()}.jpg")
-        FileOutputStream(file).use { out ->
-            bitmap.compress(Bitmap.CompressFormat.JPEG, 90, out)
-        }
-        Uri.fromFile(file)
-    } catch (e: Exception) {
-        null
-    }
-}
 
 @Composable
 private fun DialogoAdjuntarSoporte(

@@ -53,7 +53,7 @@ fun AlertaCaidaDialog(
             delay(1000L)
             segundosRestantes--
         }
-        // Si la cuenta regresiva llega a 0, llamar automáticamente al cuidador
+        // Se abre el marcador; Android requiere que el usuario confirme la llamada.
         ringtone?.stop()
         llamarCuidador(context, telefonoCuidador)
         onCerrarAlerta()
@@ -98,7 +98,9 @@ fun AlertaCaidaDialog(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(
-                    text = "Detectamos un movimiento o impacto brusco. Confirma que te encuentras bien o se llamará a tu cuidador.",
+                    text = if (telefonoCuidador.any { it.isDigit() })
+                        "Detectamos un movimiento o impacto brusco. Confirma que estás bien; al finalizar se abrirá el marcador con tu contacto de emergencia."
+                    else "Detectamos un movimiento o impacto brusco. No tienes un teléfono de emergencia configurado; puedes añadirlo en tu perfil.",
                     style = MaterialTheme.typography.bodyMedium,
                     textAlign = TextAlign.Center,
                     color = TextSecondary
@@ -129,6 +131,7 @@ fun AlertaCaidaDialog(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Button(
+                    enabled = telefonoCuidador.any { it.isDigit() },
                     onClick = {
                         ringtone?.stop()
                         llamarCuidador(context, telefonoCuidador)
@@ -165,9 +168,10 @@ fun AlertaCaidaDialog(
 
 private fun llamarCuidador(context: Context, numero: String) {
     try {
-        val telefonoValido = numero.ifBlank { "3001234567" }
+        val telefonoValido = numero.filter { it.isDigit() || it == '+' }.take(30)
+        if (telefonoValido.none { it.isDigit() }) return
         val intent = Intent(Intent.ACTION_DIAL).apply {
-            data = Uri.parse("tel:$telefonoValido")
+            data = Uri.fromParts("tel", telefonoValido, null)
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
         context.startActivity(intent)

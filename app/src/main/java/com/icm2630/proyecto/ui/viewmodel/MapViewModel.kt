@@ -17,7 +17,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
 import com.google.firebase.firestore.ListenerRegistration
 import com.icm2630.proyecto.data.model.PersonaVinculada
-import com.icm2630.proyecto.data.repository.FamiliarSimulator
+import com.icm2630.proyecto.data.repository.UbicacionRepository
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.collect
 import com.icm2630.proyecto.data.repository.SesionRepository
 
 /** Solo administra el mapa: no modifica perfiles, invitaciones ni familiares. */
@@ -32,27 +34,40 @@ class MapViewModel(application: Application) : AndroidViewModel(application) {
     private var revisionRuta = 0
     private var revisionBusqueda = 0
 
-    private var escuchaFamiliar: ListenerRegistration? = null
+    private var escuchaFamiliar: Job? = null
+    private var ultimaPublicacionMillis = 0L
+    private var publicando = false
 
-    /** Empieza a escuchar la ubicación simulada del familiar que se está consultando. */
+    /** Escucha coordenadas publicadas por la otra cuenta, nunca genera posiciones. */
     fun observarFamiliar(persona: PersonaVinculada) {
-        if (escuchaFamiliar != null) return
-        val uid = runCatching { SesionRepository.uidActual }.getOrNull() ?: return
-        escuchaFamiliar = FamiliarSimulator.escucharUbicacion(
-            uid = uid,
-            persona = persona,
-            onUbicacion = { punto, momento ->
-                _uiState.update { it.copy(ubicacionFamiliar = punto, momentoFamiliarMillis = momento) }
-            },
-            onError = {
-                _uiState.update { it.copy(mensajeError = "No se pudo cargar la ubicación de ${persona.nombre}.") }
+        escuchaFamiliar?.cancel()
+        escuchaFamiliar = viewModelScope.launch {
+            UbicacionRepository.observar(persona.uid, persona.nombre).catch {
+                _uiState.update { it.copy(ubicacionFamiliar = null, momentoFamiliarMillis = null) }
+            }.collect { dato ->
+                _uiState.update { it.copy(ubicacionFamiliar = dato?.punto, momentoFamiliarMillis = dato?.momentoMillis) }
             }
-        )
+        }
     }
 
-    override fun onCleared() {
-        escuchaFamiliar?.remove()
-        super.onCleared()
+    private fun publicarUbicacion(punto: PuntoMapa) {
+        if (!SesionRepository.haySesionGuardada || SesionRepository.perfil?.compartirUbicacion != true) return
+        val ahora = android.os.SystemClock.elapsedRealtime()
+        if (publicando || ahora - ultimaPublicacionMillis < 10_000L) return
+        ultimaPublicacionMillis = ahora
+        val uid = SesionRepository.uidActual
+        publicando = true
+        viewModelScope.launch {
+            try {
+                UbicacionRepository.guardar(uid, punto)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _uiState.update { it.copy(mensajeError = "No se pudo compartir tu ubicación. Revisa tu conexión.") }
+            } finally {
+                publicando = false
+            }
+        }
     }
 
     /** Pone al familiar como destino y calcula la ruta desde el origen actual (o mi ubicación). */
@@ -79,6 +94,7 @@ class MapViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun actualizarUbicacion(punto: PuntoMapa, precision: Float?, momentoMillis: Long) {
+        publicarUbicacion(punto)
         _uiState.update { actual ->
             if (momentoMillis < (actual.momentoUbicacionMillis ?: 0L)) return@update actual
             actual.copy(
@@ -222,6 +238,8 @@ class MapViewModel(application: Application) : AndroidViewModel(application) {
     fun limpiarError() = _uiState.update { it.copy(mensajeError = null) }
 
     fun cancelarOperaciones() {
+        escuchaFamiliar?.cancel()
+        escuchaFamiliar = null
         invalidarRuta(borrarResultado = false)
         cancelarBusqueda()
     }

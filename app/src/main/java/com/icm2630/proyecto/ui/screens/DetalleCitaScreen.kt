@@ -32,7 +32,7 @@ import coil.compose.AsyncImage
 import com.icm2630.proyecto.data.model.Cita
 import com.icm2630.proyecto.data.model.ModalidadCita
 import com.icm2630.proyecto.data.repository.CitaRepository
-import com.icm2630.proyecto.data.repository.PersonaRepository
+import com.icm2630.proyecto.data.repository.VinculacionRepository
 import com.icm2630.proyecto.data.repository.SesionRepository
 import com.icm2630.proyecto.ui.components.descripcionConParentesco
 import com.icm2630.proyecto.ui.theme.Blue100
@@ -42,6 +42,8 @@ import com.icm2630.proyecto.ui.theme.ErrorRed
 import com.icm2630.proyecto.ui.theme.TextPrimary
 import com.icm2630.proyecto.ui.theme.TextSecondary
 import java.text.SimpleDateFormat
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.runtime.LaunchedEffect
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
@@ -60,6 +62,15 @@ fun DetalleCitaScreen(
 ) {
 
 
+    val acciones: com.icm2630.proyecto.ui.viewmodel.DetalleRegistroViewModel =
+        androidx.lifecycle.viewmodel.compose.viewModel(key = "cita:${citaId}")
+    val estadoAcciones by acciones.uiState.collectAsStateWithLifecycle()
+    LaunchedEffect(estadoAcciones.eliminado) {
+        if (estadoAcciones.eliminado) {
+            acciones.consumirEliminado()
+            onEliminar()
+        }
+    }
     val cita = CitaRepository.obtenerPorId(citaId)
 
     var mostrarDialogoEliminar by remember { mutableStateOf(false) }
@@ -226,7 +237,7 @@ fun DetalleCitaScreen(
                         DetalleCampo(
                             icono = Icons.Outlined.Group,
                             etiqueta = "Paciente",
-                            valor = PersonaRepository.obtenerPorId(cita.personaId)?.nombreCompleto
+                            valor = VinculacionRepository.obtenerPorId(cita.personaId)?.nombreCompleto
                                 ?: "Familiar"
                         )
                     }
@@ -397,15 +408,17 @@ fun DetalleCitaScreen(
                     },
 
                     text = {
-                        Text("¿Seguro que deseas eliminar esta cita? Esta acción no se puede deshacer.")
+                        Column {
+                            Text("¿Seguro que deseas eliminar esta cita? Esta acción no se puede deshacer.")
+                            estadoAcciones.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                        }
                     },
 
                     confirmButton = {
                         TextButton(
+                            enabled = !estadoAcciones.eliminando,
                             onClick = {
-                                CitaRepository.eliminar(citaId)
-                                mostrarDialogoEliminar = false
-                                onEliminar()
+                                acciones.eliminarCita(citaId)
                             }
                         ) {
                             Text("Eliminar", color = ErrorRed)

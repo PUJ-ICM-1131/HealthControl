@@ -31,7 +31,7 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.icm2630.proyecto.data.model.Medicamento
 import com.icm2630.proyecto.data.repository.MedicamentoRepository
-import com.icm2630.proyecto.data.repository.PersonaRepository
+import com.icm2630.proyecto.data.repository.VinculacionRepository
 import com.icm2630.proyecto.data.repository.SesionRepository
 import com.icm2630.proyecto.ui.components.descripcionConParentesco
 import com.icm2630.proyecto.ui.theme.Blue100
@@ -41,6 +41,8 @@ import com.icm2630.proyecto.ui.theme.ErrorRed
 import com.icm2630.proyecto.ui.theme.TextPrimary
 import com.icm2630.proyecto.ui.theme.TextSecondary
 import java.text.SimpleDateFormat
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.runtime.LaunchedEffect
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
@@ -59,6 +61,15 @@ fun DetalleMedicamentoScreen(
 ) {
 
 
+    val acciones: com.icm2630.proyecto.ui.viewmodel.DetalleRegistroViewModel =
+        androidx.lifecycle.viewmodel.compose.viewModel(key = "medicamento:${medicamentoId}")
+    val estadoAcciones by acciones.uiState.collectAsStateWithLifecycle()
+    LaunchedEffect(estadoAcciones.eliminado) {
+        if (estadoAcciones.eliminado) {
+            acciones.consumirEliminado()
+            onEliminar()
+        }
+    }
     val medicamento = MedicamentoRepository.obtenerPorId(medicamentoId)
 
     var mostrarDialogoEliminar by remember { mutableStateOf(false) }
@@ -178,7 +189,7 @@ fun DetalleMedicamentoScreen(
                         DetalleCampoMedicamento(
                             icono = Icons.Outlined.Group,
                             etiqueta = "Paciente",
-                            valor = PersonaRepository.obtenerPorId(medicamento.personaId)?.nombreCompleto
+                            valor = VinculacionRepository.obtenerPorId(medicamento.personaId)?.nombreCompleto
                                 ?: "Familiar"
                         )
                     }
@@ -357,15 +368,17 @@ fun DetalleMedicamentoScreen(
                     },
 
                     text = {
-                        Text("¿Seguro que deseas eliminar este medicamento? Esta acción no se puede deshacer.")
+                        Column {
+                            Text("¿Seguro que deseas eliminar este medicamento? Esta acción no se puede deshacer.")
+                            estadoAcciones.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                        }
                     },
 
                     confirmButton = {
                         TextButton(
+                            enabled = !estadoAcciones.eliminando,
                             onClick = {
-                                MedicamentoRepository.eliminar(medicamentoId)
-                                mostrarDialogoEliminar = false
-                                onEliminar()
+                                acciones.eliminarMedicamento(medicamentoId)
                             }
                         ) {
                             Text("Eliminar", color = ErrorRed)

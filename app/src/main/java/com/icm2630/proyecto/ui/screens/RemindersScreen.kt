@@ -31,7 +31,7 @@ import com.icm2630.proyecto.data.model.ModalidadCita
 import com.icm2630.proyecto.data.model.TipoCita
 import com.icm2630.proyecto.data.repository.CitaRepository
 import com.icm2630.proyecto.data.repository.MedicamentoRepository
-import com.icm2630.proyecto.data.repository.PersonaRepository
+import com.icm2630.proyecto.data.repository.VinculacionRepository
 import com.icm2630.proyecto.data.repository.SesionRepository
 import com.icm2630.proyecto.ui.components.BannerFamiliar
 import com.icm2630.proyecto.ui.components.HealthBottomNavigation
@@ -528,7 +528,7 @@ private fun construirPacientes(): List<PacienteFiltro> {
         pendientes = contarPendientes(null)
     )
 
-    val asociados = PersonaRepository.obtenerPersonasAsociadas().map { persona ->
+    val asociados = VinculacionRepository.obtenerPersonasAsociadas().map { persona ->
         PacienteFiltro(
             personaId = persona.id,
             nombre = persona.nombre,

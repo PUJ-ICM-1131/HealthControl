@@ -11,8 +11,7 @@ import com.icm2630.proyecto.navigation.Routes
 
 /**
  * [rutaInicio] es a qué destino lleva y qué resalta la pestaña "Inicio".
- * Un titular usa [Routes.Home]; un acompañante usa [Routes.Monitoreo], que
- * es su propia home (HU-25) pero comparte esta misma barra inferior.
+ * Todas las cuentas comparten el mismo inicio y pueden consultar perfiles invitados.
  * Mientras se ve el perfil de un familiar se oculta "Registrar" (solo lectura).
  */
 @Composable

@@ -33,7 +33,7 @@ import com.icm2630.proyecto.data.model.PerfilUsuario
 import com.icm2630.proyecto.data.model.PersonaVinculada
 import com.icm2630.proyecto.data.repository.CitaRepository
 import com.icm2630.proyecto.data.repository.MedicamentoRepository
-import com.icm2630.proyecto.data.repository.PersonaRepository
+import com.icm2630.proyecto.data.repository.VinculacionRepository
 import com.icm2630.proyecto.navigation.Routes
 import com.icm2630.proyecto.ui.components.BannerFamiliar
 import com.icm2630.proyecto.ui.components.HealthBottomNavigation
@@ -626,7 +626,7 @@ private fun etiquetaPacienteHome(personaId: String?, nombrePropio: String): Stri
     if (personaId == null) {
         nombrePropio
     } else {
-        PersonaRepository.obtenerPorId(personaId)?.nombre ?: "Familiar"
+        VinculacionRepository.obtenerPorId(personaId)?.nombre ?: "Familiar"
     }
 
 private fun cuandoCita(cita: Cita, hoy: Long): String {

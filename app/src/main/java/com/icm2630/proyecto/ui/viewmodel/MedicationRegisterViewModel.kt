@@ -1,11 +1,13 @@
 package com.icm2630.proyecto.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.CancellationException
 import com.icm2630.proyecto.data.model.FormaMedicamento
 import com.icm2630.proyecto.data.model.Medicamento
-import com.icm2630.proyecto.data.model.TipoPerfil
 import com.icm2630.proyecto.data.repository.MedicamentoRepository
-import com.icm2630.proyecto.data.repository.PersonaRepository
+import com.icm2630.proyecto.data.repository.VinculacionRepository
 import com.icm2630.proyecto.data.repository.SesionRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -29,23 +31,14 @@ class MedicationRegisterViewModel : ViewModel() {
     }
 
     // PERFIL DEL USUARIO
-    /**
-     * Recibe el perfil del usuario que inició sesión.
-     *
-     * Más adelante, cuando conectemos la Screen con la sesión
-     * actual de la aplicación, llamaremos este método una sola vez.
-     */
+    /** Carga el perfil de la sesión al crear el ViewModel de esta entrada. */
     private fun cargarPerfilDesdeSesion() {
 
         val perfilUsuario = SesionRepository.perfil ?: return
 
 
-        val personas =
-            if (perfilUsuario.tipoPerfil == TipoPerfil.ACOMPANANTE) {
-                PersonaRepository.obtenerPersonasAsociadas()
-            } else {
-                emptyList()
-            }
+        // Los vínculos autorizan consulta. Cada cuenta registra sus propios datos.
+        val personas = emptyList<com.icm2630.proyecto.data.model.PersonaVinculada>()
 
         _uiState.value = _uiState.value.copy(
                 perfilUsuario = perfilUsuario,
@@ -280,7 +273,8 @@ class MedicationRegisterViewModel : ViewModel() {
 
         val estado = _uiState.value
 
-        if (!estado.formularioValido) {
+        if (estado.guardando) return
+        if (SesionRepository.familiarActivo != null || !estado.formularioValido) {
             _uiState.value =
                 estado.copy(
                     mensajeError =
@@ -306,12 +300,7 @@ class MedicationRegisterViewModel : ViewModel() {
                  *
                  * id de Persona = persona asociada
                  */
-                personaId =
-                    if (estado.perfilUsuario?.tipoPerfil == TipoPerfil.ACOMPANANTE) {
-                        estado.personaSeleccionadaId
-                    } else {
-                        null
-                    },
+                personaId = estado.personaSeleccionadaId,
 
                 nombre = estado.nombre.trim(),
                 forma = estado.forma,
@@ -333,21 +322,19 @@ class MedicationRegisterViewModel : ViewModel() {
             )
 
 
-        if (estado.medicamentoId != null) {
-            MedicamentoRepository.actualizar(
-                medicamento
-            )
-        } else {
-            MedicamentoRepository.registrar(
-                medicamento
-            )
+        // Se conserva el ID al reintentar para no crear registros duplicados.
+        _uiState.value = _uiState.value.copy(medicamentoId = medicamento.id)
+        viewModelScope.launch {
+            try {
+                MedicamentoRepository.registrar(medicamento)
+                _uiState.value = _uiState.value.copy(guardando = false, guardadoExitoso = true)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(guardando = false,
+                    mensajeError = "No se pudo guardar. Revisa la conexión y los datos del formulario.")
+            }
         }
-
-        _uiState.value = _uiState.value.copy(
-                medicamentoId = medicamento.id,
-                guardando = false,
-                guardadoExitoso = true
-            )
     }
 
     // EVENTOS DE UI

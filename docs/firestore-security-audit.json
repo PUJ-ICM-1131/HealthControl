@@ -1,5 +1,0 @@
-{
-  "score": 5,
-  "summary": "24 pruebas del emulador aprobadas; compilación y despliegue de reglas completados. Prueba adicional con dos cuentas en Firebase real aprobada; cuentas y documentos temporales eliminados. Identidad por UID, aceptación obligatoria, cuenta privada separada, lectura compartida sin escritura ajena, validadores create/update y denegación por defecto. El puntaje refleja el alcance probado, no una garantía exhaustiva.",
-  "findings": []
-}

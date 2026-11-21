@@ -13,6 +13,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -20,6 +21,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Call
+import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.ExpandLess
+import androidx.compose.material.icons.outlined.ExpandMore
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.material.icons.outlined.MyLocation
 import androidx.compose.material.icons.outlined.DarkMode
 import androidx.compose.material.icons.outlined.LightMode
@@ -124,20 +130,20 @@ private fun MapScreenContent(
 ) {
     val context = LocalContext.current
 
-    // Persona elegida desde las invitaciones aceptadas.
-    val personaConsultada = familiar
-    val telefonoAcompanado = familiar?.telefono?.takeIf { it.isNotBlank() }
+    val personasVinculadas = perfil.acompanantes
     val model: MapViewModel = viewModel(
-        key = "mapa:${perfil.codigoVinculacion}:${personaConsultada?.uid}"
+        key = "mapa:${perfil.codigoVinculacion}"
     )
     val token = stringResource(R.string.mapbox_access_token).trim()
     val snackbar = remember { SnackbarHostState() }
     val state by model.uiState.collectAsStateWithLifecycle()
+    val personaConsultada = state.personasEnMapa
+        .find { it.persona.uid == state.personaSeleccionadaUid }?.persona
+    val telefonoAcompanado = personaConsultada?.telefono?.takeIf { it.isNotBlank() }
 
-
-    // Ubicación real que la persona decidió compartir.
-    LaunchedEffect(model, personaConsultada) {
-        personaConsultada?.let { model.observarFamiliar(it) }
+    LaunchedEffect(model, personasVinculadas) {
+        model.observarPersonas(personasVinculadas)
+        familiar?.uid?.let(model::seleccionarPersona)
     }
 
     LaunchedEffect(model, state.mensajeError) {
@@ -162,28 +168,16 @@ private fun MapScreenContent(
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
             Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                    color = Color.White
-                ) {
-                    Image(
-                        painterResource(R.drawable.loguitouwu), contentDescription = null,
-                        modifier = Modifier.size(44.dp), contentScale = ContentScale.Crop
-                    )
-                }
-                Spacer(Modifier.width(10.dp))
-                Column(Modifier.weight(1f)) {
-                    Text("Tu mapa", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
-                    Text("HealthControl", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    personaConsultada?.let {
-                        Text("Consultando a ${it.nombre}", style = MaterialTheme.typography.bodySmall)
-                    }
-                }
-                MapLightStatus(oscuro, oscuroSistema, iluminacion)
+                Text("Mi mapa", Modifier.weight(1f), style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                Icon(
+                    if (oscuro) Icons.Outlined.DarkMode else Icons.Outlined.LightMode,
+                    contentDescription = if (oscuro) "Tema oscuro automático" else "Tema claro automático",
+                    modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
                 if (familiar != null) {
                     TextButton(onClick = onVolverAMiPerfil) { Text("Mi perfil") }
                 }
@@ -191,28 +185,10 @@ private fun MapScreenContent(
                     IconButton(onClick = {
                         try {
                             context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:${Uri.encode(telefonoAcompanado)}")))
-                        } catch (e: ActivityNotFoundException) {
+                        } catch (_: ActivityNotFoundException) {
                             Toast.makeText(context, "No hay una aplicación de llamadas disponible.", Toast.LENGTH_SHORT).show()
                         }
-                    }) {
-                        Icon(Icons.Outlined.Call, contentDescription = "Llamar a ${personaConsultada?.nombre.orEmpty()}")
-                    }
-                }
-            }
-            personaConsultada?.let {
-                Surface(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp).padding(bottom = 8.dp),
-                    shape = RoundedCornerShape(14.dp),
-                    color = MaterialTheme.colorScheme.secondaryContainer
-                ) {
-                    Text(
-                        if (state.ubicacionFamiliar != null) {
-                            "Última ubicación compartida de ${it.nombre}. Pulsa Ruta para llegar hasta su posición."
-                        } else {
-                            "No hay una ubicación compartida de ${it.nombre}. Puedes planear una ruta desde este celular o elegir otro origen."
-                        },
-                        modifier = Modifier.padding(10.dp), style = MaterialTheme.typography.bodySmall
-                    )
+                    }) { Icon(Icons.Outlined.Call, "Llamar a ${personaConsultada?.nombre.orEmpty()}") }
                 }
             }
             if (!token.startsWith("pk.")) {
@@ -223,34 +199,6 @@ private fun MapScreenContent(
                 key(model) {
                     MapContent(model, token, permisoInicial = perfil.permisoUbicacion, oscuro = oscuro)
                 }
-            }
-        }
-    }
-}
-
-@Composable
-private fun MapLightStatus(oscuro: Boolean, oscuroSistema: Boolean, luz: IluminacionMapa) {
-    Surface(
-        color = MaterialTheme.colorScheme.secondaryContainer,
-        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-        shape = RoundedCornerShape(12.dp)
-    ) {
-        Row(Modifier.padding(horizontal = 8.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(if (oscuro) Icons.Outlined.DarkMode else Icons.Outlined.LightMode, null, Modifier.size(16.dp))
-            Spacer(Modifier.width(5.dp))
-            Column {
-                Text(
-                    when {
-                        oscuroSistema -> "Oscuro · sistema"
-                        oscuro -> "Noche · poca luz"
-                        else -> "Claro"
-                    }, style = MaterialTheme.typography.labelSmall
-                )
-                Text(
-                    luz.lux?.let { "${it.roundToInt()} lx" }
-                        ?: if (luz.sensorDisponible) "Leyendo luz…" else "Tema del celular",
-                    style = MaterialTheme.typography.labelSmall
-                )
             }
         }
     }
@@ -304,7 +252,16 @@ private fun MapContent(model: MapViewModel, token: String, permisoInicial: Boole
     var ubicacionDemorada by remember { mutableStateOf(false) }
     var errorMapa by remember { mutableStateOf(false) }
     var reintento by remember { mutableIntStateOf(0) }
-    var expandido by rememberSaveable { mutableStateOf(true) }
+    var expandido by rememberSaveable { mutableStateOf(false) }
+    var seccion by rememberSaveable { mutableIntStateOf(0) }
+    var mostrarBusqueda by rememberSaveable { mutableStateOf(false) }
+
+    LaunchedEffect(state.personaSeleccionadaUid) {
+        if (state.personaSeleccionadaUid != null) {
+            seccion = 0
+            expandido = true
+        }
+    }
     var centradoInicial by rememberSaveable { mutableStateOf(false) }
     var altoBusqueda by remember { mutableIntStateOf(0) }
     var altoControles by remember { mutableIntStateOf(0) }
@@ -430,6 +387,9 @@ private fun MapContent(model: MapViewModel, token: String, permisoInicial: Boole
                 keyboard?.hide()
                 centradoInicial = true
                 model.seleccionarPunto(PuntoMapa(point.latitude(), point.longitude()))
+                seccion = 1
+                expandido = true
+                mostrarBusqueda = false
                 true
             },
             logo = { Logo(Modifier.padding(bottom = 8.dp)) },
@@ -463,15 +423,24 @@ private fun MapContent(model: MapViewModel, token: String, permisoInicial: Boole
                 state.destino?.let {
                     MapPointMarker(it.aMapbox(), "B", "Destino", colorDestino, colores.onTertiary)
                 }
-                // Última ubicación compartida por la cuenta vinculada.
-                state.ubicacionFamiliar?.let { familiar ->
-                    MapPointMarker(
-                        familiar.aMapbox(),
-                        familiar.nombre.take(1).uppercase(),
-                        familiar.nombre.substringBefore(' '),
-                        colores.secondary,
-                        colores.onSecondary
-                    )
+                state.personasEnMapa.forEach { persona ->
+                    persona.punto?.let { punto ->
+                        key(persona.persona.uid) {
+                            MapPointMarker(
+                                punto.aMapbox(),
+                                persona.persona.nombre.take(1).uppercase(),
+                                persona.persona.nombre,
+                                if (persona.persona.uid == state.personaSeleccionadaUid) colores.tertiary else colores.secondary,
+                                if (persona.persona.uid == state.personaSeleccionadaUid) colores.onTertiary else colores.onSecondary,
+                                onClick = {
+                                    model.seleccionarPersona(persona.persona.uid)
+                                    seccion = 0
+                                    expandido = true
+                                    mostrarBusqueda = false
+                                }
+                            )
+                        }
+                    }
                 }
             }
         )
@@ -481,17 +450,198 @@ private fun MapContent(model: MapViewModel, token: String, permisoInicial: Boole
                 .onSizeChanged { altoBusqueda = it.height },
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            MapSearchCard(
-                state = state,
-                onConsulta = model::cambiarConsulta,
-                onBuscar = { keyboard?.hide(); model.buscarDireccion() },
-                onElegir = {
-                    keyboard?.hide()
-                    centradoInicial = true
-                    model.seleccionarPunto(it)
-                    viewport.setCameraOptions { center(it.aMapbox()); zoom(15.0) }
+            Surface(shape = RoundedCornerShape(20.dp), shadowElevation = 4.dp,
+                color = MaterialTheme.colorScheme.surface) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    TextButton(onClick = {
+                        mostrarBusqueda = !mostrarBusqueda
+                        if (mostrarBusqueda) expandido = false
+                        keyboard?.hide()
+                    },
+                        modifier = Modifier.weight(1f)) {
+                        Icon(if (mostrarBusqueda) Icons.Outlined.Close else Icons.Outlined.Search, null)
+                        Spacer(Modifier.width(10.dp))
+                        Text(if (mostrarBusqueda) "Cerrar búsqueda" else "Buscar un lugar",
+                            maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                    IconButton(onClick = {
+                        val punto = state.ubicacionActual
+                        if (punto != null && permitido && servicioActivo) {
+                            centradoInicial = true
+                            viewport.setCameraOptions { center(punto.aMapbox()); zoom(16.0) }
+                        } else activarUbicacion()
+                    }) { Icon(Icons.Outlined.MyLocation, "Centrar o activar mi ubicación") }
                 }
-            )
+            }
+            if (mostrarBusqueda) {
+                MapSearchCard(
+                    state = state, onConsulta = model::cambiarConsulta,
+                    onBuscar = { keyboard?.hide(); model.buscarDireccion() },
+                    onElegir = {
+                        keyboard?.hide()
+                        mostrarBusqueda = false
+                        centradoInicial = true
+                        model.seleccionarPunto(it)
+                        seccion = 1
+                        expandido = true
+                        viewport.setCameraOptions { center(it.aMapbox()); zoom(15.0) }
+                    }
+                )
+            }
+            if (errorMapa) {
+                Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.errorContainer) {
+                    Text("No se pudo cargar el mapa. Revisa tu conexión.", Modifier.padding(10.dp),
+                        style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        }
+
+        Surface(
+            modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(horizontal = 12.dp)
+                .padding(bottom = 36.dp).heightIn(max = maxHeight * 0.48f)
+                .onSizeChanged { altoControles = it.height + with(density) { 36.dp.roundToPx() } },
+            shadowElevation = 8.dp, shape = RoundedCornerShape(24.dp),
+            color = MaterialTheme.colorScheme.surface
+        ) {
+            Column {
+                Row(Modifier.fillMaxWidth().padding(start = 8.dp, end = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    listOf("Personas", "Ruta", "Mi posición").forEachIndexed { indice, titulo ->
+                        TextButton(onClick = {
+                            seccion = indice
+                            expandido = true
+                            mostrarBusqueda = false
+                            keyboard?.hide()
+                        }, modifier = Modifier.weight(1f)) {
+                            Text(titulo, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                color = if (seccion == indice) MaterialTheme.colorScheme.primary
+                                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontWeight = if (seccion == indice) FontWeight.Bold else FontWeight.Normal)
+                        }
+                    }
+                    IconButton(onClick = { expandido = !expandido; keyboard?.hide() }) {
+                        Icon(if (expandido) Icons.Outlined.ExpandMore else Icons.Outlined.ExpandLess,
+                            if (expandido) "Ocultar panel" else "Mostrar panel")
+                    }
+                }
+                if (!expandido) {
+                    val visibles = state.personasEnMapa.count { it.punto != null }
+                    Text(
+                        if (state.calculandoRuta) "Calculando el recorrido…"
+                        else if (state.ruta != null) "Ruta trazada · abre Ruta para ver el recorrido"
+                        else "${state.personasEnMapa.size} ${if (state.personasEnMapa.size == 1) "persona vinculada" else "personas vinculadas"} · $visibles con ubicación",
+                        Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                } else {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    Column(Modifier.verticalScroll(rememberScrollState()).padding(bottom = 8.dp)) {
+                        when (seccion) {
+                            0 -> {
+                                if (state.personasEnMapa.isEmpty()) {
+                                    Text("Tus personas vinculadas aparecerán aquí cuando acepten la invitación.",
+                                        Modifier.padding(16.dp), style = MaterialTheme.typography.bodyMedium)
+                                }
+            if (state.personasEnMapa.isNotEmpty()) {
+                Surface(shape = RoundedCornerShape(16.dp), shadowElevation = 2.dp) {
+                    Column(Modifier.padding(10.dp)) {
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            Text("Personas vinculadas", Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
+                            TextButton(
+                                enabled = state.personasEnMapa.any { it.punto != null },
+                                onClick = {
+                                    val puntos = state.personasEnMapa.mapNotNull { it.punto?.aMapbox() } +
+                                        listOfNotNull(state.ubicacionActual?.aMapbox())
+                                    centradoInicial = true
+                                    if (puntos.size == 1) {
+                                        viewport.setCameraOptions { center(puntos.first()); zoom(15.0) }
+                                    } else if (puntos.size > 1) {
+                                        viewport.transitionToOverviewState(
+                                            OverviewViewportStateOptions.Builder()
+                                                .geometry(LineString.fromLngLats(puntos))
+                                                .padding(EdgeInsets(
+                                                    min(altoBusqueda + margen, altoMapaPx * 0.40), margen,
+                                                    min(altoControles + margen, altoMapaPx * 0.40), margen
+                                                ))
+                                                .maxZoom(16.0).build()
+                                        )
+                                    }
+                                }
+                            ) { Text("Ver todos") }
+                        }
+                        Row(
+                            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            state.personasEnMapa.forEach { persona ->
+                                FilterChip(
+                                    selected = state.personaSeleccionadaUid == persona.persona.uid,
+                                    onClick = {
+                                        model.seleccionarPersona(persona.persona.uid)
+                                        persona.punto?.let {
+                                            centradoInicial = true
+                                            viewport.setCameraOptions { center(it.aMapbox()); zoom(16.0) }
+                                        }
+                                    },
+                                    label = {
+                                        Text(persona.persona.nombre + when {
+                                            persona.cargando -> " · Cargando…"
+                                            persona.punto == null -> " · Sin ubicación"
+                                            else -> ""
+                                        })
+                                    }
+                                )
+                            }
+                        }
+                        val seleccionada = state.personasEnMapa.find {
+                            it.persona.uid == state.personaSeleccionadaUid
+                        }
+                        if (seleccionada?.punto == null && seleccionada != null) {
+                            Text(
+                                if (seleccionada.cargando) "Consultando ubicación…"
+                                else "Ubicación no disponible. Esta persona debe activar la opción de compartir y tener conexión.",
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        } else if (seleccionada == null) {
+                            Text("Selecciona un marcador o una persona para ver su ubicación y calcular la ruta.",
+                                style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                }
+            }
+
+                                state.ubicacionFamiliar?.let { persona ->
+                                    UbicacionFamiliarCard(
+                                        nombre = persona.nombre, momentoMillis = state.momentoFamiliarMillis,
+                                        onCentrar = {
+                                            centradoInicial = true
+                                            viewport.setCameraOptions { center(persona.aMapbox()); zoom(16.0) }
+                                            expandido = false
+                                        },
+                                        onRuta = {
+                                            keyboard?.hide()
+                                            seccion = 1
+                                            model.rutaHaciaFamiliar(token)
+                                        }
+                                    )
+                                }
+                            }
+                            1 -> MapRouteControls(
+                                state = state, expandido = true,
+                                onExpandir = { expandido = false; keyboard?.hide() },
+                                onSeleccionar = { model.seleccionarObjetivo(it); mostrarBusqueda = true; expandido = false },
+                                onUsarUbicacion = { model.usarMiUbicacionComoOrigen(); activarUbicacion() },
+                                onModoRuta = model::cambiarModo,
+                                onCalcular = {
+                                    keyboard?.hide()
+                                    model.calcularRuta(token)
+                                    expandido = false
+                                },
+                                onVerRuta = { verRutaCompleta(); expandido = false },
+                                onLimpiar = model::limpiarRuta
+                            )
+                            2 -> {
             Surface(
                 shape = RoundedCornerShape(16.dp), shadowElevation = 2.dp,
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
@@ -539,58 +689,17 @@ private fun MapContent(model: MapViewModel, token: String, permisoInicial: Boole
                     }
                 }
             }
-            state.ubicacionFamiliar?.let { familiar ->
-                UbicacionFamiliarCard(
-                    nombre = familiar.nombre,
-                    momentoMillis = state.momentoFamiliarMillis,
-                    onCentrar = {
-                        centradoInicial = true
-                        viewport.setCameraOptions { center(familiar.aMapbox()); zoom(16.0) }
-                    },
-                    onRuta = {
-                        keyboard?.hide()
-                        centradoInicial = true
-                        expandido = true
-                        model.rutaHaciaFamiliar(token)
-                    }
-                )
-            }
-            if (permisoRechazado && !permitido) {
-                Surface(shape = RoundedCornerShape(12.dp)) {
-                    TextButton(onClick = { abrirAjustes(ubicacion = false) }) {
-                        Text("Abrir ajustes para permitir la ubicación")
-                    }
-                }
-            }
-            if (errorMapa) {
-                Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.errorContainer) {
-                    Text("No se pudo cargar el mapa. Revisa internet, que el estilo esté publicado y el token de tu cuenta de Mapbox.", Modifier.padding(10.dp), style = MaterialTheme.typography.bodySmall)
-                }
-            }
-        }
 
-        Surface(
-            modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(horizontal = 12.dp)
-                // Reserva el borde inferior para el logo y la atribución de Mapbox.
-                .padding(bottom = 40.dp)
-                .heightIn(max = maxHeight * 0.50f)
-                .onSizeChanged { altoControles = it.height + with(density) { 40.dp.roundToPx() } }
-                .clip(RoundedCornerShape(22.dp)),
-            shadowElevation = 6.dp, shape = RoundedCornerShape(22.dp),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-        ) {
-            Column(Modifier.verticalScroll(rememberScrollState())) {
-                MapRouteControls(
-                    state = state,
-                    expandido = expandido,
-                    onExpandir = { keyboard?.hide(); expandido = !expandido },
-                    onSeleccionar = model::seleccionarObjetivo,
-                    onUsarUbicacion = { model.usarMiUbicacionComoOrigen(); activarUbicacion() },
-                    onModoRuta = model::cambiarModo,
-                    onCalcular = { keyboard?.hide(); model.calcularRuta(token) },
-                    onVerRuta = ::verRutaCompleta,
-                    onLimpiar = model::limpiarRuta
-                )
+                                if (permisoRechazado && !permitido) {
+                                    TextButton(onClick = { abrirAjustes(ubicacion = false) },
+                                        modifier = Modifier.padding(horizontal = 12.dp)) {
+                                        Text("Abrir ajustes de ubicación")
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     }

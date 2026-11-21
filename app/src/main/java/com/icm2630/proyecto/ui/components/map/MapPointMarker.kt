@@ -1,6 +1,7 @@
 package com.icm2630.proyecto.ui.components.map
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -35,7 +36,8 @@ import com.mapbox.maps.viewannotation.geometry
 /** Etiquetas A/B iguales a las tarjetas del planificador; la punta marca la coordenada. */
 @Composable
 @MapboxMapComposable
-fun MapPointMarker(point: Point, letra: String, titulo: String, color: Color, onColor: Color) {
+fun MapPointMarker(point: Point, letra: String, titulo: String, color: Color, onColor: Color,
+    onClick: (() -> Unit)? = null) {
     val borde = MaterialTheme.colorScheme.surface
     // Recrear las dos vistas al cambiar punto/tema evita contenido nativo obsoleto.
     key(point, letra, titulo, color, onColor, borde) {
@@ -49,8 +51,8 @@ fun MapPointMarker(point: Point, letra: String, titulo: String, color: Color, on
         ViewAnnotation(options = options, content = @Composable @UiComposable {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.semantics(mergeDescendants = true) {
-                    contentDescription = "Punto $letra, $titulo de la ruta"
+                modifier = (if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier).semantics(mergeDescendants = true) {
+                    contentDescription = if (onClick != null) "Ver ubicación de $titulo" else "Punto $letra, $titulo de la ruta"
                 }
             ) {
                 Surface(

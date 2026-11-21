@@ -15,7 +15,11 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
-import com.google.firebase.firestore.ListenerRegistration
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.flow.retryWhen
+import kotlinx.coroutines.delay
 import com.icm2630.proyecto.data.model.PersonaVinculada
 import com.icm2630.proyecto.data.repository.UbicacionRepository
 import kotlinx.coroutines.flow.catch
@@ -38,16 +42,54 @@ class MapViewModel(application: Application) : AndroidViewModel(application) {
     private var ultimaPublicacionMillis = 0L
     private var publicando = false
 
-    /** Escucha coordenadas publicadas por la otra cuenta, nunca genera posiciones. */
-    fun observarFamiliar(persona: PersonaVinculada) {
+    /** Cada vínculo autorizado aporta su propio documento de ubicación. */
+    fun observarPersonas(personas: List<PersonaVinculada>) {
         escuchaFamiliar?.cancel()
+        val unicas = personas.distinctBy { it.uid }
+        val autorizados = unicas.map { it.uid }.toSet()
+        val seleccionado = _uiState.value.personaSeleccionadaUid?.takeIf { it in autorizados }
+        if (_uiState.value.personaSeleccionadaUid != seleccionado) limpiarRuta()
+        _uiState.update { it.copy(
+            personasEnMapa = unicas.map { persona -> PersonaEnMapa(persona) },
+            personaSeleccionadaUid = seleccionado,
+            ubicacionFamiliar = null, momentoFamiliarMillis = null
+        ) }
+        if (unicas.isEmpty()) return
         escuchaFamiliar = viewModelScope.launch {
-            UbicacionRepository.observar(persona.uid, persona.nombre).catch {
-                _uiState.update { it.copy(ubicacionFamiliar = null, momentoFamiliarMillis = null) }
-            }.collect { dato ->
-                _uiState.update { it.copy(ubicacionFamiliar = dato?.punto, momentoFamiliarMillis = dato?.momentoMillis) }
+            val flujos = unicas.map { persona ->
+                UbicacionRepository.observar(persona.uid, persona.nombre)
+                    .map { dato -> PersonaEnMapa(persona, dato?.punto, dato?.momentoMillis, cargando = false) }
+                    .retryWhen { _, _ ->
+                        emit(PersonaEnMapa(persona, cargando = false, noDisponible = true))
+                        delay(15_000L)
+                        true
+                    }
+                    .onStart { emit(PersonaEnMapa(persona)) }
+            }
+            combine(flujos) { it.toList() }.collect { posiciones ->
+                _uiState.update { actual ->
+                    val elegida = posiciones.find { it.persona.uid == actual.personaSeleccionadaUid }
+                    actual.copy(
+                        personasEnMapa = posiciones,
+                        ubicacionFamiliar = elegida?.punto,
+                        momentoFamiliarMillis = elegida?.momentoMillis
+                    )
+                }
+                // Si se retiró el permiso, tampoco conservamos una ruta hacia ese dato.
+                if (_uiState.value.personaSeleccionadaUid != null &&
+                    _uiState.value.ubicacionFamiliar == null) limpiarRuta()
             }
         }
+    }
+
+    fun seleccionarPersona(uid: String) {
+        val persona = _uiState.value.personasEnMapa.find { it.persona.uid == uid } ?: return
+        if (_uiState.value.personaSeleccionadaUid != uid) limpiarRuta()
+        _uiState.update { it.copy(
+            personaSeleccionadaUid = uid,
+            ubicacionFamiliar = persona.punto,
+            momentoFamiliarMillis = persona.momentoMillis
+        ) }
     }
 
     private fun publicarUbicacion(punto: PuntoMapa) {
@@ -94,6 +136,7 @@ class MapViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun actualizarUbicacion(punto: PuntoMapa, precision: Float?, momentoMillis: Long) {
+        if (momentoMillis < (_uiState.value.momentoUbicacionMillis ?: 0L)) return
         publicarUbicacion(punto)
         _uiState.update { actual ->
             if (momentoMillis < (actual.momentoUbicacionMillis ?: 0L)) return@update actual
@@ -240,6 +283,8 @@ class MapViewModel(application: Application) : AndroidViewModel(application) {
     fun cancelarOperaciones() {
         escuchaFamiliar?.cancel()
         escuchaFamiliar = null
+        _uiState.update { it.copy(personasEnMapa = emptyList(), personaSeleccionadaUid = null,
+            ubicacionFamiliar = null, momentoFamiliarMillis = null) }
         invalidarRuta(borrarResultado = false)
         cancelarBusqueda()
     }

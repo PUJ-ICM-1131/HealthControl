@@ -126,9 +126,6 @@ fun ProfileScreen(
         onActualizarPerfil(actualizado)
     }
 
-    val pedirUbicacion = com.icm2630.proyecto.ui.util.rememberLocationPermissionRequest { concedido ->
-        if (concedido) onActualizarPerfil(datos.copy(compartirUbicacion = true))
-    }
     val personas = datos.acompanantes
     val miId = datos.codigoVinculacion
     var campoEditando by remember { mutableStateOf<CampoPerfilEditable?>(null) }
@@ -272,21 +269,10 @@ fun ProfileScreen(
             Spacer(Modifier.height(24.dp))
 
             TarjetaBlanca {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text("Compartir mi ubicación", style = MaterialTheme.typography.titleSmall)
-                        Text("Solo con personas vinculadas y mientras tienes abierto el mapa.",
-                            style = MaterialTheme.typography.bodySmall)
-                    }
-                    Switch(
-                        checked = datos.compartirUbicacion,
-                        enabled = !estado.guardando,
-                        onCheckedChange = { activar ->
-                            if (activar) pedirUbicacion()
-                            else onActualizarPerfil(datos.copy(compartirUbicacion = false))
-                        }
-                    )
-                }
+                com.icm2630.proyecto.ui.components.SeguimientoUbicacionCard(
+                    perfil = datos, guardando = estado.guardando,
+                    errorGuardado = estado.error, onGuardar = onActualizarPerfil
+                )
             }
             Spacer(Modifier.height(24.dp))
             // ---------- Mi ID ----------

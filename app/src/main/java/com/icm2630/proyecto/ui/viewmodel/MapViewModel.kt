@@ -39,8 +39,6 @@ class MapViewModel(application: Application) : AndroidViewModel(application) {
     private var revisionBusqueda = 0
 
     private var escuchaFamiliar: Job? = null
-    private var ultimaPublicacionMillis = 0L
-    private var publicando = false
 
     /** Cada vínculo autorizado aporta su propio documento de ubicación. */
     fun observarPersonas(personas: List<PersonaVinculada>) {
@@ -92,26 +90,6 @@ class MapViewModel(application: Application) : AndroidViewModel(application) {
         ) }
     }
 
-    private fun publicarUbicacion(punto: PuntoMapa) {
-        if (!SesionRepository.haySesionGuardada || SesionRepository.perfil?.compartirUbicacion != true) return
-        val ahora = android.os.SystemClock.elapsedRealtime()
-        if (publicando || ahora - ultimaPublicacionMillis < 10_000L) return
-        ultimaPublicacionMillis = ahora
-        val uid = SesionRepository.uidActual
-        publicando = true
-        viewModelScope.launch {
-            try {
-                UbicacionRepository.guardar(uid, punto)
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                _uiState.update { it.copy(mensajeError = "No se pudo compartir tu ubicación. Revisa tu conexión.") }
-            } finally {
-                publicando = false
-            }
-        }
-    }
-
     /** Pone al familiar como destino y calcula la ruta desde el origen actual (o mi ubicación). */
     fun rutaHaciaFamiliar(token: String) {
         val familiar = _uiState.value.ubicacionFamiliar ?: return
@@ -137,7 +115,6 @@ class MapViewModel(application: Application) : AndroidViewModel(application) {
 
     fun actualizarUbicacion(punto: PuntoMapa, precision: Float?, momentoMillis: Long) {
         if (momentoMillis < (_uiState.value.momentoUbicacionMillis ?: 0L)) return
-        publicarUbicacion(punto)
         _uiState.update { actual ->
             if (momentoMillis < (actual.momentoUbicacionMillis ?: 0L)) return@update actual
             actual.copy(

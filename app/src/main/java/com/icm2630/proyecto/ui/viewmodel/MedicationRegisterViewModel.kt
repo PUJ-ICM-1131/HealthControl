@@ -1,5 +1,6 @@
 package com.icm2630.proyecto.ui.viewmodel
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.launch
@@ -25,6 +26,15 @@ class MedicationRegisterViewModel : ViewModel() {
 
     val uiState: StateFlow<MedicationRegisterUiState> =
         _uiState.asStateFlow()
+
+    private var formularioInicializado = false
+
+    fun prepararFormulario(medicamentoId: String?) {
+        if (formularioInicializado) return
+        formularioInicializado = true
+        if (medicamentoId == null) iniciarNuevoMedicamento()
+        else cargarMedicamentoParaEditar(medicamentoId)
+    }
 
     init {
         cargarPerfilDesdeSesion()
@@ -273,7 +283,7 @@ class MedicationRegisterViewModel : ViewModel() {
 
         val estado = _uiState.value
 
-        if (estado.guardando) return
+        if (estado.guardando || estado.guardadoExitoso) return
         if (SesionRepository.familiarActivo != null || !estado.formularioValido) {
             _uiState.value =
                 estado.copy(
@@ -331,6 +341,7 @@ class MedicationRegisterViewModel : ViewModel() {
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
+                Log.e("MedicationRegister", "Error al guardar el medicamento", e)
                 _uiState.value = _uiState.value.copy(guardando = false,
                     mensajeError = "No se pudo guardar. Revisa la conexión y los datos del formulario.")
             }

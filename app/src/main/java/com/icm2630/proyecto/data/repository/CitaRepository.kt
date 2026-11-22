@@ -42,8 +42,15 @@ object CitaRepository {
         check(SesionRepository.familiarActivo == null) { "El perfil compartido es de solo lectura." }
         val uid = SesionRepository.uidActual
         require(cita.personaId == null) { "Registra la cita desde la cuenta de su titular." }
-        AdjuntosLocales.guardar(uid, "cita", cita.id, cita.soporteUri)
-        coleccion(uid).document(cita.id).set(cita).await()
+        val anterior = AdjuntosLocales.obtener(uid, "cita", cita.id)
+        val adjunto = AdjuntosLocales.conservar(cita.soporteUri, cita.nombreSoporte)
+        AdjuntosLocales.guardar(uid, "cita", cita.id, adjunto)
+        try {
+            coleccion(uid).document(cita.id).set(cita).await()
+        } catch (e: Exception) {
+            AdjuntosLocales.guardar(uid, "cita", cita.id, anterior)
+            throw e
+        }
     }
 
     fun obtenerTodas(): List<Cita> = porCuenta[uidConsultado()].orEmpty()

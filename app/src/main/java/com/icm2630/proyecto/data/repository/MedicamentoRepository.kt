@@ -42,8 +42,15 @@ object MedicamentoRepository {
         check(SesionRepository.familiarActivo == null) { "El perfil compartido es de solo lectura." }
         val uid = SesionRepository.uidActual
         require(medicamento.personaId == null) { "Registra el medicamento desde la cuenta de su titular." }
-        AdjuntosLocales.guardar(uid, "medicamento", medicamento.id, medicamento.ordenMedicaUri)
-        coleccion(uid).document(medicamento.id).set(medicamento).await()
+        val anterior = AdjuntosLocales.obtener(uid, "medicamento", medicamento.id)
+        val adjunto = AdjuntosLocales.conservar(medicamento.ordenMedicaUri, medicamento.nombreOrdenMedica)
+        AdjuntosLocales.guardar(uid, "medicamento", medicamento.id, adjunto)
+        try {
+            coleccion(uid).document(medicamento.id).set(medicamento).await()
+        } catch (e: Exception) {
+            AdjuntosLocales.guardar(uid, "medicamento", medicamento.id, anterior)
+            throw e
+        }
     }
 
     fun obtenerTodos(): List<Medicamento> = porCuenta[uidConsultado()].orEmpty()

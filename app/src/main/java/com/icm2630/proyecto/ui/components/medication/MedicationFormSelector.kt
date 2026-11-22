@@ -6,6 +6,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -82,7 +84,7 @@ fun MedicationFormSelector(
             .forEach { rowForms ->
 
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min),
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
 
@@ -98,7 +100,7 @@ fun MedicationFormSelector(
                             onClick = {
                                 onFormSelected(form.name)
                             },
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.weight(1f).fillMaxHeight()
                         )
                     }
 
@@ -106,7 +108,7 @@ fun MedicationFormSelector(
                     if (rowForms.size == 1) {
 
                         Spacer(
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.weight(1f).fillMaxHeight()
                         )
                     }
                 }
@@ -125,8 +127,7 @@ private fun MedicationFormCard(
 
     Surface(
         modifier = modifier
-            .height(125.dp)
-            .clickable {
+                        .clickable {
                 onClick()
             },
 

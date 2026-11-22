@@ -66,15 +66,11 @@ fun obtenerUriCompartible(
     val uri = Uri.parse(uriString)
     return if (uri.scheme == "file" || (uri.scheme == null && uriString.startsWith("/"))) {
         val file = File(uri.path ?: uriString)
-        try {
-            FileProvider.getUriForFile(
-                context,
-                "${context.packageName}.fileprovider",
-                file
-            )
-        } catch (e: Exception) {
-            uri
-        }
+        FileProvider.getUriForFile(
+            context,
+            "${context.packageName}.fileprovider",
+            file
+        )
     } else {
         uri
     }

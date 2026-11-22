@@ -1,5 +1,6 @@
 package com.icm2630.proyecto.ui.viewmodel
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.launch
@@ -26,6 +27,14 @@ class AppointmentRegisterViewModel : ViewModel() {
 
     val uiState: StateFlow<AppointmentRegisterUiState> =
         _uiState.asStateFlow()
+
+    private var formularioInicializado = false
+
+    fun prepararFormulario(citaId: String?) {
+        if (formularioInicializado) return
+        formularioInicializado = true
+        if (citaId == null) iniciarNuevaCita() else cargarCitaParaEditar(citaId)
+    }
 
     // INICIALIZACIÓN
     init {
@@ -325,7 +334,7 @@ class AppointmentRegisterViewModel : ViewModel() {
 
         val estado = _uiState.value
 
-        if (estado.guardando) return
+        if (estado.guardando || estado.guardadoExitoso) return
         if (SesionRepository.familiarActivo != null || !estado.formularioValido) {
 
             _uiState.value = estado.copy(
@@ -382,6 +391,7 @@ class AppointmentRegisterViewModel : ViewModel() {
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
+                Log.e("AppointmentRegister", "Error al guardar la cita", e)
                 _uiState.value = _uiState.value.copy(guardando = false,
                     mensajeError = "No se pudo guardar. Revisa la conexión y los datos del formulario.")
             }

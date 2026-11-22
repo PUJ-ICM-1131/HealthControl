@@ -14,6 +14,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.saveable.rememberSaveable
+import com.icm2630.proyecto.data.model.FechasHistorial
+import com.icm2630.proyecto.ui.util.rememberHoyUtcMillis
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -104,13 +107,17 @@ fun HistoryScreen(
     onNavigate: (Routes) -> Unit = {},
     onVerDetalle: (Routes) -> Unit = {}
 ) {
-    var busqueda by remember { mutableStateOf("") }
-    var filtroSeleccionado by remember { mutableStateOf(FiltroHistorial.TODOS) }
-    var rangoFechas by remember { mutableStateOf<RangoFechas?>(null) }
+    var busqueda by rememberSaveable { mutableStateOf("") }
+    var filtroSeleccionado by rememberSaveable { mutableStateOf(FiltroHistorial.TODOS) }
+    var filtroDesde by rememberSaveable { mutableStateOf<Long?>(null) }
+    var filtroHasta by rememberSaveable { mutableStateOf<Long?>(null) }
+    val rangoFechas = if (filtroDesde == null && filtroHasta == null) null
+        else RangoFechas(filtroDesde, filtroHasta)
     var mostrarDialogoFiltros by remember { mutableStateOf(false) }
 
 
-    val historialCompleto = construirHistorial()
+    val hoyMillis = rememberHoyUtcMillis()
+    val historialCompleto = construirHistorial(hoyMillis)
 
     val historialFiltrado = historialCompleto.filter { item ->
 
@@ -124,8 +131,7 @@ fun HistoryScreen(
                 item.textoBusqueda.contains(busqueda.trim().lowercase())
 
         val coincideFecha = rangoFechas?.let { rango ->
-            (rango.desdeMillis == null || item.fechaMillis >= rango.desdeMillis) &&
-                    (rango.hastaMillis == null || item.fechaMillis <= rango.hastaMillis)
+            FechasHistorial.enRango(item.fechaMillis, rango.desdeMillis, rango.hastaMillis)
         } ?: true
 
         coincideTipo && coincideBusqueda && coincideFecha
@@ -241,7 +247,7 @@ fun HistoryScreen(
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.SemiBold,
                         color = ErrorRed,
-                        modifier = Modifier.clickable { rangoFechas = null }
+                        modifier = Modifier.clickable { filtroDesde = null; filtroHasta = null }
                     )
                 }
             }
@@ -273,7 +279,8 @@ fun HistoryScreen(
             rangoActual = rangoFechas,
             onDismiss = { mostrarDialogoFiltros = false },
             onAplicar = { nuevoRango ->
-                rangoFechas = nuevoRango
+                filtroDesde = nuevoRango?.desdeMillis
+                filtroHasta = nuevoRango?.hastaMillis
                 mostrarDialogoFiltros = false
             }
         )
@@ -478,13 +485,13 @@ private fun FiltroFechaDialog(
     onDismiss: () -> Unit,
     onAplicar: (RangoFechas?) -> Unit
 ) {
-    var desdeMillis by remember { mutableStateOf(rangoActual?.desdeMillis) }
-    var hastaMillis by remember { mutableStateOf(rangoActual?.hastaMillis) }
+    var desdeMillis by rememberSaveable { mutableStateOf(rangoActual?.desdeMillis) }
+    var hastaMillis by rememberSaveable { mutableStateOf(rangoActual?.hastaMillis) }
     var mostrarPickerDesde by remember { mutableStateOf(false) }
     var mostrarPickerHasta by remember { mutableStateOf(false) }
 
-    val hoyMillis = obtenerHoyUtcMillisHistorial()
-    val unDiaMillis = 24L * 60L * 60L * 1000L
+    val hoyMillis = rememberHoyUtcMillis()
+    val rangoValido = FechasHistorial.rangoValido(desdeMillis, hastaMillis)
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -515,7 +522,7 @@ private fun FiltroFechaDialog(
 
                 OutlinedButton(
                     onClick = {
-                        desdeMillis = hoyMillis - 7 * unDiaMillis
+                        desdeMillis = FechasHistorial.desdeUltimosDias(hoyMillis, 7)
                         hastaMillis = hoyMillis
                     },
                     modifier = Modifier.fillMaxWidth()
@@ -527,7 +534,7 @@ private fun FiltroFechaDialog(
 
                 OutlinedButton(
                     onClick = {
-                        desdeMillis = hoyMillis - 30 * unDiaMillis
+                        desdeMillis = FechasHistorial.desdeUltimosDias(hoyMillis, 30)
                         hastaMillis = hoyMillis
                     },
                     modifier = Modifier.fillMaxWidth()
@@ -540,7 +547,7 @@ private fun FiltroFechaDialog(
                 Spacer(Modifier.height(16.dp))
 
                 Text(
-                    text = "Rango personalizado",
+                    text = "Fecha de la cita o inicio del tratamiento",
                     style = MaterialTheme.typography.labelMedium,
                     color = TextSecondary
                 )
@@ -563,6 +570,10 @@ private fun FiltroFechaDialog(
                         Text(hastaMillis?.let { formatearFechaCortaHistorial(it) } ?: "Hasta")
                     }
                 }
+                if (!rangoValido) {
+                    Text("La fecha Desde debe ser anterior o igual a Hasta.",
+                        color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                }
             }
         },
 
@@ -575,7 +586,8 @@ private fun FiltroFechaDialog(
                         RangoFechas(desdeMillis, hastaMillis)
                     }
                     onAplicar(rango)
-                }
+                },
+                enabled = rangoValido
             ) {
                 Text("Aplicar")
             }
@@ -669,9 +681,7 @@ private fun etiquetaRango(rango: RangoFechas): String {
 
 
 
-private fun construirHistorial(): List<RegistroHistorial> {
-
-    val hoyMillis = obtenerHoyUtcMillisHistorial()
+private fun construirHistorial(hoyMillis: Long): List<RegistroHistorial> {
 
     val citas = CitaRepository.obtenerTodas().map { cita ->
         construirRegistroCita(cita, hoyMillis)
@@ -686,10 +696,10 @@ private fun construirHistorial(): List<RegistroHistorial> {
 
 private fun construirRegistroCita(cita: Cita, hoyMillis: Long): RegistroHistorial {
 
-    val (estado, estadoColor) = when {
-        cita.fechaMillis > hoyMillis -> "Programada" to Blue500
-        cita.fechaMillis == hoyMillis -> "Hoy" to Color(0xFFF59E0B)
-        else -> "Completada" to SuccessGreen
+    val (estado, estadoColor) = when (FechasHistorial.estadoCita(cita.fechaMillis, hoyMillis)) {
+        FechasHistorial.EstadoCita.PROGRAMADA -> "Programada" to Blue500
+        FechasHistorial.EstadoCita.HOY -> "Hoy" to Color(0xFFF59E0B)
+        FechasHistorial.EstadoCita.PASADA -> "Fecha pasada" to TextSecondary
     }
 
     val titulo = buildString {
@@ -731,15 +741,10 @@ private fun construirRegistroCita(cita: Cita, hoyMillis: Long): RegistroHistoria
 
 private fun construirRegistroMedicamento(medicamento: Medicamento, hoyMillis: Long): RegistroHistorial {
 
-    val (estado, estadoColor) = if (medicamento.tratamientoPermanente) {
-        "En tratamiento" to SuccessGreen
-    } else {
-        val fin = medicamento.fechaFinMillis
-        if (fin != null && fin < hoyMillis) {
-            "Finalizado" to TextSecondary
-        } else {
-            "En tratamiento" to SuccessGreen
-        }
+    val (estado, estadoColor) = when (FechasHistorial.estadoTratamiento(medicamento, hoyMillis)) {
+        FechasHistorial.EstadoTratamiento.PROGRAMADO -> "Programado" to Blue500
+        FechasHistorial.EstadoTratamiento.VIGENTE -> "En tratamiento" to SuccessGreen
+        FechasHistorial.EstadoTratamiento.FINALIZADO -> "Finalizado" to TextSecondary
     }
 
     val paciente = etiquetaPacienteHistorial(medicamento.personaId)
@@ -795,7 +800,7 @@ private fun colorPacienteHistorial(personaId: String?): Color {
         Color(0xFF06B6D4)
     )
 
-    val indice = kotlin.math.abs(personaId.hashCode()) % paleta.size
+    val indice = Math.floorMod(personaId.hashCode(), paleta.size)
 
     return paleta[indice]
 }
@@ -827,24 +832,6 @@ private fun agruparPorMes(items: List<RegistroHistorial>): List<GrupoHistorial> 
 }
 
 
-
-private fun obtenerHoyUtcMillisHistorial(): Long {
-
-    val hoyLocal = Calendar.getInstance()
-
-    val hoyUtc = Calendar.getInstance(TimeZone.getTimeZone("UTC"))
-    hoyUtc.set(
-        hoyLocal.get(Calendar.YEAR),
-        hoyLocal.get(Calendar.MONTH),
-        hoyLocal.get(Calendar.DAY_OF_MONTH),
-        0,
-        0,
-        0
-    )
-    hoyUtc.set(Calendar.MILLISECOND, 0)
-
-    return hoyUtc.timeInMillis
-}
 
 private fun formatearDiaHistorial(millis: Long): String {
 

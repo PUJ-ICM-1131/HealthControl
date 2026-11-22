@@ -27,6 +27,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.icm2630.proyecto.data.model.FechasPendientes
+import com.icm2630.proyecto.ui.util.rememberHoyUtcMillis
 import com.icm2630.proyecto.data.model.ModalidadCita
 import com.icm2630.proyecto.data.model.TipoCita
 import com.icm2630.proyecto.data.repository.CitaRepository
@@ -106,7 +108,7 @@ private fun calcularUrgencia(fechaMillis: Long, hoyMillis: Long): NivelUrgencia 
     val diasRestantes = (fechaMillis - hoyMillis) / unDiaMillis
 
     return when {
-        diasRestantes <= 0 -> NivelUrgencia.HOY
+        diasRestantes == 0L -> NivelUrgencia.HOY
         diasRestantes <= 3 -> NivelUrgencia.PRONTO
         else -> NivelUrgencia.FUTURO
     }
@@ -125,10 +127,12 @@ fun RemindersScreen(
     // Viendo el perfil de un familiar: solo sus pendientes y sin registrar nada.
     val familiar = SesionRepository.familiarActivo
 
-    val pacientes = construirPacientes()
+    val hoyMillis = rememberHoyUtcMillis()
+    val pacientes = construirPacientes(hoyMillis)
     val grupos = construirRecordatorios(
         filtro = filtroSeleccionado,
-        personaId = pacienteSeleccionado
+        personaId = pacienteSeleccionado,
+        hoyMillis = hoyMillis
     )
 
     Scaffold(
@@ -519,13 +523,13 @@ private fun BotonAgregar(onClick: () -> Unit) {
 // CONSTRUCCIÓN DE LA LISTA DE PACIENTES (monitoreo familiar)
 
 
-private fun construirPacientes(): List<PacienteFiltro> {
+private fun construirPacientes(hoyMillis: Long): List<PacienteFiltro> {
 
     val propio = PacienteFiltro(
         personaId = null,
         nombre = "Yo",
         icon = Icons.Outlined.Person,
-        pendientes = contarPendientes(null)
+        pendientes = contarPendientes(null, hoyMillis)
     )
 
     val asociados = VinculacionRepository.obtenerPersonasAsociadas().map { persona ->
@@ -533,14 +537,14 @@ private fun construirPacientes(): List<PacienteFiltro> {
             personaId = persona.id,
             nombre = persona.nombre,
             inicial = persona.nombre.firstOrNull()?.uppercase() ?: "?",
-            pendientes = contarPendientes(persona.id)
+            pendientes = contarPendientes(persona.id, hoyMillis)
         )
     }
 
     return listOf(propio) + asociados
 }
 
-private fun contarPendientes(personaId: String?): Int {
+private fun contarPendientes(personaId: String?, hoyMillis: Long): Int {
 
     val citas = if (personaId == null) {
         CitaRepository.obtenerPropias()
@@ -554,20 +558,18 @@ private fun contarPendientes(personaId: String?): Int {
         MedicamentoRepository.obtenerPorPersona(personaId)
     }
 
-    val tomasDeMedicamento = medicamentos.sumOf { medicamento ->
-        medicamento.horarios.ifEmpty { listOf("") }.size
-    }
-
-    return citas.size + tomasDeMedicamento
+    val tomasDeMedicamento = medicamentos
+        .filter { FechasPendientes.proximoDia(it, hoyMillis) != null }
+        .sumOf { it.horarios.size }
+    return citas.count { FechasPendientes.citaPendiente(it.fechaMillis, hoyMillis) } + tomasDeMedicamento
 }
 
 // CONSTRUCCIÓN DE LOS RECORDATORIOS A PARTIR DE LOS REPOSITORIOS
 private fun construirRecordatorios(
     filtro: FiltroTipo,
-    personaId: String?
+    personaId: String?,
+    hoyMillis: Long
 ): List<GrupoRecordatorios> {
-
-    val hoyMillis = obtenerHoyUtcMillis()
 
     val citasBase = if (personaId == null) {
         CitaRepository.obtenerPropias()
@@ -582,6 +584,7 @@ private fun construirRecordatorios(
     }
 
     val itemsCitas = citasBase
+        .filter { FechasPendientes.citaPendiente(it.fechaMillis, hoyMillis) }
         .filter { cita ->
             when (filtro) {
                 FiltroTipo.TODOS -> true
@@ -605,7 +608,7 @@ private fun construirRecordatorios(
             }
 
             RecordatorioConFecha(
-                fechaMillis = cita.fechaMillis,
+                fechaMillis = FechasPendientes.dia(cita.fechaMillis),
                 recordatorio = Recordatorio(
                     tipo = TipoRecordatorio.CITA,
                     id = cita.id,
@@ -632,7 +635,9 @@ private fun construirRecordatorios(
 
         medicamentosBase.flatMap { medicamento ->
 
-            val horarios = medicamento.horarios.ifEmpty { listOf("") }
+            val fechaPendiente = FechasPendientes.proximoDia(medicamento, hoyMillis)
+                ?: return@flatMap emptyList()
+            val horarios = medicamento.horarios
 
             horarios.map { horario ->
                 val (horaOrden, minutoOrden) = parsearHorario(horario)
@@ -644,9 +649,8 @@ private fun construirRecordatorios(
                 }
 
                 RecordatorioConFecha(
-                    // Los medicamentos son recurrentes (no tienen una fecha
-                    // puntual como las citas), así que se agrupan bajo "Hoy".
-                    fechaMillis = hoyMillis,
+                    // Una toma vigente pertenece a hoy; una futura, al inicio del tratamiento.
+                    fechaMillis = fechaPendiente,
                     recordatorio = Recordatorio(
                         tipo = TipoRecordatorio.MEDICAMENTO,
                         id = medicamento.id,
@@ -694,23 +698,6 @@ private data class RecordatorioConFecha(
  * con los `fechaMillis` guardados desde el DatePicker (Material3
  * trabaja siempre en UTC).
  */
-private fun obtenerHoyUtcMillis(): Long {
-
-    val hoyLocal = Calendar.getInstance()
-
-    val hoyUtc = Calendar.getInstance(TimeZone.getTimeZone("UTC"))
-    hoyUtc.set(
-        hoyLocal.get(Calendar.YEAR),
-        hoyLocal.get(Calendar.MONTH),
-        hoyLocal.get(Calendar.DAY_OF_MONTH),
-        0,
-        0,
-        0
-    )
-    hoyUtc.set(Calendar.MILLISECOND, 0)
-
-    return hoyUtc.timeInMillis
-}
 
 private fun etiquetaParaFecha(
     fechaMillis: Long,

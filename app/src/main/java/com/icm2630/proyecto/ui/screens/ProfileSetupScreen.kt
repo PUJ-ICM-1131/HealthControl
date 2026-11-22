@@ -45,6 +45,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.icm2630.proyecto.data.model.Genero
 import com.icm2630.proyecto.data.model.PerfilUsuario
+import com.icm2630.proyecto.ui.components.SeleccionarContactoButton
 import com.icm2630.proyecto.ui.components.ChipsCondiciones
 import com.icm2630.proyecto.ui.components.ChipsTipoSangre
 import com.icm2630.proyecto.ui.theme.Blue100
@@ -212,6 +213,15 @@ fun ProfileSetupScreen(
                 )
 
                 Spacer(Modifier.height(16.dp))
+
+                SeleccionarContactoButton(
+                    onSeleccionado = { contactoElegido ->
+                        viewModel.onContactoEmergenciaChange(contactoElegido.nombre)
+                        viewModel.onTelefonoEmergenciaChange(contactoElegido.telefono)
+                    },
+                    enabled = !state.guardando
+                )
+                Spacer(Modifier.height(12.dp))
 
                 CampoPerfil(
                     label = "Contacto de emergencia (Nombre y relación)",

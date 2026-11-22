@@ -1,6 +1,5 @@
 package com.icm2630.proyecto.ui.screens
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -24,9 +23,21 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import com.icm2630.proyecto.ui.components.FiltroListadoChip
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.icm2630.proyecto.data.model.TomaProgramada
+import com.icm2630.proyecto.data.model.TomasProgramadas
+import com.icm2630.proyecto.data.repository.TomaRepository
+import com.icm2630.proyecto.ui.components.EstadoToma
+import com.icm2630.proyecto.ui.viewmodel.TomasViewModel
+import com.icm2630.proyecto.ui.viewmodel.TomasUiState
 import com.icm2630.proyecto.data.model.FechasPendientes
 import com.icm2630.proyecto.ui.util.rememberHoyUtcMillis
 import com.icm2630.proyecto.data.model.ModalidadCita
@@ -79,7 +90,8 @@ private data class Recordatorio(
     val horaTexto: String,
     val icono: ImageVector,
     val titulo: String,
-    val subtitulo: String
+    val subtitulo: String,
+    val toma: TomaProgramada? = null
 )
 
 private data class GrupoRecordatorios(
@@ -116,10 +128,13 @@ private fun calcularUrgencia(fechaMillis: Long, hoyMillis: Long): NivelUrgencia 
 
 @Composable
 fun RemindersScreen(
+    filtroInicialMedicamentos: Boolean = false,
     onNavigate: (Routes) -> Unit = {},
-    onVerDetalle: (Routes) -> Unit = {}
+    onVerDetalle: (Routes) -> Unit = {},
+    tomasViewModel: TomasViewModel = androidx.lifecycle.viewmodel.compose.viewModel(),
+    estadoTomas: TomasUiState = TomasUiState()
 ) {
-    var filtroSeleccionado by remember { mutableStateOf(FiltroTipo.TODOS) }
+    var filtroSeleccionado by remember { mutableStateOf(if (filtroInicialMedicamentos) FiltroTipo.MEDICAMENTOS else FiltroTipo.TODOS) }
 
 
     var pacienteSeleccionado by remember { mutableStateOf<String?>(null) }
@@ -159,6 +174,7 @@ fun RemindersScreen(
             ) {
                 Text(
                     text = "Pendientes",
+                    modifier = Modifier.weight(1f).padding(end = 12.dp),
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold,
                     color = Blue700
@@ -228,7 +244,16 @@ fun RemindersScreen(
                 grupos.forEachIndexed { index, grupo ->
                     GrupoRecordatoriosSeccion(
                         grupo = grupo,
-                        onVerDetalle = onVerDetalle
+                        onVerDetalle = { destino ->
+                            pacienteSeleccionado?.let { id ->
+                                VinculacionRepository.obtenerPorId(id)?.let(SesionRepository::verFamiliar)
+                            }
+                            onVerDetalle(destino)
+                        },
+                        hoy = hoyMillis,
+                        tomasViewModel = tomasViewModel,
+                        estadoTomas = estadoTomas,
+                        uid = pacienteSeleccionado ?: TomaRepository.cuentaConsultada()
                     )
                     if (index != grupos.lastIndex) {
                         Spacer(Modifier.height(24.dp))
@@ -257,6 +282,8 @@ private fun EstadoVacio() {
             Spacer(Modifier.height(10.dp))
             Text(
                 text = "No tienes pendientes por ahora",
+                modifier = Modifier.padding(horizontal = 16.dp),
+                textAlign = TextAlign.Center,
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.SemiBold,
                 color = TextPrimary
@@ -264,6 +291,8 @@ private fun EstadoVacio() {
             Spacer(Modifier.height(4.dp))
             Text(
                 text = "Tus próximas citas y medicamentos aparecerán aquí",
+                modifier = Modifier.padding(horizontal = 16.dp),
+                textAlign = TextAlign.Center,
                 style = MaterialTheme.typography.bodySmall,
                 color = TextSecondary
             )
@@ -274,14 +303,18 @@ private fun EstadoVacio() {
 @Composable
 private fun GrupoRecordatoriosSeccion(
     grupo: GrupoRecordatorios,
-    onVerDetalle: (Routes) -> Unit
+    onVerDetalle: (Routes) -> Unit,
+    hoy: Long,
+    tomasViewModel: TomasViewModel,
+    estadoTomas: TomasUiState,
+    uid: String?
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(modifier = Modifier.weight(1f).padding(end = 12.dp), verticalAlignment = Alignment.CenterVertically) {
 
             // Punto de color: prioridad visual del grupo según su fecha
             // (rojo = hoy o vencido, ámbar = próximos 3 días, azul = más adelante).
@@ -333,6 +366,9 @@ private fun GrupoRecordatoriosSeccion(
                     onVerDetalle(destino)
                 }
             )
+            item.toma?.let { toma ->
+                EstadoToma(toma, hoy, tomasViewModel, estadoTomas, uid)
+            }
             if (index != grupo.items.lastIndex) {
                 DivisorFila()
             }
@@ -363,84 +399,37 @@ private fun RecordatorioFila(
     onClick: () -> Unit
 ) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(vertical = 12.dp),
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Franja de color a la izquierda: misma prioridad que el
-        // grupo (rojo = hoy/vencido, ámbar = pronto, azul = futuro),
-        // para poder distinguir la urgencia de un vistazo.
-        Box(
-            modifier = Modifier
-                .width(4.dp)
-                .height(40.dp)
-                .background(colorPrioridad, RoundedCornerShape(2.dp))
-        )
-
+        Box(Modifier.width(4.dp).height(40.dp).background(colorPrioridad, RoundedCornerShape(2.dp)))
         Spacer(Modifier.width(10.dp))
-
-        Text(
-            text = item.horaTexto,
-            style = MaterialTheme.typography.labelLarge,
-            fontWeight = FontWeight.Bold,
-            color = Blue700,
-            modifier = Modifier.widthIn(min = 52.dp)
-        )
-
-        Surface(
-            color = Blue100.copy(alpha = 0.3f),
-            shape = RoundedCornerShape(12.dp),
-            modifier = Modifier.size(40.dp)
-        ) {
+        Surface(color = Blue50, shape = RoundedCornerShape(12.dp), modifier = Modifier.size(40.dp)) {
             Box(contentAlignment = Alignment.Center) {
                 Icon(item.icono, null, tint = Blue500, modifier = Modifier.size(20.dp))
             }
         }
-
         Spacer(Modifier.width(12.dp))
-
-        Column(modifier = Modifier.weight(1f)) {
+        Column(Modifier.weight(1f)) {
+            Text(item.titulo, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold, color = TextPrimary)
+            Spacer(Modifier.height(4.dp))
             Text(
-                text = item.titulo,
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.SemiBold,
-                color = TextPrimary
-            )
-            Text(
-                text = item.subtitulo,
+                buildAnnotatedString {
+                    withStyle(SpanStyle(color = Blue700, fontWeight = FontWeight.SemiBold)) { append(item.horaTexto) }
+                    if (item.subtitulo.isNotBlank()) append(" · " + item.subtitulo)
+                },
                 style = MaterialTheme.typography.bodySmall,
                 color = TextSecondary
             )
         }
-
         Spacer(Modifier.width(8.dp))
-
-        Icon(
-            imageVector = Icons.Outlined.KeyboardArrowRight,
-            contentDescription = "Ver detalle",
-            tint = TextSecondary
-        )
+        Icon(Icons.Outlined.KeyboardArrowRight, "Ver detalle", tint = TextSecondary, modifier = Modifier.size(24.dp))
     }
 }
 
 @Composable
 private fun FiltroChip(texto: String, seleccionado: Boolean, onClick: () -> Unit) {
-    Surface(
-        color = if (seleccionado) Blue700 else Color.White,
-        shape = RoundedCornerShape(50),
-        border = if (!seleccionado) BorderStroke(1.dp, Color(0xFFE5E7EB)) else null,
-        onClick = onClick
-    ) {
-        Text(
-            text = texto,
-            style = MaterialTheme.typography.labelLarge,
-            fontWeight = FontWeight.SemiBold,
-            color = if (seleccionado) Color.White else TextSecondary,
-            modifier = Modifier.padding(horizontal = 18.dp, vertical = 10.dp)
-        )
-    }
+    FiltroListadoChip(texto, seleccionado, onClick)
 }
 
 @Composable
@@ -451,7 +440,7 @@ private fun PacienteChip(
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.width(64.dp)
+        modifier = Modifier.width(80.dp)
     ) {
         BadgedBox(
             badge = {
@@ -494,6 +483,10 @@ private fun PacienteChip(
 
         Text(
             text = paciente.nombre,
+            minLines = 2,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.Center,
             style = MaterialTheme.typography.labelSmall,
             color = if (seleccionado) Blue700 else TextSecondary,
             fontWeight = if (seleccionado) FontWeight.Bold else FontWeight.Normal
@@ -505,7 +498,7 @@ private fun PacienteChip(
 private fun BotonAgregar(onClick: () -> Unit) {
     Box(
         modifier = Modifier
-            .size(44.dp)
+            .size(48.dp)
             .shadow(elevation = 4.dp, shape = CircleShape, ambientColor = Blue100, spotColor = Blue100)
             .background(Color.White, CircleShape),
         contentAlignment = Alignment.Center
@@ -558,9 +551,8 @@ private fun contarPendientes(personaId: String?, hoyMillis: Long): Int {
         MedicamentoRepository.obtenerPorPersona(personaId)
     }
 
-    val tomasDeMedicamento = medicamentos
-        .filter { FechasPendientes.proximoDia(it, hoyMillis) != null }
-        .sumOf { it.horarios.size }
+    val uid = personaId ?: TomaRepository.cuentaConsultada()
+    val tomasDeMedicamento = TomasProgramadas.pendientes(medicamentos, hoyMillis, TomaRepository.claves(uid)).size
     return citas.count { FechasPendientes.citaPendiente(it.fechaMillis, hoyMillis) } + tomasDeMedicamento
 }
 
@@ -637,7 +629,7 @@ private fun construirRecordatorios(
 
             val fechaPendiente = FechasPendientes.proximoDia(medicamento, hoyMillis)
                 ?: return@flatMap emptyList()
-            val horarios = medicamento.horarios
+            val horarios = medicamento.horarios.distinct().filter { TomasProgramadas.minutos(it) != null }
 
             horarios.map { horario ->
                 val (horaOrden, minutoOrden) = parsearHorario(horario)
@@ -660,7 +652,8 @@ private fun construirRecordatorios(
                         horaTexto = horario.ifBlank { "--:--" },
                         icono = Icons.Outlined.Medication,
                         titulo = medicamento.nombre,
-                        subtitulo = subtitulo
+                        subtitulo = subtitulo,
+                        toma = TomaProgramada(medicamento, fechaPendiente, horario)
                     )
                 )
             }

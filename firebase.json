@@ -2,5 +2,10 @@
   "firestore": {
     "database": "(default)",
     "rules": "firestore.rules"
+  },
+  "emulators": {
+    "firestore": { "port": 8089 },
+    "ui": { "enabled": false },
+    "singleProjectMode": true
   }
 }

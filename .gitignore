@@ -11,6 +11,9 @@ local.properties
 # Claude Code
 .claude/worktrees/
 
+# Firebase test dependencies
+firebase-tests/node_modules/
+
 # Firebase local logs
 firebase-debug*.log
 firestore-debug.log

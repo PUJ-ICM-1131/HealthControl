@@ -5,6 +5,8 @@ import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.icm2630.proyecto.data.repository.SesionRepository
 import com.icm2630.proyecto.navigation.Routes
@@ -48,6 +50,10 @@ fun HealthBottomNavigation(
                 label = {
                     Text(
                         text = item.label,
+                        maxLines = 1,
+                        softWrap = false,
+                        overflow = TextOverflow.Ellipsis,
+                        textAlign = TextAlign.Center,
                         style = MaterialTheme.typography.labelSmall,
                         color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
                     )

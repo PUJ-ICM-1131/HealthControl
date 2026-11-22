@@ -151,8 +151,16 @@ data class AppointmentRegisterUiState(
         }
 
     val enlaceVirtualValido: Boolean
-        get() = enlaceVirtualNormalizado.isEmpty() ||
-            Regex("^https?://[^\\s]+\\.[^\\s]+$").matches(enlaceVirtualNormalizado)
+        get() {
+            val enlace = enlaceVirtualNormalizado
+            if (enlace.isEmpty()) return true
+            if (enlace.length > 2048 || enlace.any { it.isWhitespace() }) return false
+            return runCatching {
+                val uri = java.net.URI(enlace)
+                uri.scheme in listOf("http", "https") && !uri.host.isNullOrBlank() &&
+                    uri.host.contains('.') && uri.userInfo == null
+            }.getOrDefault(false)
+        }
 
     // VALIDACIÓN GENERAL
     val formularioValido: Boolean

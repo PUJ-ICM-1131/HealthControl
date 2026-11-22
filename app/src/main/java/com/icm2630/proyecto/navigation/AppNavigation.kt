@@ -60,6 +60,20 @@ fun AppNavigation() {
         onDispose { perfilViewModel?.detener() }
     }
 
+    val tomasViewModel: com.icm2630.proyecto.ui.viewmodel.TomasViewModel =
+        viewModel(key = "tomas:${authState.uid}")
+    val estadoTomas by tomasViewModel.uiState.collectAsStateWithLifecycle()
+    estadoTomas.error?.let { mensaje ->
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = tomasViewModel::limpiarError,
+            title = { Text("No se pudo registrar la toma") },
+            text = { Text(mensaje) },
+            confirmButton = {
+                androidx.compose.material3.TextButton(onClick = tomasViewModel::limpiarError) { Text("Entendido") }
+            }
+        )
+    }
+
     val backStack = rememberNavBackStack(Routes.Login)
 
     // Tras autenticarse: onboarding si el perfil no está configurado, si no, al inicio.
@@ -130,6 +144,67 @@ fun AppNavigation() {
             androidx.compose.material3.CircularProgressIndicator()
         }
         return
+    }
+
+    val pantallaPerfil: @Composable (Boolean) -> Unit = { abrir ->
+        ProfileScreen(
+            abrirInvitacionAlEntrar = abrir,
+
+            perfil = SesionRepository.perfil ?: PerfilUsuario(),
+
+            familiar = SesionRepository.familiarActivo,
+
+            onNavigate = { route ->
+
+                navegarATab(
+                    backStack = backStack,
+                    destino = route
+                )
+            },
+
+
+            // La edición de cada campo se resuelve dentro de ProfileScreen;
+            // aquí solo se persiste el perfil actualizado.
+            miUid = authState.uid.orEmpty(),
+            estado = estadoPerfil,
+            onActualizarPerfil = { perfilViewModel?.guardarPerfil(it) },
+            onEnviarCodigo = { perfilViewModel?.enviar(it) },
+            onResponder = { invitacion, aceptar -> perfilViewModel?.responder(invitacion, aceptar) },
+            onCancelarSolicitud = { perfilViewModel?.cancelar(it) },
+            onDesvincular = { perfilViewModel?.desvincular(it) },
+            onConsumirMensaje = { perfilViewModel?.consumirMensaje() },
+            onConsumirEnvio = { perfilViewModel?.consumirEnvio() },
+
+            // Al elegir un familiar se consulta su HealthControl desde el inicio.
+            onVerFamiliar = { persona ->
+
+                SesionRepository.verFamiliar(persona)
+
+                navegarATab(
+                    backStack = backStack,
+                    destino = Routes.Home
+                )
+            },
+
+
+            onVolverAMiPerfil = {
+
+                SesionRepository.volverAMiPerfil()
+            },
+
+
+            onCerrarSesion = {
+
+                authViewModel.cerrarSesion()
+
+
+                backStack.clear()
+
+                backStack.add(
+                    Routes.Login
+                )
+            }
+        )
     }
 
     NavDisplay(
@@ -218,6 +293,8 @@ fun AppNavigation() {
             entry<Routes.Home> {
 
                 HomeScreen(
+                    tomasViewModel = tomasViewModel,
+                    estadoTomas = estadoTomas,
 
                     perfil = SesionRepository.perfil ?: PerfilUsuario(),
 
@@ -265,6 +342,8 @@ fun AppNavigation() {
             entry<Routes.Recordatorios> {
 
                 RemindersScreen(
+                    tomasViewModel = tomasViewModel,
+                    estadoTomas = estadoTomas,
 
                     onNavigate = { route ->
 
@@ -280,6 +359,16 @@ fun AppNavigation() {
                             route
                         )
                     }
+                )
+            }
+
+            entry<Routes.Tomas> {
+                RemindersScreen(
+                    filtroInicialMedicamentos = true,
+                    tomasViewModel = tomasViewModel,
+                    estadoTomas = estadoTomas,
+                    onNavigate = { route -> navegarATab(backStack, route) },
+                    onVerDetalle = { route -> backStack.add(route) }
                 )
             }
 
@@ -408,6 +497,8 @@ fun AppNavigation() {
             entry<Routes.DetalleMedicamento> { key ->
 
                 DetalleMedicamentoScreen(
+                    tomasViewModel = tomasViewModel,
+                    estadoTomas = estadoTomas,
 
                     medicamentoId = key.medicamentoId,
 
@@ -465,66 +556,8 @@ fun AppNavigation() {
                 )
             }
 
-            entry<Routes.Perfil> {
-
-                ProfileScreen(
-
-                    perfil = SesionRepository.perfil ?: PerfilUsuario(),
-
-                    familiar = SesionRepository.familiarActivo,
-
-                    onNavigate = { route ->
-
-                        navegarATab(
-                            backStack = backStack,
-                            destino = route
-                        )
-                    },
-
-
-                    // La edición de cada campo se resuelve dentro de ProfileScreen;
-                    // aquí solo se persiste el perfil actualizado.
-                    miUid = authState.uid.orEmpty(),
-                    estado = estadoPerfil,
-                    onActualizarPerfil = { perfilViewModel?.guardarPerfil(it) },
-                    onEnviarCodigo = { perfilViewModel?.enviar(it) },
-                    onResponder = { invitacion, aceptar -> perfilViewModel?.responder(invitacion, aceptar) },
-                    onCancelarSolicitud = { perfilViewModel?.cancelar(it) },
-                    onDesvincular = { perfilViewModel?.desvincular(it) },
-                    onConsumirMensaje = { perfilViewModel?.consumirMensaje() },
-                    onConsumirEnvio = { perfilViewModel?.consumirEnvio() },
-
-                    // Al elegir un familiar se consulta su HealthControl desde el inicio.
-                    onVerFamiliar = { persona ->
-
-                        SesionRepository.verFamiliar(persona)
-
-                        navegarATab(
-                            backStack = backStack,
-                            destino = Routes.Home
-                        )
-                    },
-
-
-                    onVolverAMiPerfil = {
-
-                        SesionRepository.volverAMiPerfil()
-                    },
-
-
-                    onCerrarSesion = {
-
-                        authViewModel.cerrarSesion()
-
-
-                        backStack.clear()
-
-                        backStack.add(
-                            Routes.Login
-                        )
-                    }
-                )
-            }
+            entry<Routes.Perfil> { pantallaPerfil(false) }
+            entry<Routes.Compartir> { pantallaPerfil(true) }
         }
     )
 }
@@ -541,11 +574,9 @@ private fun navegarATab(
         destino
     ) {
 
-        backStack.clear()
-
-        backStack.add(
-            destino
-        )
+        val tabs = setOf(Routes.Home, Routes.Recordatorios, Routes.Registrar, Routes.Historial, Routes.Mapa, Routes.Perfil)
+        if (destino in tabs) backStack.clear()
+        backStack.add(destino)
     }
 }
 

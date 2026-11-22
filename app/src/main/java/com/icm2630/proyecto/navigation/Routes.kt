@@ -19,6 +19,10 @@ sealed interface Routes : NavKey {
     @Serializable
     data object Recordatorios : Routes
     @Serializable
+    data object Tomas : Routes
+    @Serializable
+    data object Compartir : Routes
+    @Serializable
     data object Registrar : Routes
     @Serializable
     data object Historial : Routes

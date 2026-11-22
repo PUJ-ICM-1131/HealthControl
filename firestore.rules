@@ -4,6 +4,8 @@
 // estado, creadaEn y actualizadaEn (timestamps de servidor).
 // usuarios/{uid}/citas y medicamentos: registros propios; lectura con vínculo.
 // ubicaciones/{uid}: {punto:latlng, actualizadoEn:timestamp}, opt-in del titular.
+// usuarios/{uid}/tomas/{medicamentoId}_{fechaMillis}_{horario}: confirmaciones diarias;
+// solo el titular confirma/deshace y sus vínculos aceptados pueden consultarlas.
 // Prototipo de reglas: revisar el informe de pruebas antes de distribuir ampliamente.
 rules_version = '2';
 service cloud.firestore {
@@ -139,6 +141,13 @@ service cloud.firestore {
         allow create, update: if owner(uid) && existeTitular(uid) && isValidCita(request.resource.data,id);
         allow delete: if owner(uid) && existeTitular(uid);
       }
+      match /tomas/{id} {
+        allow read: if puedeConsultar(uid);
+        allow create: if owner(uid) && existeTitular(uid) && isValidToma(uid, request.resource.data, id);
+        // Una confirmación conserva su hora de servidor. Reintentar no la sobrescribe.
+        allow update: if false;
+        allow delete: if owner(uid) && existeTitular(uid) && diaActualPosible(resource.data.fechaMillis);
+      }
       match /medicamentos/{id} {
         allow read: if puedeConsultar(uid);
         allow create, update: if owner(uid) && existeTitular(uid) && isValidMedicamento(request.resource.data,id);
@@ -228,6 +237,25 @@ service cloud.firestore {
         && (n <= 21 || (h[21] is string && h[21].size() > 0 && h[21].size() <= 20))
         && (n <= 22 || (h[22] is string && h[22].size() > 0 && h[22].size() <= 20))
         && (n <= 23 || (h[23] is string && h[23].size() > 0 && h[23].size() <= 20));
+    }
+    // El día se codifica a medianoche UTC como en los DatePicker de la app.
+    // La ventana cubre el día local actual en las zonas UTC-12 a UTC+14.
+    function diaActualPosible(dia) {
+      return fecha(dia) && dia % 86400000 == 0
+        && dia <= request.time.toMillis() + 50400000
+        && dia > request.time.toMillis() - 136800000;
+    }
+    function isValidToma(uid,d,id) {
+      let med = get(/databases/$(database)/documents/usuarios/$(uid)/medicamentos/$(d.medicamentoId)).data;
+      return d.keys().hasAll(['medicamentoId','fechaMillis','horario','registradaEn'])
+        && d.keys().hasOnly(['medicamentoId','fechaMillis','horario','registradaEn'])
+        && d.medicamentoId is string && d.medicamentoId.matches('^[a-zA-Z0-9_-]{1,128}$')
+        && str(d.horario,20) && d.horario.size() > 0 && d.horario in med.horarios
+        && id == d.medicamentoId + '_' + string(d.fechaMillis) + '_' + d.horario
+        && diaActualPosible(d.fechaMillis)
+        && d.fechaMillis >= med.fechaInicioMillis
+        && (med.tratamientoPermanente || d.fechaMillis <= med.fechaFinMillis)
+        && d.registradaEn is timestamp && d.registradaEn == request.time;
     }
     function isValidMedicamento(d,id) {
       return d.keys().hasAll(['id','nombre','forma','dosis','unidad','cantidadPorToma','horarios','fechaInicioMillis','tratamientoPermanente'])

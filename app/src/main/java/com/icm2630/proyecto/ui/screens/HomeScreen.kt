@@ -27,6 +27,14 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.icm2630.proyecto.R
+import com.icm2630.proyecto.data.model.TomaProgramada
+import com.icm2630.proyecto.data.model.TomasProgramadas
+import com.icm2630.proyecto.data.repository.TomaRepository
+import com.icm2630.proyecto.ui.components.EstadoToma
+import com.icm2630.proyecto.ui.viewmodel.TomasViewModel
+import com.icm2630.proyecto.ui.viewmodel.TomasUiState
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.runtime.saveable.rememberSaveable
 import com.icm2630.proyecto.data.model.FechasPendientes
 import com.icm2630.proyecto.ui.util.rememberHoyUtcMillis
 import com.icm2630.proyecto.data.model.Cita
@@ -51,7 +59,7 @@ private data class QuickAction(
     val title: String,
     val subtitle: String,
     val icon: ImageVector,
-    val route: Routes?
+    val route: Routes
 )
 
 /**
@@ -63,16 +71,19 @@ fun HomeScreen(
     perfil: PerfilUsuario = PerfilUsuario(),
     familiar: PersonaVinculada? = null,
     onNavigate: (Routes) -> Unit = {},
-    onVolverAMiPerfil: () -> Unit = {}
+    onVolverAMiPerfil: () -> Unit = {},
+    tomasViewModel: TomasViewModel = androidx.lifecycle.viewmodel.compose.viewModel(),
+    estadoTomas: TomasUiState = TomasUiState()
 ) {
     val soloLectura = familiar != null
 
     val allActions = remember {
         listOf(
-            QuickAction("dosis", "Registrar Dosis", "Toma rápida", Icons.Outlined.Medication, Routes.RegistrarMedicamento()),
-            QuickAction("cita", "Nueva Cita", "Agendar visita", Icons.Outlined.AddBox, Routes.Registrar),
-            QuickAction("signos", "Medir Signos", "Presión / Pulso", Icons.Outlined.Timeline, null),
-            QuickAction("cuidador", "Compartir", "Añadir cuidador", Icons.Outlined.Group, Routes.Perfil),
+            QuickAction("dosis", "Registrar toma", "Dosis de hoy", Icons.Outlined.Medication, Routes.Tomas),
+            QuickAction("cita", "Nueva cita", "Agendar visita", Icons.Outlined.AddBox, Routes.RegistrarCita()),
+            QuickAction("pendientes", "Pendientes", "Citas y tomas", Icons.Outlined.StickyNote2, Routes.Recordatorios),
+            QuickAction("cuidador", "Compartir", "Añadir cuidador", Icons.Outlined.Group, Routes.Compartir),
+            QuickAction("medicamento", "Medicamento", "Nuevo tratamiento", Icons.Outlined.Add, Routes.RegistrarMedicamento()),
             // Opciones extra para personalizar
             QuickAction("historial", "Ver Historial", "Tus registros", Icons.Outlined.History, Routes.Historial),
             QuickAction("mapa", "Ver Mapa", "Ubicaciones", Icons.Outlined.Map, Routes.Mapa)
@@ -89,12 +100,21 @@ fun HomeScreen(
         )
     }
 
-    var selectedActionIds by remember { mutableStateOf(setOf("dosis", "cita", "signos", "cuidador")) }
+    val uid = TomaRepository.cuentaConsultada()
+    val preferencias = LocalContext.current.getSharedPreferences("acciones_rapidas", android.content.Context.MODE_PRIVATE)
+    var selectedActionIds by remember(uid) {
+        mutableStateOf(preferencias.getStringSet(uid ?: "sin_sesion", null)
+            ?.map { if (it == "signos") "pendientes" else it }?.toSet()
+            ?: setOf("dosis", "cita", "pendientes", "cuidador"))
+    }
+    LaunchedEffect(uid, selectedActionIds) {
+        if (!soloLectura && uid != null) preferencias.edit().putStringSet(uid, selectedActionIds).apply()
+    }
     var showCustomizer by remember { mutableStateOf(false) }
-    var dosisTomada by remember { mutableStateOf(false) }
+    val hoy = rememberHoyUtcMillis()
 
     val nombrePropio = familiar?.nombre?.substringBefore(" ") ?: "Yo"
-    val resumen = construirResumenHome(nombrePropio, rememberHoyUtcMillis())
+    val resumen = construirResumenHome(nombrePropio, hoy)
 
     Scaffold(
         bottomBar = {
@@ -118,11 +138,12 @@ fun HomeScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
                     LogoSmall()
                     Spacer(Modifier.width(12.dp))
                     Text(
                         text = "Health Control",
+                        modifier = Modifier.weight(1f),
                         style = MaterialTheme.typography.titleLarge,
                         color = Blue700,
                         fontWeight = FontWeight.Bold
@@ -132,7 +153,7 @@ fun HomeScreen(
                 // Botón de Perfil que navega directamente
                 Box(
                     modifier = Modifier
-                        .size(45.dp)
+                        .size(48.dp)
                         .clip(CircleShape)
                         .background(Blue100)
                         .clickable { onNavigate(Routes.Perfil) }
@@ -167,7 +188,7 @@ fun HomeScreen(
                 Spacer(Modifier.height(12.dp))
                 Surface(
                     color = Blue100.copy(alpha = 0.3f),
-                    shape = RoundedCornerShape(50)
+                    shape = RoundedCornerShape(16.dp)
                 ) {
                     Row(
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
@@ -181,6 +202,7 @@ fun HomeScreen(
                             else
                                 "${acompanantes.size} acompañantes dan seguimiento a tu salud",
                             style = MaterialTheme.typography.labelSmall,
+                            modifier = Modifier.weight(1f),
                             color = Blue700
                         )
                     }
@@ -195,7 +217,8 @@ fun HomeScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Acciones Rápidas",
+                    text = "Acciones rápidas",
+                    modifier = Modifier.weight(1f),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = Blue700
@@ -216,14 +239,14 @@ fun HomeScreen(
                 allActions.filter { it.id in selectedActionIds }
             }
             currentActions.chunked(2).forEach { rowActions ->
-                Row(modifier = Modifier.fillMaxWidth()) {
+                Row(modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
                     rowActions.forEachIndexed { index, action ->
                         QuickActionCard(
                             icon = action.icon,
                             title = action.title,
                             subtitle = action.subtitle,
-                            onClick = { action.route?.let { onNavigate(it) } },
-                            modifier = Modifier.weight(1f)
+                            onClick = { onNavigate(action.route) },
+                            modifier = Modifier.weight(1f).fillMaxHeight()
                         )
                         if (index == 0 && rowActions.size > 1) {
                             Spacer(Modifier.width(16.dp))
@@ -244,36 +267,45 @@ fun HomeScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Próximos Recordatorios",
+                    text = "Próximos recordatorios",
+                    modifier = Modifier.weight(1f).padding(end = 12.dp),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = Blue700
                 )
                 Surface(
-                    color = Color(0xFFFFEBEE),
+                    color = if (resumen.pendientes == 0) SuccessGreenBg else Blue50,
                     shape = RoundedCornerShape(50),
                     modifier = Modifier.clickable { onNavigate(Routes.Recordatorios) }
                 ) {
                     Text(
-                        text = "${resumen.pendientes} pendientes",
+                        text = if (resumen.pendientes == 1) "1 pendiente" else "${resumen.pendientes} pendientes",
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
                         style = MaterialTheme.typography.labelSmall,
-                        color = Color.Red
+                        color = if (resumen.pendientes == 0) SuccessGreen else Blue700
                     )
                 }
             }
 
             Spacer(Modifier.height(16.dp))
 
+            if (TomaRepository.cargado(uid)) {
+                val deHoy = TomasProgramadas.listar(MedicamentoRepository.obtenerTodos(), hoy).filter { it.fechaMillis == hoy }
+                val confirmadas = deHoy.count { it.clave in TomaRepository.claves(uid) }
+                Text("Tomas de hoy: $confirmadas/${deHoy.size} confirmadas", color = TextSecondary,
+                    style = MaterialTheme.typography.bodySmall)
+                Spacer(Modifier.height(12.dp))
+            }
             // Card Recordatorio Medicamento
             resumen.medicamento?.let { toma ->
                 MedicationReminderCard(
                     titulo = toma.titulo,
                     hora = toma.hora,
                     personName = toma.paciente,
-                    isTaken = dosisTomada,
-                    soloLectura = soloLectura,
-                    onTakenChange = { dosisTomada = it },
+                    toma = toma.programada,
+                    hoy = hoy,
+                    tomasViewModel = tomasViewModel,
+                    estadoTomas = estadoTomas,
                     onClick = { onNavigate(Routes.Recordatorios) }
                 )
                 Spacer(Modifier.height(16.dp))
@@ -377,30 +409,26 @@ private fun QuickActionCard(
     onClick: () -> Unit = {}
 ) {
     Surface(
-        modifier = modifier.height(90.dp),
+        modifier = modifier.heightIn(min = 112.dp),
         color = Color.White,
         shape = RoundedCornerShape(20.dp),
         shadowElevation = 2.dp,
         onClick = onClick
     ) {
-        Row(
-            modifier = Modifier.padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
+        Column(Modifier.padding(14.dp)) {
             Surface(
-                color = Blue100.copy(alpha = 0.3f),
+                color = Blue50,
                 shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.size(48.dp)
+                modifier = Modifier.size(36.dp)
             ) {
                 Box(contentAlignment = Alignment.Center) {
-                    Icon(icon, null, tint = Blue500, modifier = Modifier.size(24.dp))
+                    Icon(icon, null, tint = Blue500, modifier = Modifier.size(22.dp))
                 }
             }
-            Spacer(Modifier.width(12.dp))
-            Column {
-                Text(title, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = Blue700, maxLines = 1)
-                Text(subtitle, style = MaterialTheme.typography.bodySmall, color = TextSecondary, maxLines = 1)
-            }
+            Spacer(Modifier.height(10.dp))
+            Text(title, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = Blue700)
+            Spacer(Modifier.height(4.dp))
+            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = TextSecondary)
         }
     }
 }
@@ -409,96 +437,38 @@ private fun QuickActionCard(
 private fun MedicationReminderCard(
     titulo: String,
     hora: String,
-    personName: String = "Yo",
-    isTaken: Boolean = false,
-    soloLectura: Boolean = false,
-    onTakenChange: (Boolean) -> Unit = {},
-    onClick: () -> Unit = {}
+    personName: String,
+    toma: TomaProgramada,
+    hoy: Long,
+    tomasViewModel: TomasViewModel,
+    estadoTomas: TomasUiState,
+    onClick: () -> Unit
 ) {
     Surface(
         color = Color.White,
-        shape = RoundedCornerShape(24.dp),
-        shadowElevation = 4.dp,
-        modifier = Modifier.fillMaxWidth().clickable { onClick() }
+        shape = RoundedCornerShape(20.dp),
+        shadowElevation = 2.dp,
+        modifier = Modifier.fillMaxWidth()
     ) {
-        Column(modifier = Modifier.padding(20.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Surface(
-                    color = if (isTaken) SuccessGreenBg else Blue100.copy(alpha = 0.3f),
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.size(56.dp)
-                ) {
+        Column(Modifier.padding(16.dp)) {
+            Row(
+                Modifier.fillMaxWidth().clickable(onClick = onClick),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(color = Blue50, shape = RoundedCornerShape(12.dp), modifier = Modifier.size(40.dp)) {
                     Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            if (isTaken) Icons.Outlined.CheckCircle else Icons.Outlined.Medication,
-                            null,
-                            tint = if (isTaken) SuccessGreen else Blue500,
-                            modifier = Modifier.size(32.dp)
-                        )
+                        Icon(Icons.Outlined.Medication, null, tint = Blue500, modifier = Modifier.size(22.dp))
                     }
                 }
-                Spacer(Modifier.width(16.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(titulo, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Blue700)
-                        
-                        // Etiqueta de la persona
-                        Surface(
-                            color = Blue50,
-                            shape = RoundedCornerShape(8.dp),
-                            border = BorderStroke(1.dp, Blue100)
-                        ) {
-                            Text(
-                                text = personName,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = Blue700,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                        }
-                    }
-                    
-                    Spacer(Modifier.height(4.dp))
-                    
-                    if (!isTaken) {
-                        Surface(color = Color(0xFFFFF3E0), shape = RoundedCornerShape(4.dp)) {
-                            Text("Hace 10 min", modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp), fontSize = 10.sp, color = Color.Red)
-                        }
-                    } else {
-                        Surface(color = SuccessGreenBg, shape = RoundedCornerShape(4.dp)) {
-                            Text("Completado", modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp), fontSize = 10.sp, color = SuccessGreen)
-                        }
-                    }
-                    
-                    Spacer(Modifier.height(8.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Outlined.Schedule, null, modifier = Modifier.size(16.dp), tint = TextSecondary)
-                        Spacer(Modifier.width(4.dp))
-                        Text(hora, fontSize = 14.sp, color = Blue700, fontWeight = FontWeight.Bold)
-                    }
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(titulo, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Blue700)
+                    Text("$personName · $hora", color = TextSecondary, style = MaterialTheme.typography.bodySmall)
                 }
+                Icon(Icons.Outlined.KeyboardArrowRight, "Ver pendientes", tint = Blue500)
             }
-            if (!soloLectura) {
-                Spacer(Modifier.height(20.dp))
-                Button(
-                    onClick = { 
-                        onTakenChange(!isTaken)
-                    },
-                    modifier = Modifier.fillMaxWidth().height(50.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = if (isTaken) SuccessGreen else Blue700
-                    )
-                ) {
-                    Icon(Icons.Outlined.CheckCircle, null, modifier = Modifier.size(20.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text(if (isTaken) "Tomada" else "Marcar como tomada")
-                }
-            }
+            Spacer(Modifier.height(12.dp))
+            EstadoToma(toma, hoy, tomasViewModel, estadoTomas)
         }
     }
 }
@@ -512,60 +482,33 @@ private fun AppointmentReminderCard(
 ) {
     Surface(
         color = Color.White,
-        shape = RoundedCornerShape(24.dp),
-        shadowElevation = 4.dp,
-        modifier = Modifier.fillMaxWidth().clickable { onClick() }
+        shape = RoundedCornerShape(20.dp),
+        shadowElevation = 2.dp,
+        modifier = Modifier.fillMaxWidth(),
+        onClick = onClick
     ) {
-        Column(modifier = Modifier.padding(20.dp)) {
+        Column(Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Surface(
-                    color = Blue100.copy(alpha = 0.3f),
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.size(56.dp)
-                ) {
+                Surface(color = Blue50, shape = RoundedCornerShape(12.dp), modifier = Modifier.size(40.dp)) {
                     Box(contentAlignment = Alignment.Center) {
-                        Icon(Icons.Outlined.MedicalServices, null, tint = Blue500, modifier = Modifier.size(32.dp))
+                        Icon(Icons.Outlined.MedicalServices, null, tint = Blue500, modifier = Modifier.size(22.dp))
                     }
                 }
-                Spacer(Modifier.width(16.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column {
-                            Text("CITA MÉDICA", style = MaterialTheme.typography.labelSmall, color = Blue500, fontWeight = FontWeight.Bold)
-                            Text(medico, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Blue700)
-                        }
-                        
-                        // Etiqueta de la persona
-                        Surface(
-                            color = Blue50,
-                            shape = RoundedCornerShape(8.dp),
-                            border = BorderStroke(1.dp, Blue100)
-                        ) {
-                            Text(
-                                text = personName,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = Blue700,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                        }
-                    }
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text("Cita médica", style = MaterialTheme.typography.labelMedium, color = Blue500)
+                    Text(medico, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Blue700)
+                    Text(personName, style = MaterialTheme.typography.bodySmall, color = TextSecondary)
                 }
+                Spacer(Modifier.width(8.dp))
+                Icon(Icons.Outlined.KeyboardArrowRight, "Ver pendientes", tint = Blue500)
             }
-            Spacer(Modifier.height(16.dp))
-            Surface(
-                color = Color(0xFFF1F5F9),
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Outlined.CalendarMonth, null, modifier = Modifier.size(18.dp), tint = Blue500)
+            Spacer(Modifier.height(12.dp))
+            Surface(color = Blue50, shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth()) {
+                Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Outlined.CalendarMonth, null, tint = Blue500, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
-                    Text(cuando, style = MaterialTheme.typography.bodyMedium, color = Blue700)
+                    Text(cuando, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, color = Blue700)
                 }
             }
         }
@@ -574,7 +517,7 @@ private fun AppointmentReminderCard(
 
 // RESUMEN DE RECORDATORIOS DEL PERFIL ACTIVO (propio o del familiar)
 
-private data class ProximaToma(val titulo: String, val hora: String, val paciente: String)
+private data class ProximaToma(val titulo: String, val hora: String, val paciente: String, val programada: TomaProgramada)
 
 private data class ProximaCita(val medico: String, val cuando: String, val paciente: String)
 
@@ -594,19 +537,16 @@ private fun construirResumenHome(nombrePropio: String, hoy: Long): ResumenHome {
         .filter { FechasPendientes.citaPendiente(it.fechaMillis, hoy) }
         .sortedWith(compareBy({ it.fechaMillis }, { it.hora }, { it.minuto }))
 
-    val toma = medicamentosActivos.firstOrNull()?.let { medicamento: Medicamento ->
+    val programadas = TomasProgramadas.pendientes(medicamentosActivos, hoy, TomaRepository.claves())
+    val toma = programadas.firstOrNull()?.let { programada ->
+        val medicamento = programada.medicamento
         ProximaToma(
             titulo = "${medicamento.nombre} ${medicamento.dosis}${medicamento.unidad}",
-            hora = buildString {
-                val fecha = FechasPendientes.proximoDia(medicamento, hoy)!!
-                if (fecha > hoy) {
-                    append(SimpleDateFormat("d MMM", Locale("es", "ES"))
-                        .apply { timeZone = TimeZone.getTimeZone("UTC") }.format(Date(fecha)))
-                    append(" · ")
-                }
-                append(medicamento.horarios.firstOrNull() ?: "--:--")
-            },
-            paciente = etiquetaPacienteHome(medicamento.personaId, nombrePropio)
+            hora = if (programada.fechaMillis == hoy) programada.horario else
+                SimpleDateFormat("d MMM", Locale.getDefault()).apply { timeZone = TimeZone.getTimeZone("UTC") }
+                    .format(Date(programada.fechaMillis)) + " · " + programada.horario,
+            paciente = etiquetaPacienteHome(medicamento.personaId, nombrePropio),
+            programada = programada
         )
     }
 
@@ -618,7 +558,7 @@ private fun construirResumenHome(nombrePropio: String, hoy: Long): ResumenHome {
         )
     }
 
-    val tomas = medicamentosActivos.sumOf { it.horarios.size }
+    val tomas = programadas.size
 
     return ResumenHome(
         pendientes = citasProximas.size + tomas,

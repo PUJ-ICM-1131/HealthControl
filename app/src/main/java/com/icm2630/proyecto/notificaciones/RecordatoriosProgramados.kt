@@ -8,6 +8,8 @@ import android.os.Build
 import com.icm2630.proyecto.data.model.Cita
 import com.icm2630.proyecto.data.model.ModalidadCita
 import com.icm2630.proyecto.data.model.Medicamento
+import com.icm2630.proyecto.data.model.TomaMedicamento
+import com.icm2630.proyecto.data.model.FechasPendientes
 import java.util.Calendar
 import java.util.TimeZone
 
@@ -45,11 +47,12 @@ object RecordatoriosProgramados {
         val finMillis: Long? = null
     )
 
-    fun programarMedicamentos(medicamentos: List<Medicamento>) {
+    fun programarMedicamentos(medicamentos: List<Medicamento>, tomas: List<TomaMedicamento> = emptyList()) {
         val context = Notificaciones.contexto ?: return
         val ahora = System.currentTimeMillis()
+        val confirmadas = tomas.map { it.clave }.toSet()
         val alarmas = medicamentos.flatMap { medicamento ->
-            medicamento.horarios.mapNotNull { horario -> alarmaDeToma(medicamento, horario, ahora) }
+            medicamento.horarios.mapNotNull { horario -> alarmaDeToma(medicamento, horario, ahora, confirmadas) }
         }
         reemplazar(context, TIPO_MEDICAMENTO, alarmas)
     }
@@ -100,7 +103,7 @@ object RecordatoriosProgramados {
 
     // ── Construcción de alarmas ────────────────────────────────────────────
 
-    private fun alarmaDeToma(medicamento: Medicamento, horario: String, ahora: Long): Alarma? {
+    private fun alarmaDeToma(medicamento: Medicamento, horario: String, ahora: Long, confirmadas: Set<String>): Alarma? {
         val (hora, minuto) = parsearHora(horario) ?: return null
         val inicio = medicamento.fechaInicioMillis.takeIf { it > 0 }?.let { diaLocal(it, inicioDelDia = true) }
         val fin = if (medicamento.tratamientoPermanente) null
@@ -114,6 +117,10 @@ object RecordatoriosProgramados {
             set(Calendar.MILLISECOND, 0)
         }
         if (proxima.timeInMillis <= ahora) proxima.add(Calendar.DAY_OF_MONTH, 1)
+        val dia = FechasPendientes.hoy(proxima.timeInMillis)
+        if (TomaMedicamento.clave(medicamento.id, dia, horario) in confirmadas) {
+            proxima.add(Calendar.DAY_OF_MONTH, 1)
+        }
         if (fin != null && proxima.timeInMillis > fin) return null
 
         val cantidad = listOf(

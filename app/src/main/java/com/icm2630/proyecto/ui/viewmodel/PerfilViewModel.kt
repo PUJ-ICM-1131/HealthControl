@@ -96,9 +96,37 @@ class PerfilViewModel : ViewModel() {
         cuentasObservadas = cuentas
         CitaRepository.conservarCuentas(cuentas)
         MedicamentoRepository.conservarCuentas(cuentas)
+        TomaRepository.conservarCuentas(cuentas)
         escuchaRegistros = viewModelScope.launch {
             supervisorScope {
                 cuentas.forEach { cuenta ->
+                    launch {
+                        TomaRepository.observar(cuenta).retryWhen { _, intento ->
+                            if (intento >= 3 || !sesionVigente(miUid) || cuenta !in cuentasObservadas) false
+                            else {
+                                TomaRepository.fallo(cuenta)
+                                delay((intento + 1) * 2000L)
+                                true
+                            }
+                        }.catch {
+                            TomaRepository.fallo(cuenta)
+                            _uiState.update { it.copy(error = "No se pudieron consultar las tomas. Revisa la conexión y el vínculo.") }
+                        }.collect {
+                            if (sesionVigente(miUid) && cuenta in cuentasObservadas) {
+                                TomaRepository.actualizarCache(cuenta, it)
+                                if (cuenta == miUid) {
+                                    RecordatoriosProgramados.programarMedicamentos(MedicamentoRepository.obtenerPorPersona(miUid), it)
+                                    val hoy = FechasPendientes.hoy()
+                                    it.filter { toma -> toma.fechaMillis == hoy }.forEach { toma ->
+                                        com.icm2630.proyecto.notificaciones.Notificaciones.contexto?.let { context ->
+                                            androidx.core.app.NotificationManagerCompat.from(context)
+                                                .cancel("med:${toma.medicamentoId}:${toma.horario}".hashCode())
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                     launch {
                         CitaRepository.observar(cuenta).catch {
                             CitaRepository.actualizarCache(cuenta, emptyList())
@@ -118,7 +146,7 @@ class PerfilViewModel : ViewModel() {
                         }.collect {
                             if (sesionVigente(miUid) && cuenta in cuentasObservadas) {
                                 MedicamentoRepository.actualizarCache(cuenta, it)
-                                if (cuenta == miUid) RecordatoriosProgramados.programarMedicamentos(it)
+                                if (cuenta == miUid) RecordatoriosProgramados.programarMedicamentos(it, TomaRepository.obtener(miUid))
                                 else AvisosVinculacion.procesarMedicamentos(miUid, cuenta, it)
                             }
                         }
@@ -208,6 +236,7 @@ class PerfilViewModel : ViewModel() {
         cuentasObservadas = emptySet()
         CitaRepository.limpiar()
         MedicamentoRepository.limpiar()
+        TomaRepository.limpiar()
         uid = null
         limpiarVinculos()
         _uiState.value = PerfilUiState()

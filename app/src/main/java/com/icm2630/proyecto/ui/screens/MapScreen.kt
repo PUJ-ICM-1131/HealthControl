@@ -477,6 +477,7 @@ private fun MapContent(model: MapViewModel, token: String, permisoInicial: Boole
                 MapSearchCard(
                     state = state, onConsulta = model::cambiarConsulta,
                     onBuscar = { keyboard?.hide(); model.buscarDireccion() },
+                    onCentrosSalud = { keyboard?.hide(); model.buscarCentrosSalud(token) },
                     onElegir = {
                         keyboard?.hide()
                         mostrarBusqueda = false

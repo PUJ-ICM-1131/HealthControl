@@ -10,12 +10,13 @@ import androidx.fragment.app.FragmentActivity
 import com.icm2630.proyecto.navigation.AppNavigation
 import com.icm2630.proyecto.ui.theme.HealthControlTheme
 import com.icm2630.proyecto.data.repository.AdjuntosLocales
-
+import com.icm2630.proyecto.notificaciones.Notificaciones
 class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         AdjuntosLocales.inicializar(applicationContext)
+        Notificaciones.inicializar(applicationContext)
         setContent {
             HealthControlTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {

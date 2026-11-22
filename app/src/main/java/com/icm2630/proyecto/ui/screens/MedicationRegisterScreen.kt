@@ -61,6 +61,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
+import com.icm2630.proyecto.ui.components.RegistroGuardadoDialog
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
@@ -100,6 +102,8 @@ fun MedicationRegisterScreen(
     val state by viewModel.uiState.collectAsState()
 
     val context = LocalContext.current
+    val focusManager = LocalFocusManager.current
+    val scrollState = rememberScrollState()
 
     val snackbarHostState = remember {
         SnackbarHostState()
@@ -131,48 +135,21 @@ fun MedicationRegisterScreen(
         viewModel.onOrdenMedicaSeleccionada(uri.toString(), "orden_medica_foto.jpg")
     }
 
-    // CARGAR MEDICAMENTO A EDITAR (o limpiar el formulario)
+    // Inicializa una sola vez por entrada; conserva el formulario al rotar.
     LaunchedEffect(medicamentoId) {
+        viewModel.prepararFormulario(medicamentoId)
+    }
 
-        if (medicamentoId != null) {
-
-            viewModel.cargarMedicamentoParaEditar(
-                medicamentoId
-            )
-
-        } else {
-
-            viewModel.iniciarNuevoMedicamento()
+    LaunchedEffect(state.guardadoExitoso) {
+        if (state.guardadoExitoso) {
+            focusManager.clearFocus()
         }
     }
 
-    // RESULTADO DE GUARDADO
-    LaunchedEffect(
-        state.guardadoExitoso,
-        state.mensajeError
-    ) {
-
-        if (state.guardadoExitoso) {
-
-            snackbarHostState.showSnackbar(
-                message =
-                    if (modoEdicion) {
-                        "Medicamento actualizado correctamente"
-                    } else {
-                        "Medicamento registrado correctamente"
-                    }
-            )
-
-            viewModel.consumirGuardadoExitoso()
-        }
-
-
+    // Los errores conservan el formulario para poder reintentar.
+    LaunchedEffect(state.mensajeError) {
         state.mensajeError?.let { mensaje ->
-
-            snackbarHostState.showSnackbar(
-                message = mensaje
-            )
-
+            snackbarHostState.showSnackbar(message = mensaje)
             viewModel.limpiarError()
         }
     }
@@ -288,7 +265,7 @@ fun MedicationRegisterScreen(
 
                     enabled =
                         state.formularioValido &&
-                                !state.guardando,
+                                !state.guardando && !state.guardadoExitoso,
 
                     modifier = Modifier
                         .fillMaxWidth()
@@ -347,7 +324,7 @@ fun MedicationRegisterScreen(
                 .fillMaxSize()
                 .padding(innerPadding)
                 .verticalScroll(
-                    rememberScrollState()
+                    scrollState
                 )
                 .padding(horizontal = 16.dp),
 
@@ -685,6 +662,23 @@ fun MedicationRegisterScreen(
     }
 
     // DIÁLOGO PARA ADJUNTAR ORDEN MÉDICA
+    if (state.guardadoExitoso) {
+        RegistroGuardadoDialog(
+            titulo = if (modoEdicion) "Medicamento actualizado correctamente"
+                else "Medicamento guardado correctamente",
+            mensaje = if (modoEdicion) "Los cambios se guardaron correctamente."
+                else "¿Deseas registrar otro medicamento o volver a la pantalla anterior?",
+            onVolver = {
+                viewModel.consumirGuardadoExitoso()
+                onBack()
+            },
+            onRegistrarOtro = if (modoEdicion) null else ({
+                viewModel.iniciarNuevoMedicamento()
+                coroutineScope.launch { scrollState.scrollTo(0) }
+            })
+        )
+    }
+
     if (showAttachmentDialog) {
         DialogoAdjuntarOrden(
             onDocumento = {

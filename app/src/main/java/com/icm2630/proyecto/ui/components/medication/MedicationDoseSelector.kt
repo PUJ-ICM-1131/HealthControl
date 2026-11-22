@@ -7,6 +7,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -118,7 +121,7 @@ fun MedicationDoseSelector(
 
         // CANTIDAD + UNIDAD
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min),
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
 
@@ -171,7 +174,7 @@ fun MedicationDoseSelector(
                 selectedForm = selectedForm,
                 selectedUnit = unit,
                 onUnitSelected = onUnitChange,
-                modifier = Modifier.weight(0.75f)
+                modifier = Modifier.weight(1f).fillMaxHeight()
             )
         }
 
@@ -209,7 +212,7 @@ fun MedicationDoseSelector(
 
             // 1 / 2 / OTRO
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min),
                 horizontalArrangement =
                     Arrangement.spacedBy(8.dp)
             ) {
@@ -223,7 +226,7 @@ fun MedicationDoseSelector(
                                 quantityPerDose == "1",
 
                     modifier =
-                        Modifier.weight(1f),
+                        Modifier.weight(1f).fillMaxHeight(),
 
                     onClick = {
 
@@ -245,7 +248,7 @@ fun MedicationDoseSelector(
                                 quantityPerDose == "2",
 
                     modifier =
-                        Modifier.weight(1f),
+                        Modifier.weight(1f).fillMaxHeight(),
 
                     onClick = {
 
@@ -266,7 +269,7 @@ fun MedicationDoseSelector(
                         otroSeleccionado,
 
                     modifier =
-                        Modifier.weight(1f),
+                        Modifier.weight(1f).fillMaxHeight(),
 
                     onClick = {
 
@@ -415,12 +418,13 @@ private fun MedicationUnitSelector(selectedForm: String,
     val units = getUnitsForForm(selectedForm)
 
     Box(
-        modifier = modifier
+        modifier = modifier.padding(top = 8.dp)
     ) {
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(56.dp)
+                .fillMaxHeight()
+                .heightIn(min = 56.dp)
                 .clickable {
                     expanded = true
                 },
@@ -436,7 +440,8 @@ private fun MedicationUnitSelector(selectedForm: String,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(
-                        horizontal = 13.dp
+                        horizontal = 13.dp,
+                        vertical = 8.dp
                     ),
                 verticalAlignment = Alignment.CenterVertically
             ) {

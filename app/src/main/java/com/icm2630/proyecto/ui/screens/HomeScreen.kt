@@ -27,6 +27,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.icm2630.proyecto.R
+import com.icm2630.proyecto.data.model.FechasPendientes
+import com.icm2630.proyecto.ui.util.rememberHoyUtcMillis
 import com.icm2630.proyecto.data.model.Cita
 import com.icm2630.proyecto.data.model.Medicamento
 import com.icm2630.proyecto.data.model.PerfilUsuario
@@ -92,7 +94,7 @@ fun HomeScreen(
     var dosisTomada by remember { mutableStateOf(false) }
 
     val nombrePropio = familiar?.nombre?.substringBefore(" ") ?: "Yo"
-    val resumen = construirResumenHome(nombrePropio)
+    val resumen = construirResumenHome(nombrePropio, rememberHoyUtcMillis())
 
     Scaffold(
         bottomBar = {
@@ -583,24 +585,27 @@ private data class ResumenHome(
 )
 
 /** [nombrePropio] es la etiqueta de lo que no es de una persona asociada. */
-private fun construirResumenHome(nombrePropio: String): ResumenHome {
+private fun construirResumenHome(nombrePropio: String, hoy: Long): ResumenHome {
 
-    val hoy = hoyUtcMillisHome()
-
-    val medicamentosActivos = MedicamentoRepository.obtenerTodos().filter { medicamento ->
-        medicamento.tratamientoPermanente ||
-                medicamento.fechaFinMillis == null ||
-                medicamento.fechaFinMillis >= hoy
-    }
-
+    val medicamentosActivos = MedicamentoRepository.obtenerTodos()
+        .filter { FechasPendientes.proximoDia(it, hoy) != null }
+        .sortedBy { FechasPendientes.proximoDia(it, hoy) }
     val citasProximas = CitaRepository.obtenerTodas()
-        .filter { it.fechaMillis >= hoy }
+        .filter { FechasPendientes.citaPendiente(it.fechaMillis, hoy) }
         .sortedWith(compareBy({ it.fechaMillis }, { it.hora }, { it.minuto }))
 
     val toma = medicamentosActivos.firstOrNull()?.let { medicamento: Medicamento ->
         ProximaToma(
             titulo = "${medicamento.nombre} ${medicamento.dosis}${medicamento.unidad}",
-            hora = medicamento.horarios.firstOrNull() ?: "--:--",
+            hora = buildString {
+                val fecha = FechasPendientes.proximoDia(medicamento, hoy)!!
+                if (fecha > hoy) {
+                    append(SimpleDateFormat("d MMM", Locale("es", "ES"))
+                        .apply { timeZone = TimeZone.getTimeZone("UTC") }.format(Date(fecha)))
+                    append(" · ")
+                }
+                append(medicamento.horarios.firstOrNull() ?: "--:--")
+            },
             paciente = etiquetaPacienteHome(medicamento.personaId, nombrePropio)
         )
     }
@@ -613,7 +618,7 @@ private fun construirResumenHome(nombrePropio: String): ResumenHome {
         )
     }
 
-    val tomas = medicamentosActivos.sumOf { it.horarios.ifEmpty { listOf("") }.size }
+    val tomas = medicamentosActivos.sumOf { it.horarios.size }
 
     return ResumenHome(
         pendientes = citasProximas.size + tomas,
@@ -650,13 +655,6 @@ private fun cuandoCita(cita: Cita, hoy: Long): String {
     return "$dia a las $hora"
 }
 
-private fun hoyUtcMillisHome(): Long {
-    val local = Calendar.getInstance()
-    return Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply {
-        clear()
-        set(local.get(Calendar.YEAR), local.get(Calendar.MONTH), local.get(Calendar.DAY_OF_MONTH))
-    }.timeInMillis
-}
 
 @Preview(showBackground = true)
 @Composable

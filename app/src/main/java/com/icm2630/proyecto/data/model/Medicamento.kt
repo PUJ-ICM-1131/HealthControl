@@ -9,7 +9,6 @@ data class Medicamento(
      * Si tiene valor, corresponde al id de una Persona asociada
      */
     val personaId: String? = null,
-    val cuentaCodigo: String? = null,
     val nombre: String = "",
     val forma: FormaMedicamento = FormaMedicamento.PASTILLA,
     val dosis: String = "",

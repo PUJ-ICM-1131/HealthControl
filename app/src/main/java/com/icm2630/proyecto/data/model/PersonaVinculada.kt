@@ -5,7 +5,7 @@ data class PersonaVinculada(
     val nombre: String,
     val relacion: String,
     val codigo: String,
-    val uid: String,
+    val uid: String = "",
     val telefono: String = ""
 ) {
     val id: String get() = uid

@@ -18,6 +18,11 @@ enum class TipoSangre(val etiqueta: String) {
     O_NEGATIVO("O-")
 }
 
+enum class TipoPerfil {
+    TITULAR,
+    ACOMPANANTE
+}
+
 /** Opciones rápidas para el selector de condiciones; lo demás va en "otra condición". */
 val CONDICIONES_COMUNES = listOf(
     "Diabetes",
@@ -47,6 +52,7 @@ data class PerfilUsuario(
     val condiciones: List<String> = emptyList(),
     /** Texto libre para cualquier otra condición que no esté en la lista. */
     val condicionRelevante: String = "",
+    val tipoPerfil: TipoPerfil = TipoPerfil.TITULAR,
     /** Preferencia de uso; el permiso real siempre se consulta a Android. */
     val permisoUbicacion: Boolean = false,
     val notificacionesActivas: Boolean = true,
@@ -57,5 +63,6 @@ data class PerfilUsuario(
     val codigoVinculacion: String? = null,
     /** Proyección local de vínculos aceptados; nunca se usa como autorización en Firestore. */
     val acompanantes: List<PersonaVinculada> = emptyList(),
+    val personaVinculada: PersonaVinculada? = null,
     val configurado: Boolean = false
 )

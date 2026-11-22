@@ -9,7 +9,10 @@ import kotlin.math.sqrt
 
 /**
  * SensorEventListener que monitorea el acelerómetro en segundo plano de la UI.
- * Detecta sacudidas o impactos bruscos que simulen una caída del usuario (Titular).
+ * Detecta caídas reales del usuario mediante una secuencia de dos fases:
+ * 1. Caída libre (descenso brusco de la aceleración < 5 m/s²).
+ * 2. Impacto inmediato (pico de aceleración > 25 m/s² dentro del segundo siguiente).
+ * De esta manera se evitan falsas alarmas provocadas por sacudidas o giros del teléfono.
  */
 class CaidaDetector(
     context: Context,
@@ -20,6 +23,7 @@ class CaidaDetector(
     private val acelerometro = sensorManager?.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
 
     private var ultimoTiempoImpacto: Long = 0
+    private var tiempoCaidaLibre: Long = 0
 
     fun iniciar() {
         acelerometro?.let {
@@ -40,13 +44,18 @@ class CaidaDetector(
 
         // Aceleración total en m/s^2 (gravedad normal = 9.8 m/s^2)
         val aceleracionTotal = sqrt(x * x + y * y + z * z)
-
-        // Umbral de movimiento brusco (~38 m/s^2 o aproximadamente 3.9g, requiere sacudida fuerte)
-        val umbralImpacto = 38.0f
         val ahora = System.currentTimeMillis()
 
-        // Evitar múltiples disparos seguidos (mínimo 6 segundos entre alertas)
-        if (aceleracionTotal > umbralImpacto && (ahora - ultimoTiempoImpacto) > 6000) {
+        // 1. Fase de caída libre / baja gravedad
+        if (aceleracionTotal < 5.0f) {
+            tiempoCaidaLibre = ahora
+        }
+
+        // 2. Fase de impacto
+        val esImpactoTrasCaida = (aceleracionTotal > 25.0f) && ((ahora - tiempoCaidaLibre) in 1..1000)
+        val esImpactoExtremo = aceleracionTotal > 38.0f
+
+        if ((esImpactoTrasCaida || esImpactoExtremo) && (ahora - ultimoTiempoImpacto) > 6000) {
             ultimoTiempoImpacto = ahora
             onCaidaDetectada()
         }

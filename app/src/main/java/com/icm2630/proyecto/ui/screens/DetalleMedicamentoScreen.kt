@@ -34,6 +34,7 @@ import com.icm2630.proyecto.data.repository.MedicamentoRepository
 import com.icm2630.proyecto.data.repository.VinculacionRepository
 import com.icm2630.proyecto.data.repository.SesionRepository
 import com.icm2630.proyecto.ui.components.descripcionConParentesco
+import com.icm2630.proyecto.ui.util.obtenerUriCompartible
 import com.icm2630.proyecto.ui.theme.Blue100
 import com.icm2630.proyecto.ui.theme.Blue500
 import com.icm2630.proyecto.ui.theme.Blue700
@@ -533,7 +534,7 @@ private fun AvisoSoloLecturaMedicamento(mensaje: String) {
 
 private fun abrirArchivo(context: Context, uriString: String) {
     try {
-        val uri = Uri.parse(uriString)
+        val uri = obtenerUriCompartible(context, uriString)
         val mimeType = context.contentResolver.getType(uri) ?: when {
             uriString.lowercase().endsWith(".pdf") -> "application/pdf"
             uriString.lowercase().endsWith(".png") -> "image/png"

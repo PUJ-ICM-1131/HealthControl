@@ -2,7 +2,6 @@ package com.icm2630.proyecto.ui.util
 
 import android.content.Context
 import android.net.Uri
-import android.provider.ContactsContract
 import android.provider.OpenableColumns
 import androidx.core.content.FileProvider
 import java.io.File
@@ -74,45 +73,4 @@ fun obtenerUriCompartible(
     } else {
         uri
     }
-}
-
-/**
- * Extrae el nombre y teléfono de un contacto seleccionado de la agenda del dispositivo.
- */
-fun extraerContacto(context: Context, uri: Uri): Pair<String, String>? {
-    var nombre = ""
-    var telefono = ""
-    try {
-        context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
-            if (cursor.moveToFirst()) {
-                val idIndex = cursor.getColumnIndex(ContactsContract.Contacts._ID)
-                val nameIndex = cursor.getColumnIndex(ContactsContract.Contacts.DISPLAY_NAME)
-                if (nameIndex >= 0) {
-                    nombre = cursor.getString(nameIndex) ?: ""
-                }
-                val hasPhoneIndex = cursor.getColumnIndex(ContactsContract.Contacts.HAS_PHONE_NUMBER)
-                val hasPhone = if (hasPhoneIndex >= 0) cursor.getInt(hasPhoneIndex) else 0
-                if (hasPhone > 0 && idIndex >= 0) {
-                    val contactId = cursor.getString(idIndex)
-                    context.contentResolver.query(
-                        ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
-                        null,
-                        "${ContactsContract.CommonDataKinds.Phone.CONTACT_ID} = ?",
-                        arrayOf(contactId),
-                        null
-                    )?.use { phoneCursor ->
-                        if (phoneCursor.moveToFirst()) {
-                            val phoneIndex = phoneCursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER)
-                            if (phoneIndex >= 0) {
-                                telefono = phoneCursor.getString(phoneIndex) ?: ""
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    } catch (e: Exception) {
-        e.printStackTrace()
-    }
-    return if (nombre.isNotEmpty() || telefono.isNotEmpty()) Pair(nombre, telefono) else null
 }

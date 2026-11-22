@@ -29,6 +29,12 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import com.icm2630.proyecto.data.model.TomasProgramadas
+import com.icm2630.proyecto.data.repository.TomaRepository
+import com.icm2630.proyecto.ui.components.EstadoToma
+import com.icm2630.proyecto.ui.util.rememberHoyUtcMillis
+import com.icm2630.proyecto.ui.viewmodel.TomasViewModel
+import com.icm2630.proyecto.ui.viewmodel.TomasUiState
 import com.icm2630.proyecto.data.model.Medicamento
 import com.icm2630.proyecto.data.repository.MedicamentoRepository
 import com.icm2630.proyecto.data.repository.VinculacionRepository
@@ -58,7 +64,9 @@ fun DetalleMedicamentoScreen(
     medicamentoId: String,
     onBack: () -> Unit,
     onEditar: () -> Unit,
-    onEliminar: () -> Unit
+    onEliminar: () -> Unit,
+    tomasViewModel: TomasViewModel = androidx.lifecycle.viewmodel.compose.viewModel(),
+    estadoTomas: TomasUiState = TomasUiState()
 ) {
 
 
@@ -132,7 +140,7 @@ fun DetalleMedicamentoScreen(
         } else {
 
 
-            val hoyMillis = obtenerHoyUtcMillisMedicamento()
+            val hoyMillis = rememberHoyUtcMillis()
             val esHistorico = !medicamento.tratamientoPermanente &&
                     medicamento.fechaFinMillis != null &&
                     medicamento.fechaFinMillis < hoyMillis
@@ -146,6 +154,38 @@ fun DetalleMedicamentoScreen(
             ) {
 
                 EncabezadoMedicamento(medicamento)
+
+                Spacer(Modifier.height(16.dp))
+                TarjetaDetalleMedicamento {
+                    Text("Tomas de hoy", style = MaterialTheme.typography.titleMedium, color = Blue700)
+                    val programadas = TomasProgramadas.listar(listOf(medicamento), hoyMillis)
+                        .filter { it.fechaMillis == hoyMillis }
+                    if (programadas.isEmpty()) {
+                        Text("Este tratamiento no tiene tomas programadas para hoy.", color = TextSecondary)
+                    }
+                    programadas.forEach { toma ->
+                        Text(toma.horario, color = Blue700)
+                        EstadoToma(toma, hoyMillis, tomasViewModel, estadoTomas)
+                    }
+                }
+                Spacer(Modifier.height(16.dp))
+                TarjetaDetalleMedicamento {
+                    Text("Registro de tomas", style = MaterialTheme.typography.titleMedium, color = Blue700)
+                    val registros = TomaRepository.obtener().filter { it.medicamentoId == medicamentoId }
+                        .sortedByDescending { it.registradaEnMillis }.take(30)
+                    if (!TomaRepository.cargado(TomaRepository.cuentaConsultada())) {
+                        Text(if (TomaRepository.falloCarga(TomaRepository.cuentaConsultada()))
+                            "No se pudo consultar el registro de tomas." else "Consultando tomas…", color = TextSecondary)
+                    } else if (registros.isEmpty()) Text("Sin tomas confirmadas.", color = TextSecondary)
+                    registros.forEach { registro ->
+                        Text(formatearFechaMedicamento(registro.fechaMillis) + " · " + registro.horario +
+                            " · Confirmada a las " +
+                            SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(registro.registradaEnMillis)),
+                            color = TextSecondary, style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.padding(vertical = 6.dp))
+                    }
+                    Text("Se muestran las últimas 30 confirmaciones.", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+                }
 
                 Spacer(Modifier.height(20.dp))
 
@@ -552,24 +592,6 @@ private fun abrirArchivo(context: Context, uriString: String) {
 }
 
 // FORMATO DE FECHA
-private fun obtenerHoyUtcMillisMedicamento(): Long {
-
-    val hoyLocal = Calendar.getInstance()
-
-    val hoyUtc = Calendar.getInstance(TimeZone.getTimeZone("UTC"))
-    hoyUtc.set(
-        hoyLocal.get(Calendar.YEAR),
-        hoyLocal.get(Calendar.MONTH),
-        hoyLocal.get(Calendar.DAY_OF_MONTH),
-        0,
-        0,
-        0
-    )
-    hoyUtc.set(Calendar.MILLISECOND, 0)
-
-    return hoyUtc.timeInMillis
-}
-
 private fun formatearFechaMedicamento(millis: Long?): String {
 
     if (millis == null) {

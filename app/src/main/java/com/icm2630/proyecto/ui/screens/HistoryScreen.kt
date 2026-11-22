@@ -1,6 +1,5 @@
 package com.icm2630.proyecto.ui.screens
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -27,6 +26,8 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import com.icm2630.proyecto.ui.components.FiltroListadoChip
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
@@ -162,7 +163,8 @@ fun HistoryScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Historial Clínico",
+                    text = "Historial clínico",
+                    modifier = Modifier.weight(1f).padding(end = 12.dp),
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold,
                     color = Blue700
@@ -187,14 +189,17 @@ fun HistoryScreen(
                 onValueChange = { busqueda = it },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
-                shape = RoundedCornerShape(50),
+                shape = RoundedCornerShape(16.dp),
                 textStyle = MaterialTheme.typography.bodyLarge,
                 placeholder = {
-                    Text("Buscar por medicamento, doctor o cita...", color = PlaceholderGris)
+                    Text("Buscar en el historial", maxLines = 1, color = PlaceholderGris)
                 },
                 leadingIcon = {
                     Icon(Icons.Outlined.Search, null, tint = Blue500)
                 },
+                trailingIcon = if (busqueda.isNotEmpty()) ({
+                    IconButton(onClick = { busqueda = "" }) { Icon(Icons.Outlined.Close, "Limpiar búsqueda", tint = Blue500) }
+                }) else null,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text, imeAction = ImeAction.Search),
                 colors = TextFieldDefaults.colors(
                     focusedContainerColor = CampoBg,
@@ -228,27 +233,18 @@ fun HistoryScreen(
 
                 Spacer(Modifier.height(14.dp))
 
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Outlined.DateRange,
-                        contentDescription = null,
-                        tint = Blue500,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(Modifier.width(6.dp))
+                Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Outlined.DateRange, null, tint = Blue500, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
                     Text(
-                        text = etiquetaRango(rangoFechas!!),
+                        etiquetaRango(rangoFechas),
+                        modifier = Modifier.weight(1f),
                         style = MaterialTheme.typography.labelMedium,
                         color = Blue700
                     )
-                    Spacer(Modifier.width(10.dp))
-                    Text(
-                        text = "Quitar",
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = ErrorRed,
-                        modifier = Modifier.clickable { filtroDesde = null; filtroHasta = null }
-                    )
+                    TextButton(onClick = { filtroDesde = null; filtroHasta = null }) {
+                        Text("Quitar", color = ErrorRed)
+                    }
                 }
             }
 
@@ -309,6 +305,8 @@ private fun EstadoVacioHistorial() {
             Spacer(Modifier.height(10.dp))
             Text(
                 text = "No se encontraron registros",
+                modifier = Modifier.padding(horizontal = 16.dp),
+                textAlign = TextAlign.Center,
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.SemiBold,
                 color = TextPrimary
@@ -316,6 +314,8 @@ private fun EstadoVacioHistorial() {
             Spacer(Modifier.height(4.dp))
             Text(
                 text = "Intenta con otros filtros o términos de búsqueda",
+                modifier = Modifier.padding(horizontal = 16.dp),
+                textAlign = TextAlign.Center,
                 style = MaterialTheme.typography.bodySmall,
                 color = TextSecondary
             )
@@ -357,10 +357,7 @@ private fun GrupoHistorialSeccion(
 
 //Tarjeta de un registro (ahora clickable: navega al detalle de la cita o del medicamento)
 @Composable
-private fun RegistroHistorialTarjeta(
-    item: RegistroHistorial,
-    onClick: () -> Unit
-) {
+private fun RegistroHistorialTarjeta(item: RegistroHistorial, onClick: () -> Unit) {
     Surface(
         color = Color.White,
         shape = RoundedCornerShape(20.dp),
@@ -368,93 +365,61 @@ private fun RegistroHistorialTarjeta(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth()
     ) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.Top
-        ) {
+        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier
-                    .width(44.dp)
-                    .background(Blue100.copy(alpha = 0.3f), RoundedCornerShape(10.dp))
-                    .padding(vertical = 6.dp)
+                modifier = Modifier.width(48.dp)
+                    .background(Blue50, RoundedCornerShape(12.dp)).padding(vertical = 8.dp)
             ) {
                 Text(item.dia, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Blue700)
                 Text(item.mes, style = MaterialTheme.typography.labelSmall, color = Blue500)
             }
-
             Spacer(Modifier.width(12.dp))
-
-            Surface(
-                color = item.colorIcono.copy(alpha = 0.15f),
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.size(40.dp)
-            ) {
-                Box(contentAlignment = Alignment.Center) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     Icon(item.icono, null, tint = item.colorIcono, modifier = Modifier.size(20.dp))
-                }
-            }
-
-            Spacer(Modifier.width(12.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = item.titulo,
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.SemiBold,
-                    color = TextPrimary
-                )
-                Spacer(Modifier.height(4.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Outlined.Person, null, tint = item.colorPaciente, modifier = Modifier.size(14.dp))
-                    Spacer(Modifier.width(4.dp))
-                    Text(item.paciente, style = MaterialTheme.typography.bodySmall, color = TextSecondary)
-                    Text(" • ", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
                     Text(
-                        text = item.estado,
-                        style = MaterialTheme.typography.bodySmall,
+                        item.titulo,
+                        modifier = Modifier.weight(1f),
+                        style = MaterialTheme.typography.bodyLarge,
                         fontWeight = FontWeight.SemiBold,
-                        color = item.estadoColor
+                        color = TextPrimary
                     )
                 }
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.heightIn(min = 24.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Icon(Icons.Outlined.Person, null, tint = item.colorPaciente, modifier = Modifier.size(14.dp))
+                        Text(item.paciente, style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+                    }
+                    Surface(color = item.estadoColor.copy(alpha = 0.10f), shape = RoundedCornerShape(6.dp)) {
+                        Text(item.estado, modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
+                            style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold, color = item.estadoColor)
+                    }
+                }
             }
-
             Spacer(Modifier.width(8.dp))
-
-            Icon(
-                imageVector = Icons.Outlined.KeyboardArrowRight,
-                contentDescription = "Ver detalle",
-                tint = TextSecondary,
-                modifier = Modifier.align(Alignment.CenterVertically)
-            )
+            Icon(Icons.Outlined.KeyboardArrowRight, "Ver detalle", tint = TextSecondary, modifier = Modifier.size(24.dp))
         }
     }
 }
 
 @Composable
 private fun FiltroChip(texto: String, seleccionado: Boolean, onClick: () -> Unit) {
-    Surface(
-        color = if (seleccionado) Blue700 else Color.White,
-        shape = RoundedCornerShape(50),
-        border = if (!seleccionado) BorderStroke(1.dp, Color(0xFFE5E7EB)) else null,
-        onClick = onClick
-    ) {
-        Text(
-            text = texto,
-            style = MaterialTheme.typography.labelLarge,
-            fontWeight = FontWeight.SemiBold,
-            color = if (seleccionado) Color.White else TextSecondary,
-            modifier = Modifier.padding(horizontal = 18.dp, vertical = 10.dp)
-        )
-    }
+    FiltroListadoChip(texto, seleccionado, onClick)
 }
-
 
 @Composable
 private fun BotonFiltros(activo: Boolean, onClick: () -> Unit) {
     Box(
         modifier = Modifier
-            .size(44.dp)
+            .size(48.dp)
             .shadow(elevation = 4.dp, shape = CircleShape, ambientColor = Blue100, spotColor = Blue100)
             .background(Color.White, CircleShape),
         contentAlignment = Alignment.Center
@@ -501,8 +466,7 @@ private fun FiltroFechaDialog(
         },
 
         text = {
-            Column {
-
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                 Text(
                     text = "Accesos rápidos",
                     style = MaterialTheme.typography.labelMedium,
@@ -554,18 +518,18 @@ private fun FiltroFechaDialog(
 
                 Spacer(Modifier.height(8.dp))
 
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
 
                     OutlinedButton(
                         onClick = { mostrarPickerDesde = true },
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f).fillMaxHeight().heightIn(min = 48.dp)
                     ) {
                         Text(desdeMillis?.let { formatearFechaCortaHistorial(it) } ?: "Desde")
                     }
 
                     OutlinedButton(
                         onClick = { mostrarPickerHasta = true },
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f).fillMaxHeight().heightIn(min = 48.dp)
                     ) {
                         Text(hastaMillis?.let { formatearFechaCortaHistorial(it) } ?: "Hasta")
                     }

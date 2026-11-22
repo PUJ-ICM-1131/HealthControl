@@ -21,6 +21,7 @@ import androidx.compose.material.icons.automirrored.outlined.Logout
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -52,6 +53,7 @@ import com.icm2630.proyecto.data.model.Invitacion
 import com.icm2630.proyecto.data.repository.SesionRepository
 import com.icm2630.proyecto.ui.viewmodel.PerfilUiState
 import com.icm2630.proyecto.ui.components.VinculacionesSection
+import com.icm2630.proyecto.ui.components.SeleccionarContactoButton
 import com.icm2630.proyecto.navigation.Routes
 import com.icm2630.proyecto.ui.theme.Blue100
 import com.icm2630.proyecto.ui.theme.Blue500
@@ -105,7 +107,8 @@ fun ProfileScreen(
     onCancelarSolicitud: (Invitacion) -> Unit = {},
     onDesvincular: (Invitacion) -> Unit = {},
     onConsumirMensaje: () -> Unit = {},
-    onConsumirEnvio: () -> Unit = {}
+    onConsumirEnvio: () -> Unit = {},
+    abrirInvitacionAlEntrar: Boolean = false
 ) {
     if (familiar != null) {
         PerfilFamiliar(
@@ -133,7 +136,7 @@ fun ProfileScreen(
     val miId = datos.codigoVinculacion
     var campoEditando by remember { mutableStateOf<CampoPerfilEditable?>(null) }
 
-    var mostrarAgregarPersona by remember { mutableStateOf(false) }
+    var mostrarAgregarPersona by rememberSaveable { mutableStateOf(abrirInvitacionAlEntrar) }
     LaunchedEffect(estado.solicitudEnviada) {
         if (estado.solicitudEnviada) {
             mostrarAgregarPersona = false
@@ -934,8 +937,8 @@ private fun DialogoEditarCampo(
     var alergias by remember { mutableStateOf(perfil.alergias) }
     var condiciones by remember { mutableStateOf(perfil.condiciones) }
     var otraCondicion by remember { mutableStateOf(perfil.condicionRelevante) }
-    var emergencia by remember { mutableStateOf(perfil.contactoEmergencia) }
-    var telefonoEmergencia by remember { mutableStateOf(perfil.telefonoEmergencia) }
+    var emergencia by rememberSaveable { mutableStateOf(perfil.contactoEmergencia) }
+    var telefonoEmergencia by rememberSaveable { mutableStateOf(perfil.telefonoEmergencia) }
 
     val titulo = when (campo) {
         CampoPerfilEditable.NOMBRE -> "Nombre completo"
@@ -981,6 +984,13 @@ private fun DialogoEditarCampo(
                         CampoDialogo("Otra condición", otraCondicion) { otraCondicion = it }
                     }
                     CampoPerfilEditable.CONTACTO_EMERGENCIA -> {
+                        SeleccionarContactoButton(
+                            onSeleccionado = { contactoElegido ->
+                                emergencia = contactoElegido.nombre
+                                telefonoEmergencia = contactoElegido.telefono
+                            }
+                        )
+                        Spacer(Modifier.height(12.dp))
                         CampoDialogo("Nombre y relación", emergencia) { emergencia = it }
                         Spacer(Modifier.height(8.dp))
                         CampoDialogo("Teléfono", telefonoEmergencia, KeyboardType.Phone) {

@@ -14,6 +14,7 @@ import com.icm2630.proyecto.data.repository.SesionRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import java.util.UUID
 
 
@@ -30,10 +31,15 @@ class AppointmentRegisterViewModel : ViewModel() {
 
     private var formularioInicializado = false
 
-    fun prepararFormulario(citaId: String?) {
+    private var titularUid: String? = null
+
+    fun prepararFormulario(citaId: String?, uid: String = SesionRepository.uidConsultado) {
         if (formularioInicializado) return
         formularioInicializado = true
-        if (citaId == null) iniciarNuevaCita() else cargarCitaParaEditar(citaId)
+        titularUid = uid
+        cargarPerfilDesdeSesion()
+        if (citaId == null) iniciarNuevaCita()
+        else cargarCitaParaEditar(citaId)
     }
 
     // INICIALIZACIÓN
@@ -43,25 +49,14 @@ class AppointmentRegisterViewModel : ViewModel() {
 
     // PERFIL Y PERSONAS ASOCIADAS
     private fun cargarPerfilDesdeSesion() {
-
-        val perfilUsuario =
-            SesionRepository.perfil
-                ?: return
-
-
-        // Los vínculos autorizan consulta. Cada cuenta registra sus propios datos.
-        val personas = emptyList<com.icm2630.proyecto.data.model.PersonaVinculada>()
-
-        _uiState.value =
-            _uiState.value.copy(
-                perfilUsuario = perfilUsuario,
-                personasAsociadas = personas,
-
-                // Por defecto la cita será para el propio usuario.
-                citaParaMi = true,
-
-                personaSeleccionadaId = null
-            )
+        val perfil = SesionRepository.perfil ?: return
+        val destino = titularUid ?: SesionRepository.uidConsultado
+        _uiState.value = _uiState.value.copy(
+            perfilUsuario = perfil,
+            personasAsociadas = VinculacionRepository.obtenerPersonasAsociadas(),
+            citaParaMi = destino == SesionRepository.uidActual,
+            personaSeleccionadaId = destino.takeUnless { it == SesionRepository.uidActual }
+        )
     }
 
     // CITA PARA "YO"
@@ -112,36 +107,42 @@ class AppointmentRegisterViewModel : ViewModel() {
      * Precarga el formulario con una cita ya registrada
      * para permitir modificarla.
      */
-    fun cargarCitaParaEditar(
-        citaId: String
-    ) {
-
-        val cita = CitaRepository.obtenerPorId(
-                citaId
-            ) ?: return
-
-
-        _uiState.value = _uiState.value.copy(
-                citaId = cita.id,
-                // Si personaId es null,
-                // la cita pertenece al propio usuario.
-                citaParaMi = cita.personaId == null,
-                personaSeleccionadaId = cita.personaId,
-                tipoCita = cita.tipo,
-                especialidad = cita.especialidad,
-                motivo = cita.motivo,
-                fechaMillis = cita.fechaMillis,
-                hora = cita.hora,
-                minuto = cita.minuto,
-                modalidad = cita.modalidad,
-                institucion = cita.institucion,
-                direccion = cita.direccion,
-                enlaceVirtual = cita.enlaceVirtual,
-                nombreMedico = cita.nombreMedico,
-                notas = cita.notas,
-                soporteUri = cita.soporteUri,
-                nombreSoporte = cita.nombreSoporte
-            )
+    fun cargarCitaParaEditar(citaId: String) {
+        val uid = titularUid ?: return
+        _uiState.value = _uiState.value.copy(citaId = citaId, registroDisponible = false)
+        viewModelScope.launch {
+            try {
+                val cita = CitaRepository.obtenerPorId(citaId, uid)
+                    ?: CitaRepository.observar(uid).first().find { it.id == citaId }
+                    ?: error("El registro ya no está disponible.")
+                _uiState.value = _uiState.value.copy(
+                        citaId = cita.id,
+                        registroDisponible = true,
+                        // La cuenta destinataria queda fijada aunque cambie el perfil visible.
+                        citaParaMi = titularUid == SesionRepository.uidActual,
+                        personaSeleccionadaId = titularUid?.takeUnless { it == SesionRepository.uidActual },
+                        tipoCita = cita.tipo,
+                        especialidad = cita.especialidad,
+                        motivo = cita.motivo,
+                        fechaMillis = cita.fechaMillis,
+                        hora = cita.hora,
+                        minuto = cita.minuto,
+                        modalidad = cita.modalidad,
+                        institucion = cita.institucion,
+                        direccion = cita.direccion,
+                        enlaceVirtual = cita.enlaceVirtual,
+                        nombreMedico = cita.nombreMedico,
+                        notas = cita.notas,
+                        soporteUri = cita.soporteUri,
+                        nombreSoporte = cita.nombreSoporte
+                    )
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(mensajeError =
+                    "No se pudo cargar el registro. Vuelve a abrirlo cuando termine la sincronización.")
+            }
+        }
     }
 
     // NUEVA CITA
@@ -152,8 +153,8 @@ class AppointmentRegisterViewModel : ViewModel() {
         _uiState.value = AppointmentRegisterUiState(
                 perfilUsuario = estadoActual.perfilUsuario,
                 personasAsociadas = estadoActual.personasAsociadas,
-                citaParaMi = true,
-                personaSeleccionadaId = null
+                citaParaMi = titularUid == SesionRepository.uidActual,
+                personaSeleccionadaId = titularUid?.takeUnless { it == SesionRepository.uidActual }
             )
     }
 
@@ -335,7 +336,12 @@ class AppointmentRegisterViewModel : ViewModel() {
         val estado = _uiState.value
 
         if (estado.guardando || estado.guardadoExitoso) return
-        if (SesionRepository.familiarActivo != null || !estado.formularioValido) {
+        val uid = titularUid ?: return
+        if (!SesionRepository.puedeGestionar(uid)) {
+            _uiState.value = estado.copy(mensajeError = "Ya no tienes permiso para gestionar los registros de esta persona.")
+            return
+        }
+        if (!estado.formularioValido) {
 
             _uiState.value = estado.copy(
                     mensajeError =
@@ -353,19 +359,8 @@ class AppointmentRegisterViewModel : ViewModel() {
         val cita = Cita(
 
                 id = estado.citaId ?: UUID.randomUUID().toString(),
-                /*
-                 * "Yo"
-                 * → personaId = null
-                 *
-                 * Persona asociada
-                 * → personaId = id de la persona
-                 */
-                personaId =
-                    if (estado.citaParaMi) {
-                        null
-                    } else {
-                        estado.personaSeleccionadaId
-                    },
+                // El repositorio guarda bajo el UID del titular fijado al abrir el formulario.
+                personaId = null,
                 tipo = estado.tipoCita,
                 especialidad = estado.especialidad.trim(),
                 motivo = estado.motivo.trim(),
@@ -386,7 +381,7 @@ class AppointmentRegisterViewModel : ViewModel() {
         _uiState.value = _uiState.value.copy(citaId = cita.id)
         viewModelScope.launch {
             try {
-                CitaRepository.registrar(cita)
+                CitaRepository.registrar(cita, uid)
                 _uiState.value = _uiState.value.copy(guardando = false, guardadoExitoso = true)
             } catch (e: CancellationException) {
                 throw e

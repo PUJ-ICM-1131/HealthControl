@@ -137,9 +137,9 @@ fun RemindersScreen(
     var filtroSeleccionado by remember { mutableStateOf(if (filtroInicialMedicamentos) FiltroTipo.MEDICAMENTOS else FiltroTipo.TODOS) }
 
 
-    var pacienteSeleccionado by remember { mutableStateOf<String?>(null) }
+    var pacienteSeleccionado by remember(SesionRepository.familiarActivo?.uid) { mutableStateOf<String?>(null) }
 
-    // Viendo el perfil de un familiar: solo sus pendientes y sin registrar nada.
+    // El permiso del titular determina si además de consultar se pueden registrar datos.
     val familiar = SesionRepository.familiarActivo
 
     val hoyMillis = rememberHoyUtcMillis()
@@ -180,8 +180,13 @@ fun RemindersScreen(
                     color = Blue700
                 )
 
-                if (familiar == null) {
-                    BotonAgregar(onClick = { onNavigate(Routes.Registrar) })
+                if (SesionRepository.puedeGestionar(pacienteSeleccionado ?: SesionRepository.uidConsultado)) {
+                    BotonAgregar(onClick = {
+                        pacienteSeleccionado?.let { id ->
+                            VinculacionRepository.obtenerPorId(id)?.let(SesionRepository::verFamiliar)
+                        }
+                        onNavigate(Routes.Registrar)
+                    })
                 }
             }
 
@@ -245,9 +250,6 @@ fun RemindersScreen(
                     GrupoRecordatoriosSeccion(
                         grupo = grupo,
                         onVerDetalle = { destino ->
-                            pacienteSeleccionado?.let { id ->
-                                VinculacionRepository.obtenerPorId(id)?.let(SesionRepository::verFamiliar)
-                            }
                             onVerDetalle(destino)
                         },
                         hoy = hoyMillis,
@@ -359,9 +361,9 @@ private fun GrupoRecordatoriosSeccion(
                 colorPrioridad = grupo.urgencia.color,
                 onClick = {
                     val destino = if (item.tipo == TipoRecordatorio.CITA) {
-                        Routes.DetalleCita(citaId = item.id)
+                        Routes.DetalleCita(citaId = item.id, titularUid = uid)
                     } else {
-                        Routes.DetalleMedicamento(medicamentoId = item.id)
+                        Routes.DetalleMedicamento(medicamentoId = item.id, titularUid = uid)
                     }
                     onVerDetalle(destino)
                 }

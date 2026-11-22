@@ -42,14 +42,17 @@ object AvisosVinculacion {
                 recibida -> Notificaciones.mostrar(
                     context, marca.hashCode(), Notificaciones.CANAL_VINCULOS,
                     "Nueva solicitud de vínculo",
-                    "${solicitud.nombreEmisor.ifBlank { "Una persona" }} quiere vincularse contigo. " +
-                            "Ábrela en tu perfil para aceptarla o rechazarla."
+                    "${solicitud.nombreEmisor.ifBlank { "Una persona" }} " +
+                        (if (solicitud.solicitaGestion) "quiere ayudarte a gestionar tus citas y medicamentos. " else "quiere compartir la consulta de datos de salud. ") +
+                        "Revisa la solicitud en tu perfil."
                 )
                 aceptada && !primeraVez -> Notificaciones.mostrar(
                     context, marca.hashCode(), Notificaciones.CANAL_VINCULOS,
                     "Solicitud aceptada",
                     "${solicitud.nombreDestinatario.ifBlank { "La otra persona" }} aceptó tu solicitud. " +
-                            "Ya pueden consultar sus datos de salud compartidos."
+                            (if (solicitud.permiteGestionar(miUid, solicitud.destinatarioUid))
+                                "Ya puedes ayudarle con sus citas y medicamentos."
+                            else "Ya pueden consultar sus datos de salud compartidos.")
                 )
             }
         }

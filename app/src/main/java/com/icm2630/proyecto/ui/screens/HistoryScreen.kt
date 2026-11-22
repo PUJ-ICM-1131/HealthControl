@@ -344,9 +344,9 @@ private fun GrupoHistorialSeccion(
                 item = item,
                 onClick = {
                     val destino = if (item.tipo == TipoRegistroHistorial.CITA) {
-                        Routes.DetalleCita(citaId = item.id)
+                        Routes.DetalleCita(citaId = item.id, titularUid = SesionRepository.uidConsultado)
                     } else {
-                        Routes.DetalleMedicamento(medicamentoId = item.id)
+                        Routes.DetalleMedicamento(medicamentoId = item.id, titularUid = SesionRepository.uidConsultado)
                     }
                     onVerDetalle(destino)
                 }

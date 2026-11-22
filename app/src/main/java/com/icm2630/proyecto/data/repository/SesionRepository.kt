@@ -22,9 +22,16 @@ object SesionRepository {
         private set
 
     val perfilConfigurado: Boolean get() = perfil?.configurado == true
+    val uidConsultado: String get() = familiarActivo?.uid ?: uidActual
+
+    fun puedeGestionar(uid: String): Boolean = haySesionGuardada &&
+        (uid == uidActual || VinculacionRepository.obtenerPorId(uid)?.puedeGestionar == true)
+
+    fun nombreDe(uid: String): String = if (haySesionGuardada && uid == uidActual)
+        perfil?.nombreCompleto.orEmpty() else VinculacionRepository.obtenerPorId(uid)?.nombre.orEmpty()
 
     fun verFamiliar(persona: PersonaVinculada) {
-        if (VinculacionRepository.obtenerPorId(persona.id) != null) familiarActivo = persona
+        VinculacionRepository.obtenerPorId(persona.id)?.let { familiarActivo = it }
     }
 
     fun volverAMiPerfil() { familiarActivo = null }

@@ -19,7 +19,7 @@ class SerializacionRegistrosTest {
             setOf(
                 "id", "personaId", "tipo", "especialidad", "motivo", "fechaMillis",
                 "hora", "minuto", "modalidad", "institucion", "direccion",
-                "enlaceVirtual", "nombreMedico", "notas", "nombreSoporte"
+                "enlaceVirtual", "nombreMedico", "notas", "nombreSoporte", "auditoria"
             ),
             datos.keys
         )
@@ -40,7 +40,7 @@ class SerializacionRegistrosTest {
             setOf(
                 "id", "personaId", "nombre", "forma", "dosis", "unidad",
                 "cantidadPorToma", "horarios", "fechaInicioMillis", "fechaFinMillis",
-                "tratamientoPermanente", "indicaciones", "nombreOrdenMedica"
+                "tratamientoPermanente", "indicaciones", "nombreOrdenMedica", "auditoria"
             ),
             datos.keys
         )

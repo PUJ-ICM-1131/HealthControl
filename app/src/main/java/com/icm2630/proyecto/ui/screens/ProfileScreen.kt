@@ -106,6 +106,7 @@ fun ProfileScreen(
     onResponder: (Invitacion, Boolean) -> Unit = { _, _ -> },
     onCancelarSolicitud: (Invitacion) -> Unit = {},
     onDesvincular: (Invitacion) -> Unit = {},
+    onPermitirGestion: (Invitacion, Boolean) -> Unit = { _, _ -> },
     onConsumirMensaje: () -> Unit = {},
     onConsumirEnvio: () -> Unit = {},
     abrirInvitacionAlEntrar: Boolean = false
@@ -294,7 +295,7 @@ fun ProfileScreen(
                 miUid = miUid, personas = personas, estado = estado,
                 onAgregar = { mostrarAgregarPersona = true },
                 onVer = onVerFamiliar, onResponder = onResponder,
-                onCancelar = onCancelarSolicitud, onDesvincular = onDesvincular
+                onCancelar = onCancelarSolicitud, onDesvincular = onDesvincular, onPermitirGestion = onPermitirGestion
             )
             Spacer(Modifier.height(24.dp))
 
@@ -823,7 +824,7 @@ private fun DialogoCodigoQr(codigo: String, onCerrar: () -> Unit) {
                 )
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    "La otra persona puede escanearlo desde \"Añadir mediante código\".",
+                    "Quien vaya a ayudarte puede escanear este código desde \"Ayudar a alguien mediante código\". Tú revisarás y aceptarás su solicitud.",
                     style = MaterialTheme.typography.bodySmall,
                     color = TextSecondary
                 )
@@ -857,7 +858,7 @@ private fun DialogoAgregarPersona(
         title = { Text("Enviar solicitud") },
         text = {
             Column {
-                Text("Ingresa el código que la otra persona ve en su perfil. Cuando acepte, ambos podrán consultar sus datos de salud compartidos.",
+                Text("Ingresa el código de la persona a quien quieres ayudar. Si acepta, podrás gestionar sus citas y medicamentos y consultar sus tomas. Ella no podrá modificar tus registros.",
                     style = MaterialTheme.typography.bodySmall)
                 Spacer(Modifier.height(12.dp))
                 OutlinedTextField(

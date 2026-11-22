@@ -23,7 +23,7 @@ object MedicamentoRepository {
                 try {
                     trySend(result?.documents.orEmpty().mapNotNull { doc ->
                         doc.toObject(Medicamento::class.java)?.copy(id = doc.id,
-                            ordenMedicaUri = if (SesionRepository.haySesionGuardada && SesionRepository.uidActual == uid)
+                            ordenMedicaUri = if (SesionRepository.haySesionGuardada && SesionRepository.puedeGestionar(uid))
                                 AdjuntosLocales.obtener(uid, "medicamento", doc.id) else null)
                     })
                 } catch (e: Exception) { close(e) }
@@ -36,17 +36,22 @@ object MedicamentoRepository {
     internal fun conservarCuentas(uids: Set<String>) { porCuenta = porCuenta.filterKeys { it in uids } }
     fun limpiar() { porCuenta = emptyMap() }
 
-    suspend fun registrar(medicamento: Medicamento) = guardar(medicamento)
-    suspend fun actualizar(medicamento: Medicamento) = guardar(medicamento)
-    private suspend fun guardar(medicamento: Medicamento) {
-        check(SesionRepository.familiarActivo == null) { "El perfil compartido es de solo lectura." }
-        val uid = SesionRepository.uidActual
-        require(medicamento.personaId == null) { "Registra el medicamento desde la cuenta de su titular." }
+    suspend fun registrar(medicamento: Medicamento, uid: String = SesionRepository.uidConsultado) = guardar(medicamento, uid)
+    suspend fun actualizar(medicamento: Medicamento, uid: String = SesionRepository.uidConsultado) = guardar(medicamento, uid)
+    private suspend fun guardar(medicamento: Medicamento, uid: String) {
+        check(SesionRepository.puedeGestionar(uid)) { "No tienes permiso para gestionar los registros de esta persona." }
+        require(medicamento.personaId == null) { "El titular se identifica por su cuenta, no por personaId." }
         val anterior = AdjuntosLocales.obtener(uid, "medicamento", medicamento.id)
         val adjunto = AdjuntosLocales.conservar(medicamento.ordenMedicaUri, medicamento.nombreOrdenMedica)
         AdjuntosLocales.guardar(uid, "medicamento", medicamento.id, adjunto)
         try {
-            coleccion(uid).document(medicamento.id).set(medicamento).await()
+            val ref = coleccion(uid).document(medicamento.id)
+            FirebaseDb.firestore.runTransaction { tx ->
+                val anterior = tx.get(ref)
+                val auditoria = AuditoriaRegistros.paraGuardar(anterior)
+                tx.set(ref, medicamento)
+                tx.update(ref, "auditoria", auditoria)
+            }.await()
         } catch (e: Exception) {
             AdjuntosLocales.guardar(uid, "medicamento", medicamento.id, anterior)
             throw e
@@ -56,11 +61,13 @@ object MedicamentoRepository {
     fun obtenerTodos(): List<Medicamento> = porCuenta[uidConsultado()].orEmpty()
     fun obtenerPropios(): List<Medicamento> = obtenerTodos()
     fun obtenerPorPersona(personaId: String): List<Medicamento> = porCuenta[personaId].orEmpty()
-    fun obtenerPorId(medicamentoId: String): Medicamento? = obtenerTodos().find { it.id == medicamentoId }
+    fun obtenerPorId(medicamentoId: String, uid: String? = uidConsultado()): Medicamento? =
+        porCuenta[uid].orEmpty().find { it.id == medicamentoId }
 
-    suspend fun eliminar(medicamentoId: String) {
-        check(SesionRepository.familiarActivo == null) { "El perfil compartido es de solo lectura." }
-        val uid = SesionRepository.uidActual
+    suspend fun eliminar(medicamentoId: String, uid: String = SesionRepository.uidConsultado) {
+        check(SesionRepository.haySesionGuardada && uid == SesionRepository.uidActual) {
+            "Solo el titular puede eliminar sus registros."
+        }
         coleccion(uid).document(medicamentoId).delete().await()
         AdjuntosLocales.eliminar(uid, "medicamento", medicamentoId)
     }

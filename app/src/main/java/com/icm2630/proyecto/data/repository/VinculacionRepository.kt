@@ -52,6 +52,8 @@ object VinculacionRepository {
                 "nombreDestinatario" to codigoDoc.getString("nombre").orEmpty(),
                 "codigoDestino" to codigo,
                 "estado" to EstadoInvitacion.PENDIENTE.name,
+                "solicitaGestion" to true,
+                "titularGestionUid" to "",
                 "creadaEn" to FieldValue.serverTimestamp(),
                 "actualizadaEn" to FieldValue.serverTimestamp()
             ))
@@ -72,13 +74,32 @@ object VinculacionRepository {
     suspend fun desvincular(uid: String, invitacion: Invitacion) =
         cambiarEstado(invitacion.id, uid, EstadoInvitacion.ACEPTADA, EstadoInvitacion.REVOCADA)
 
+    suspend fun permitirGestion(uid: String, invitacion: Invitacion, permitir: Boolean) {
+        val ref = invitaciones.document(invitacion.id)
+        db.runTransaction { tx ->
+            val doc = tx.get(ref)
+            require(uid == doc.getString("emisorUid") || uid == doc.getString("destinatarioUid"))
+            require(doc.getString("estado") == EstadoInvitacion.ACEPTADA.name) { "El vínculo ya no está activo." }
+            val titular = doc.getString("titularGestionUid").orEmpty()
+            require(titular.isEmpty() || titular == uid) { "Este vínculo ya tiene un titular de gestión." }
+            tx.update(ref, mapOf("titularGestionUid" to if (permitir) uid else "",
+                "actualizadaEn" to FieldValue.serverTimestamp()))
+        }.await()
+    }
+
     private suspend fun cambiarEstado(id: String, uid: String, esperado: EstadoInvitacion, nuevo: EstadoInvitacion) {
         val ref = invitaciones.document(id)
         db.runTransaction { tx ->
             val doc = tx.get(ref)
             require(uid == doc.getString("emisorUid") || uid == doc.getString("destinatarioUid")) { "La solicitud no pertenece a esta cuenta." }
             require(doc.getString("estado") == esperado.name) { "La solicitud ya cambió. Actualiza la pantalla." }
-            tx.update(ref, mapOf("estado" to nuevo.name, "actualizadaEn" to FieldValue.serverTimestamp()))
+            val cambios = mutableMapOf<String, Any>("estado" to nuevo.name,
+                "actualizadaEn" to FieldValue.serverTimestamp())
+            if (nuevo == EstadoInvitacion.ACEPTADA && doc.getBoolean("solicitaGestion") == true) {
+                cambios["titularGestionUid"] = uid
+            }
+            if (nuevo == EstadoInvitacion.REVOCADA) cambios["titularGestionUid"] = ""
+            tx.update(ref, cambios)
         }.await()
     }
 
@@ -95,6 +116,7 @@ object VinculacionRepository {
         val destinatario = getString("destinatarioUid") ?: return null
         val estado = EstadoInvitacion.entries.find { it.name == getString("estado") } ?: return null
         return Invitacion(id, emisor, destinatario, getString("nombreEmisor").orEmpty(),
-            getString("nombreDestinatario").orEmpty(), estado, getTimestamp("creadaEn")?.toDate()?.time)
+            getString("nombreDestinatario").orEmpty(), estado, getTimestamp("creadaEn")?.toDate()?.time,
+            getBoolean("solicitaGestion") == true, getString("titularGestionUid").orEmpty())
     }
 }

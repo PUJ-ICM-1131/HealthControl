@@ -51,6 +51,7 @@ data class MedicationRegisterUiState(
 
     // ESTADO DE LA OPERACIÓN
     val guardando: Boolean = false,
+    val registroDisponible: Boolean = true,
     val guardadoExitoso: Boolean = false,
     val mensajeError: String? = null
 ) {
@@ -88,7 +89,7 @@ data class MedicationRegisterUiState(
                             !fechaFinInvalida
                 }
 
-            return personaValida &&
+            return registroDisponible && personaValida &&
                     nombre.isNotBlank() &&
                     dosis.isNotBlank() &&
                     horarios.isNotEmpty() &&

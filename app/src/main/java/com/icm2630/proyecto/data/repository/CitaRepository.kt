@@ -23,7 +23,7 @@ object CitaRepository {
                 try {
                     trySend(result?.documents.orEmpty().mapNotNull { doc ->
                         doc.toObject(Cita::class.java)?.copy(id = doc.id,
-                            soporteUri = if (SesionRepository.haySesionGuardada && SesionRepository.uidActual == uid)
+                            soporteUri = if (SesionRepository.haySesionGuardada && SesionRepository.puedeGestionar(uid))
                                 AdjuntosLocales.obtener(uid, "cita", doc.id) else null)
                     })
                 } catch (e: Exception) { close(e) }
@@ -36,17 +36,22 @@ object CitaRepository {
     internal fun conservarCuentas(uids: Set<String>) { porCuenta = porCuenta.filterKeys { it in uids } }
     fun limpiar() { porCuenta = emptyMap() }
 
-    suspend fun registrar(cita: Cita) = guardar(cita)
-    suspend fun actualizar(cita: Cita) = guardar(cita)
-    private suspend fun guardar(cita: Cita) {
-        check(SesionRepository.familiarActivo == null) { "El perfil compartido es de solo lectura." }
-        val uid = SesionRepository.uidActual
-        require(cita.personaId == null) { "Registra la cita desde la cuenta de su titular." }
+    suspend fun registrar(cita: Cita, uid: String = SesionRepository.uidConsultado) = guardar(cita, uid)
+    suspend fun actualizar(cita: Cita, uid: String = SesionRepository.uidConsultado) = guardar(cita, uid)
+    private suspend fun guardar(cita: Cita, uid: String) {
+        check(SesionRepository.puedeGestionar(uid)) { "No tienes permiso para gestionar los registros de esta persona." }
+        require(cita.personaId == null) { "El titular se identifica por su cuenta, no por personaId." }
         val anterior = AdjuntosLocales.obtener(uid, "cita", cita.id)
         val adjunto = AdjuntosLocales.conservar(cita.soporteUri, cita.nombreSoporte)
         AdjuntosLocales.guardar(uid, "cita", cita.id, adjunto)
         try {
-            coleccion(uid).document(cita.id).set(cita).await()
+            val ref = coleccion(uid).document(cita.id)
+            FirebaseDb.firestore.runTransaction { tx ->
+                val anterior = tx.get(ref)
+                val auditoria = AuditoriaRegistros.paraGuardar(anterior)
+                tx.set(ref, cita)
+                tx.update(ref, "auditoria", auditoria)
+            }.await()
         } catch (e: Exception) {
             AdjuntosLocales.guardar(uid, "cita", cita.id, anterior)
             throw e
@@ -56,11 +61,13 @@ object CitaRepository {
     fun obtenerTodas(): List<Cita> = porCuenta[uidConsultado()].orEmpty()
     fun obtenerPropias(): List<Cita> = obtenerTodas()
     fun obtenerPorPersona(personaId: String): List<Cita> = porCuenta[personaId].orEmpty()
-    fun obtenerPorId(citaId: String): Cita? = obtenerTodas().find { it.id == citaId }
+    fun obtenerPorId(citaId: String, uid: String? = uidConsultado()): Cita? =
+        porCuenta[uid].orEmpty().find { it.id == citaId }
 
-    suspend fun eliminar(citaId: String) {
-        check(SesionRepository.familiarActivo == null) { "El perfil compartido es de solo lectura." }
-        val uid = SesionRepository.uidActual
+    suspend fun eliminar(citaId: String, uid: String = SesionRepository.uidConsultado) {
+        check(SesionRepository.haySesionGuardada && uid == SesionRepository.uidActual) {
+            "Solo el titular puede eliminar sus registros."
+        }
         coleccion(uid).document(citaId).delete().await()
         AdjuntosLocales.eliminar(uid, "cita", citaId)
     }

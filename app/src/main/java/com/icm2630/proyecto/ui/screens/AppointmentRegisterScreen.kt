@@ -334,8 +334,8 @@ fun AppointmentRegisterScreen(
 
                 personType = tipoPersona,
 
-                canChangePerson =
-                    state.personasAsociadas.isNotEmpty(),
+                // Cada cuenta registra solo sus propios datos; los vinculados son de solo lectura.
+                canChangePerson = false,
 
                 onChangePerson = {
                     showPersonDialog = true
@@ -546,6 +546,9 @@ fun AppointmentRegisterScreen(
 
                     virtualLink =
                         state.enlaceVirtual,
+
+                    virtualLinkError =
+                        !state.enlaceVirtualValido,
 
                     onModalityChange = { modalidad ->
 

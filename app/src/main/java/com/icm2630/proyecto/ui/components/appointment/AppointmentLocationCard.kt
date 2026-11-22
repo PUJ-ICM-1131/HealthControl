@@ -46,7 +46,8 @@ fun AppointmentLocationCard(
     onInstitutionChange: (String) -> Unit,
     onAddressChange: (String) -> Unit,
     onVirtualLinkChange: (String) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    virtualLinkError: Boolean = false
 ) {
 
     Column(
@@ -181,12 +182,20 @@ fun AppointmentLocationCard(
                 modifier = Modifier.fillMaxWidth(),
 
                 label = {
-                    Text("Enlace o plataforma")
+                    Text("Enlace de la cita")
                 },
 
                 placeholder = {
-                    Text("Ej. Google Meet, Teams o enlace de acceso")
+                    Text("Ej. meet.google.com/abc-defg-hij")
                 },
+
+                isError = virtualLinkError,
+
+                supportingText = if (virtualLinkError) {
+                    { Text("Escribe un enlace web válido, sin espacios.") }
+                } else null,
+
+                singleLine = true,
 
                 leadingIcon = {
                     Icon(

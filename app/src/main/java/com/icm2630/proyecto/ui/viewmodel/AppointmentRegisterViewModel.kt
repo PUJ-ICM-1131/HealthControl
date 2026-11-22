@@ -375,7 +375,7 @@ class AppointmentRegisterViewModel : ViewModel() {
                 modalidad = estado.modalidad,
                 institucion = estado.institucion.trim(),
                 direccion = estado.direccion.trim(),
-                enlaceVirtual = estado.enlaceVirtual.trim(),
+                enlaceVirtual = estado.enlaceVirtualNormalizado,
                 nombreMedico = estado.nombreMedico.trim(),
                 notas = estado.notas.trim(),
                 soporteUri = estado.soporteUri,
@@ -393,7 +393,8 @@ class AppointmentRegisterViewModel : ViewModel() {
             } catch (e: Exception) {
                 Log.e("AppointmentRegister", "Error al guardar la cita", e)
                 _uiState.value = _uiState.value.copy(guardando = false,
-                    mensajeError = "No se pudo guardar. Revisa la conexión y los datos del formulario.")
+                    mensajeError = if (e is IllegalArgumentException || e is IllegalStateException) e.message
+                        else "No se pudo guardar. Revisa la conexión y los datos del formulario.")
             }
         }
     }

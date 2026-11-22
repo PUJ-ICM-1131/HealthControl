@@ -133,10 +133,26 @@ data class AppointmentRegisterUiState(
                      * El enlace puede agregarse posteriormente
                      * cuando la institución lo envíe.
                      */
-                    true
+                    enlaceVirtualValido
                 }
             }
         }
+
+    /** Enlace con esquema https:// si el usuario lo omitió (Firestore exige http/https). */
+    val enlaceVirtualNormalizado: String
+        get() {
+            val enlace = enlaceVirtual.trim()
+            val esquema = Regex("^https?://", RegexOption.IGNORE_CASE).find(enlace)
+            return when {
+                enlace.isEmpty() -> ""
+                esquema != null -> esquema.value.lowercase() + enlace.substring(esquema.value.length)
+                else -> "https://$enlace"
+            }
+        }
+
+    val enlaceVirtualValido: Boolean
+        get() = enlaceVirtualNormalizado.isEmpty() ||
+            Regex("^https?://[^\\s]+\\.[^\\s]+$").matches(enlaceVirtualNormalizado)
 
     // VALIDACIÓN GENERAL
     val formularioValido: Boolean

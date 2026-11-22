@@ -7,7 +7,6 @@ data class Cita(
      //null = cita del propio usuario.
      //Si tiene valor, corresponde al id de una Persona asociada
     val personaId: String? = null,
-    val cuentaCodigo: String? = null,
 
     val tipo: TipoCita = TipoCita.MEDICINA_GENERAL,
     val especialidad: String = "",

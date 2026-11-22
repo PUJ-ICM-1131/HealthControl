@@ -25,11 +25,12 @@ import com.icm2630.proyecto.data.repository.UbicacionRepository
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collect
 import com.icm2630.proyecto.data.repository.SesionRepository
-
+import com.icm2630.proyecto.data.repository.CentrosSaludRepository
 /** Solo administra el mapa: no modifica perfiles, invitaciones ni familiares. */
 class MapViewModel(application: Application) : AndroidViewModel(application) {
     private val rutas = RutaRepository()
     private val direcciones = GeocodingRepository(application)
+    private val centrosSalud = CentrosSaludRepository()
     private val _uiState = MutableStateFlow(MapUiState())
     val uiState = _uiState.asStateFlow()
 
@@ -239,7 +240,53 @@ class MapViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
     }
-
+    /** Servicio REST (Mapbox Search Box): centros de salud cercanos a mi ubicación. */
+    fun buscarCentrosSalud(token: String) {
+        val cerca = _uiState.value.ubicacionActual
+        if (cerca == null) {
+            _uiState.update { it.copy(mensajeError = "Activa tu ubicación para buscar centros de salud cercanos.") }
+            return
+        }
+        cancelarBusqueda()
+        val revision = revisionBusqueda
+        _uiState.update {
+            it.copy(
+                buscandoDireccion = true,
+                seleccion = SeleccionMapa.DESTINO,
+                consulta = "",
+                resultadosBusqueda = emptyList(),
+                mensajeError = null
+            )
+        }
+        tareaBusqueda = viewModelScope.launch {
+            try {
+                val resultados = withTimeout(20_000L) { centrosSalud.buscarCercanos(token, cerca) }
+                if (revision == revisionBusqueda) {
+                    _uiState.update {
+                        it.copy(
+                            buscandoDireccion = false,
+                            resultadosBusqueda = resultados,
+                            mensajeError = if (resultados.isEmpty()) {
+                                "No encontramos centros de salud cerca de tu ubicación."
+                            } else null
+                        )
+                    }
+                }
+            } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
+                if (revision == revisionBusqueda) {
+                    _uiState.update {
+                        it.copy(buscandoDireccion = false, mensajeError = "La búsqueda tardó demasiado. Inténtalo de nuevo.")
+                    }
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: IOException) {
+                if (revision == revisionBusqueda) {
+                    _uiState.update { it.copy(buscandoDireccion = false, mensajeError = e.message) }
+                }
+            }
+        }
+    }
     fun limpiarRuta() {
         invalidarRuta()
         cancelarBusqueda()

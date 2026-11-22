@@ -20,13 +20,14 @@ import androidx.compose.ui.unit.dp
 import com.icm2630.proyecto.data.model.PuntoMapa
 import com.icm2630.proyecto.ui.viewmodel.MapUiState
 import com.icm2630.proyecto.ui.viewmodel.SeleccionMapa
-
+import androidx.compose.material.icons.outlined.LocalHospital
 @Composable
 fun MapSearchCard(
     state: MapUiState,
     onConsulta: (String) -> Unit,
     onBuscar: () -> Unit,
-    onElegir: (PuntoMapa) -> Unit
+    onElegir: (PuntoMapa) -> Unit,
+    onCentrosSalud: (() -> Unit)? = null
 ) {
     val origen = state.seleccion == SeleccionMapa.ORIGEN
     val acento = if (origen) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.tertiary
@@ -67,6 +68,18 @@ fun MapSearchCard(
                 }
             }
         )
+        if (onCentrosSalud != null) {
+            AssistChip(
+                onClick = onCentrosSalud,
+                enabled = !state.buscandoDireccion,
+                label = { Text("Centros de salud cercanos") },
+                leadingIcon = {
+                    Icon(Icons.Outlined.LocalHospital, contentDescription = null, modifier = Modifier.size(18.dp))
+                },
+                colors = AssistChipDefaults.assistChipColors(containerColor = MaterialTheme.colorScheme.surface),
+                modifier = Modifier.padding(top = 6.dp)
+            )
+        }
         if (state.resultadosBusqueda.isNotEmpty()) {
             Surface(
                 modifier = Modifier.fillMaxWidth().padding(top = 4.dp),

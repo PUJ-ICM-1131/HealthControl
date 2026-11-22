@@ -20,7 +20,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
-
+import com.icm2630.proyecto.notificaciones.RecordatoriosProgramados
 data class AuthUiState(
     val cargando: Boolean = true,
     val error: String? = null,
@@ -110,6 +110,7 @@ class AuthViewModel : ViewModel() {
     fun cerrarSesion() {
         operacion?.cancel()
         operacionPropia = true
+        RecordatoriosProgramados.cancelarTodo()
         auth.signOut()
         SesionRepository.limpiar()
         _uiState.value = AuthUiState(cargando = false)

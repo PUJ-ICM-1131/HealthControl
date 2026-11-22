@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.icm2630.proyecto.data.model.*
 import com.icm2630.proyecto.data.repository.*
+import com.icm2630.proyecto.notificaciones.AvisosVinculacion
+import com.icm2630.proyecto.notificaciones.RecordatoriosProgramados
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 
@@ -50,6 +52,7 @@ class PerfilViewModel : ViewModel() {
                         _uiState.update { it.copy(error = "No se pudieron cargar las solicitudes. Reintenta desde tu perfil.") }
                     }.collectLatest { solicitudes ->
                         if (!sesionVigente(usuarioUid)) return@collectLatest
+                        AvisosVinculacion.procesarSolicitudes(usuarioUid, solicitudes)
                         val aceptadas = solicitudes.filter { it.estado == EstadoInvitacion.ACEPTADA }
                         _uiState.update { it.copy(
                             recibidas = solicitudes.filter { s -> s.destinatarioUid == usuarioUid && s.estado == EstadoInvitacion.PENDIENTE },
@@ -101,7 +104,11 @@ class PerfilViewModel : ViewModel() {
                             CitaRepository.actualizarCache(cuenta, emptyList())
                             _uiState.update { it.copy(error = "No se pudieron consultar las citas. Revisa la conexión y el vínculo.") }
                         }.collect {
-                            if (sesionVigente(miUid) && cuenta in cuentasObservadas) CitaRepository.actualizarCache(cuenta, it)
+                            if (sesionVigente(miUid) && cuenta in cuentasObservadas) {
+                                CitaRepository.actualizarCache(cuenta, it)
+                                if (cuenta == miUid) RecordatoriosProgramados.programarCitas(it)
+                                else AvisosVinculacion.procesarCitas(miUid, cuenta, it)
+                            }
                         }
                     }
                     launch {
@@ -109,7 +116,11 @@ class PerfilViewModel : ViewModel() {
                             MedicamentoRepository.actualizarCache(cuenta, emptyList())
                             _uiState.update { it.copy(error = "No se pudieron consultar los medicamentos. Revisa la conexión y el vínculo.") }
                         }.collect {
-                            if (sesionVigente(miUid) && cuenta in cuentasObservadas) MedicamentoRepository.actualizarCache(cuenta, it)
+                            if (sesionVigente(miUid) && cuenta in cuentasObservadas) {
+                                MedicamentoRepository.actualizarCache(cuenta, it)
+                                if (cuenta == miUid) RecordatoriosProgramados.programarMedicamentos(it)
+                                else AvisosVinculacion.procesarMedicamentos(miUid, cuenta, it)
+                            }
                         }
                     }
                 }

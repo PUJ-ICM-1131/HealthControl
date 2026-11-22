@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.core.content.PermissionChecker
 import coil.compose.AsyncImage
+import coil.compose.SubcomposeAsyncImage
 import com.icm2630.proyecto.ui.components.ChipsCondiciones
 import com.icm2630.proyecto.ui.components.ChipsTipoSangre
 import com.icm2630.proyecto.ui.components.BannerFamiliar
@@ -65,6 +66,8 @@ import com.icm2630.proyecto.ui.theme.TextSecondary
 import java.text.SimpleDateFormat
 import java.util.Locale
 import java.util.TimeZone
+import com.journeyapps.barcodescanner.ScanContract
+import com.journeyapps.barcodescanner.ScanOptions
 
 private val Fondo = Color(0xFFF8FAFF)
 private val CardShape = RoundedCornerShape(24.dp)
@@ -728,6 +731,7 @@ private fun PerfilFamiliar(
 private fun FilaMiId(id: String) {
     val portapapeles = LocalClipboardManager.current
     var copiado by remember { mutableStateOf(false) }
+    var mostrarQr by remember { mutableStateOf(false) }
 
     Row(verticalAlignment = Alignment.CenterVertically) {
         Surface(
@@ -766,7 +770,64 @@ private fun FilaMiId(id: String) {
             Spacer(Modifier.width(6.dp))
             Text(if (copiado) "Copiado" else "Copiar", color = Blue700)
         }
+        IconButton(enabled = id.isNotBlank(), onClick = { mostrarQr = true }) {
+            Icon(Icons.Outlined.QrCode2, contentDescription = "Ver código QR", tint = Blue700)
+        }
     }
+    if (mostrarQr) DialogoCodigoQr(codigo = id, onCerrar = { mostrarQr = false })
+}
+
+/**
+ * Servicio REST externo: la API pública de goQR.me genera la imagen del código QR.
+ *   GET https://api.qrserver.com/v1/create-qr-code/?size=480x480&data={codigo}
+ * Coil hace la petición HTTP y muestra el PNG que devuelve el servicio.
+ */
+@Composable
+private fun DialogoCodigoQr(codigo: String, onCerrar: () -> Unit) {
+    val url = "https://api.qrserver.com/v1/create-qr-code/?size=480x480&margin=16&data=" + Uri.encode(codigo)
+    AlertDialog(
+        onDismissRequest = onCerrar,
+        title = { Text("Tu código QR") },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                SubcomposeAsyncImage(
+                    model = url,
+                    contentDescription = "Código QR de vinculación $codigo",
+                    modifier = Modifier.size(220.dp),
+                    loading = {
+                        Box(contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+                    },
+                    error = {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(
+                                "No se pudo generar el QR. Revisa tu conexión a internet.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error
+                            )
+                        }
+                    }
+                )
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    codigo,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = Blue700,
+                    letterSpacing = 3.sp
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    "La otra persona puede escanearlo desde \"Añadir mediante código\".",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TextSecondary
+                )
+            }
+        },
+        confirmButton = { TextButton(onClick = onCerrar) { Text("Cerrar") } }
+    )
 }
 
 
@@ -780,6 +841,14 @@ private fun DialogoAgregarPersona(
 ) {
     var codigo by remember { mutableStateOf("") }
     var errorLocal by remember { mutableStateOf<String?>(null) }
+    // Lee con la cámara el QR que la otra persona muestra en su perfil.
+    val escanerQr = rememberLauncherForActivityResult(ScanContract()) { resultado ->
+        resultado.contents?.let { leido ->
+            codigo = CodigoInvitacion.normalizar(leido).filter { c -> c.isLetterOrDigit() }
+                .take(CodigoInvitacion.LONGITUD)
+            errorLocal = null
+        }
+    }
     AlertDialog(
         onDismissRequest = { if (!guardando) onCancelar() },
         title = { Text("Enviar solicitud") },
@@ -800,6 +869,22 @@ private fun DialogoAgregarPersona(
                     enabled = !guardando,
                     modifier = Modifier.fillMaxWidth()
                 )
+                TextButton(
+                    enabled = !guardando,
+                    onClick = {
+                        escanerQr.launch(
+                            ScanOptions()
+                                .setDesiredBarcodeFormats(ScanOptions.QR_CODE)
+                                .setPrompt("Apunta al código QR de la otra persona")
+                                .setBeepEnabled(false)
+                                .setOrientationLocked(false)
+                        )
+                    }
+                ) {
+                    Icon(Icons.Outlined.QrCodeScanner, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Escanear código QR")
+                }
                 (errorLocal ?: errorServidor)?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             }
         },

@@ -568,6 +568,9 @@ fun AppointmentRegisterScreen(
                     virtualLink =
                         state.enlaceVirtual,
 
+                    virtualLinkError =
+                        !state.enlaceVirtualValido,
+
                     onModalityChange = { modalidad ->
 
                         val nuevaModalidad =

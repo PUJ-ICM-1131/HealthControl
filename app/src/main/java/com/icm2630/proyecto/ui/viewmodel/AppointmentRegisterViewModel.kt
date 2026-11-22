@@ -366,7 +366,7 @@ class AppointmentRegisterViewModel : ViewModel() {
                 modalidad = estado.modalidad,
                 institucion = estado.institucion.trim(),
                 direccion = estado.direccion.trim(),
-                enlaceVirtual = estado.enlaceVirtual.trim(),
+                enlaceVirtual = estado.enlaceVirtualNormalizado,
                 nombreMedico = estado.nombreMedico.trim(),
                 notas = estado.notas.trim(),
                 soporteUri = estado.soporteUri,

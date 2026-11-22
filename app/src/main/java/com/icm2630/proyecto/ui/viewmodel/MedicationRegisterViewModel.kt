@@ -332,7 +332,8 @@ class MedicationRegisterViewModel : ViewModel() {
                 throw e
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(guardando = false,
-                    mensajeError = "No se pudo guardar. Revisa la conexión y los datos del formulario.")
+                    mensajeError = if (e is IllegalArgumentException || e is IllegalStateException) e.message
+                        else "No se pudo guardar. Revisa la conexión y los datos del formulario.")
             }
         }
     }

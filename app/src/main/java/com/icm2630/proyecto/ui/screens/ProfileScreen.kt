@@ -68,6 +68,7 @@ import java.util.Locale
 import java.util.TimeZone
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
+
 private val Fondo = Color(0xFFF8FAFF)
 private val CardShape = RoundedCornerShape(24.dp)
 private val HairLine = Color(0xFFE5E7EB)
@@ -857,22 +858,6 @@ private fun DialogoAgregarPersona(
                     style = MaterialTheme.typography.bodySmall)
                 Spacer(Modifier.height(12.dp))
                 OutlinedTextField(
-                    TextButton(
-                        enabled = !guardando,
-                        onClick = {
-                            escanerQr.launch(
-                                ScanOptions()
-                                    .setDesiredBarcodeFormats(ScanOptions.QR_CODE)
-                                    .setPrompt("Apunta al código QR de la otra persona")
-                                    .setBeepEnabled(false)
-                                    .setOrientationLocked(false)
-                            )
-                        }
-                    ) {
-                        Icon(Icons.Outlined.QrCodeScanner, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text("Escanear código QR")
-                    }
                     value = codigo,
                     onValueChange = {
                         codigo = CodigoInvitacion.normalizar(it).filter { c -> c.isLetterOrDigit() }
@@ -884,6 +869,22 @@ private fun DialogoAgregarPersona(
                     enabled = !guardando,
                     modifier = Modifier.fillMaxWidth()
                 )
+                TextButton(
+                    enabled = !guardando,
+                    onClick = {
+                        escanerQr.launch(
+                            ScanOptions()
+                                .setDesiredBarcodeFormats(ScanOptions.QR_CODE)
+                                .setPrompt("Apunta al código QR de la otra persona")
+                                .setBeepEnabled(false)
+                                .setOrientationLocked(false)
+                        )
+                    }
+                ) {
+                    Icon(Icons.Outlined.QrCodeScanner, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Escanear código QR")
+                }
                 (errorLocal ?: errorServidor)?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             }
         },

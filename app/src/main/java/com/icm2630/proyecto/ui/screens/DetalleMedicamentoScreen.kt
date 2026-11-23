@@ -62,6 +62,7 @@ private val Fondo = Color(0xFFF8FAFF)
 @Composable
 fun DetalleMedicamentoScreen(
     medicamentoId: String,
+    titularUid: String = SesionRepository.uidConsultado,
     onBack: () -> Unit,
     onEditar: () -> Unit,
     onEliminar: () -> Unit,
@@ -71,7 +72,7 @@ fun DetalleMedicamentoScreen(
 
 
     val acciones: com.icm2630.proyecto.ui.viewmodel.DetalleRegistroViewModel =
-        androidx.lifecycle.viewmodel.compose.viewModel(key = "medicamento:${medicamentoId}")
+        androidx.lifecycle.viewmodel.compose.viewModel(key = "medicamento:${titularUid}:${medicamentoId}")
     val estadoAcciones by acciones.uiState.collectAsStateWithLifecycle()
     LaunchedEffect(estadoAcciones.eliminado) {
         if (estadoAcciones.eliminado) {
@@ -79,7 +80,7 @@ fun DetalleMedicamentoScreen(
             onEliminar()
         }
     }
-    val medicamento = MedicamentoRepository.obtenerPorId(medicamentoId)
+    val medicamento = MedicamentoRepository.obtenerPorId(medicamentoId, titularUid)
 
     var mostrarDialogoEliminar by remember { mutableStateOf(false) }
 
@@ -154,6 +155,11 @@ fun DetalleMedicamentoScreen(
             ) {
 
                 EncabezadoMedicamento(medicamento)
+                if (titularUid != SesionRepository.uidActual) {
+                    Text("Para: ${SesionRepository.nombreDe(titularUid)}",
+                        color = Blue700, style = MaterialTheme.typography.titleMedium)
+                }
+                com.icm2630.proyecto.ui.components.AuditoriaRegistroSection(medicamento.auditoria)
 
                 Spacer(Modifier.height(16.dp))
                 TarjetaDetalleMedicamento {
@@ -165,21 +171,21 @@ fun DetalleMedicamentoScreen(
                     }
                     programadas.forEach { toma ->
                         Text(toma.horario, color = Blue700)
-                        EstadoToma(toma, hoyMillis, tomasViewModel, estadoTomas)
+                        EstadoToma(toma, hoyMillis, tomasViewModel, estadoTomas, titularUid)
                     }
                 }
                 Spacer(Modifier.height(16.dp))
                 TarjetaDetalleMedicamento {
                     Text("Registro de tomas", style = MaterialTheme.typography.titleMedium, color = Blue700)
-                    val registros = TomaRepository.obtener().filter { it.medicamentoId == medicamentoId }
+                    val registros = TomaRepository.obtener(titularUid).filter { it.medicamentoId == medicamentoId }
                         .sortedByDescending { it.registradaEnMillis }.take(30)
-                    if (!TomaRepository.cargado(TomaRepository.cuentaConsultada())) {
-                        Text(if (TomaRepository.falloCarga(TomaRepository.cuentaConsultada()))
+                    if (!TomaRepository.cargado(titularUid)) {
+                        Text(if (TomaRepository.falloCarga(titularUid))
                             "No se pudo consultar el registro de tomas." else "Consultando tomas…", color = TextSecondary)
                     } else if (registros.isEmpty()) Text("Sin tomas confirmadas.", color = TextSecondary)
                     registros.forEach { registro ->
                         Text(formatearFechaMedicamento(registro.fechaMillis) + " · " + registro.horario +
-                            " · Confirmada a las " +
+                            " · Confirmada por ${SesionRepository.nombreDe(titularUid)} a las " +
                             SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(registro.registradaEnMillis)),
                             color = TextSecondary, style = MaterialTheme.typography.bodySmall,
                             modifier = Modifier.padding(vertical = 6.dp))
@@ -344,12 +350,10 @@ fun DetalleMedicamentoScreen(
 
                 Spacer(Modifier.height(28.dp))
 
-                val familiar = SesionRepository.familiarActivo
-
-                if (familiar != null) {
+                if (!SesionRepository.puedeGestionar(titularUid)) {
 
                     AvisoSoloLecturaMedicamento(
-                        mensaje = "Este medicamento pertenece al perfil de ${familiar.descripcionConParentesco()}. Solo puedes consultarlo."
+                        mensaje = "Tienes acceso de consulta. El titular puede autorizar la gestión desde sus personas vinculadas."
                     )
 
                 } else if (esHistorico) {
@@ -376,23 +380,25 @@ fun DetalleMedicamentoScreen(
                         Text("Editar medicamento")
                     }
 
-                    Spacer(Modifier.height(12.dp))
+                    if (titularUid == SesionRepository.uidActual) {
+                        Spacer(Modifier.height(12.dp))
 
-                    Button(
-                        onClick = { mostrarDialogoEliminar = true },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(52.dp),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = ErrorRed)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Outlined.Delete,
-                            contentDescription = null,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Text("Eliminar medicamento")
+                        Button(
+                            onClick = { mostrarDialogoEliminar = true },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(52.dp),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = ErrorRed)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Delete,
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text("Eliminar medicamento")
+                        }
                     }
                 }
 
@@ -419,7 +425,7 @@ fun DetalleMedicamentoScreen(
                         TextButton(
                             enabled = !estadoAcciones.eliminando,
                             onClick = {
-                                acciones.eliminarMedicamento(medicamentoId)
+                                acciones.eliminarMedicamento(medicamentoId, titularUid)
                             }
                         ) {
                             Text("Eliminar", color = ErrorRed)

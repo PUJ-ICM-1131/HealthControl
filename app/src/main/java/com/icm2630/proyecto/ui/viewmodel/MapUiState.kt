@@ -32,5 +32,17 @@ data class MapUiState(
     val personaSeleccionadaUid: String? = null,
     val ubicacionFamiliar: PuntoMapa? = null,
     val momentoFamiliarMillis: Long? = null,
-    val mensajeError: String? = null
-)
+    val mensajeError: String? = null,
+    val titularCitaUid: String? = null,
+    val cita: com.icm2630.proyecto.data.model.Cita? = null,
+    val cargandoCita: Boolean = false,
+    val guardandoLugar: Boolean = false,
+    val mensajeLugar: String? = null
+) {
+    val destinoCitaConfirmado: Boolean
+        get() {
+            val guardado = cita?.let(com.icm2630.proyecto.data.model.UbicacionCitas::punto) ?: return false
+            val elegido = destino ?: return false
+            return guardado.latitud == elegido.latitud && guardado.longitud == elegido.longitud
+        }
+}

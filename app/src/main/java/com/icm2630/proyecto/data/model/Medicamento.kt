@@ -4,10 +4,7 @@ package com.icm2630.proyecto.data.model
 data class Medicamento(
     val id: String = "",
 
-    /**
-     * Si es null, el medicamento pertenece al propio usuario.
-     * Si tiene valor, corresponde al id de una Persona asociada
-     */
+    // Compatibilidad: el titular lo determina usuarios/{uid}/medicamentos, no personaId.
     val personaId: String? = null,
     val nombre: String = "",
     val forma: FormaMedicamento = FormaMedicamento.PASTILLA,
@@ -27,7 +24,8 @@ data class Medicamento(
      */
     @get:com.google.firebase.firestore.Exclude
     val ordenMedicaUri: String? = null,
-    val nombreOrdenMedica: String? = null
+    val nombreOrdenMedica: String? = null,
+    val auditoria: AuditoriaRegistro? = null
 )
 
 enum class FormaMedicamento(

@@ -78,7 +78,8 @@ private data class RegistroHistorial(
     val paciente: String,
     val estado: String,
     val estadoColor: Color,
-    val textoBusqueda: String
+    val textoBusqueda: String,
+    val cita: Cita? = null
 )
 
 private data class GrupoHistorial(
@@ -342,11 +343,12 @@ private fun GrupoHistorialSeccion(
         grupo.items.forEach { item ->
             RegistroHistorialTarjeta(
                 item = item,
+                onVerMapa = { cita -> onVerDetalle(Routes.MapaCita(cita.id, SesionRepository.uidConsultado)) },
                 onClick = {
                     val destino = if (item.tipo == TipoRegistroHistorial.CITA) {
-                        Routes.DetalleCita(citaId = item.id)
+                        Routes.DetalleCita(citaId = item.id, titularUid = SesionRepository.uidConsultado)
                     } else {
-                        Routes.DetalleMedicamento(medicamentoId = item.id)
+                        Routes.DetalleMedicamento(medicamentoId = item.id, titularUid = SesionRepository.uidConsultado)
                     }
                     onVerDetalle(destino)
                 }
@@ -357,7 +359,7 @@ private fun GrupoHistorialSeccion(
 
 //Tarjeta de un registro (ahora clickable: navega al detalle de la cita o del medicamento)
 @Composable
-private fun RegistroHistorialTarjeta(item: RegistroHistorial, onClick: () -> Unit) {
+private fun RegistroHistorialTarjeta(item: RegistroHistorial, onClick: () -> Unit, onVerMapa: (Cita) -> Unit) {
     Surface(
         color = Color.White,
         shape = RoundedCornerShape(20.dp),
@@ -402,6 +404,10 @@ private fun RegistroHistorialTarjeta(item: RegistroHistorial, onClick: () -> Uni
                         Text(item.estado, modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
                             style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold, color = item.estadoColor)
                     }
+                }
+                item.cita?.let { cita ->
+                    com.icm2630.proyecto.ui.components.VerLugarCitaButton(cita,
+                        onClick = { onVerMapa(cita) }, modifier = Modifier.align(Alignment.End))
                 }
             }
             Spacer(Modifier.width(8.dp))
@@ -692,6 +698,7 @@ private fun construirRegistroCita(cita: Cita, hoyMillis: Long): RegistroHistoria
         paciente = paciente,
         estado = estado,
         estadoColor = estadoColor,
+        cita = cita,
         textoBusqueda = listOf(
             cita.tipo.titulo,
             cita.especialidad,

@@ -57,14 +57,16 @@ private val Fondo = Color(0xFFF8FAFF)
 @Composable
 fun DetalleCitaScreen(
     citaId: String,
+    titularUid: String = SesionRepository.uidConsultado,
     onBack: () -> Unit,
     onEditar: () -> Unit,
-    onEliminar: () -> Unit
+    onEliminar: () -> Unit,
+    onVerMapa: () -> Unit = {}
 ) {
 
 
     val acciones: com.icm2630.proyecto.ui.viewmodel.DetalleRegistroViewModel =
-        androidx.lifecycle.viewmodel.compose.viewModel(key = "cita:${citaId}")
+        androidx.lifecycle.viewmodel.compose.viewModel(key = "cita:${titularUid}:${citaId}")
     val estadoAcciones by acciones.uiState.collectAsStateWithLifecycle()
     LaunchedEffect(estadoAcciones.eliminado) {
         if (estadoAcciones.eliminado) {
@@ -72,7 +74,7 @@ fun DetalleCitaScreen(
             onEliminar()
         }
     }
-    val cita = CitaRepository.obtenerPorId(citaId)
+    val cita = CitaRepository.obtenerPorId(citaId, titularUid)
 
     var mostrarDialogoEliminar by remember { mutableStateOf(false) }
 
@@ -144,6 +146,11 @@ fun DetalleCitaScreen(
             ) {
 
                 EncabezadoCita(cita)
+                if (titularUid != SesionRepository.uidActual) {
+                    Text("Para: ${SesionRepository.nombreDe(titularUid)}",
+                        color = Blue700, style = MaterialTheme.typography.titleMedium)
+                }
+                com.icm2630.proyecto.ui.components.AuditoriaRegistroSection(cita.auditoria)
 
                 Spacer(Modifier.height(20.dp))
 
@@ -242,6 +249,27 @@ fun DetalleCitaScreen(
                                 ?: "Familiar"
                         )
                     }
+                }
+
+                Spacer(Modifier.height(12.dp))
+                if (cita.modalidad == ModalidadCita.PRESENCIAL) {
+                    OutlinedButton(onClick = onVerMapa, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+                        Icon(Icons.Outlined.Map, null, modifier = Modifier.size(20.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("Ver ubicación en el mapa")
+                    }
+                } else if (cita.enlaceVirtual.isNotBlank()) {
+                    val contextoEnlace = androidx.compose.ui.platform.LocalContext.current
+                    OutlinedButton(onClick = {
+                        try {
+                            val uri = android.net.Uri.parse(cita.enlaceVirtual)
+                            if (uri.scheme?.lowercase() in listOf("http", "https")) {
+                                contextoEnlace.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, uri))
+                            } else android.widget.Toast.makeText(contextoEnlace, "Revisa el enlace de la cita.", android.widget.Toast.LENGTH_SHORT).show()
+                        } catch (_: android.content.ActivityNotFoundException) {
+                            android.widget.Toast.makeText(contextoEnlace, "No hay una aplicación para abrir el enlace.", android.widget.Toast.LENGTH_SHORT).show()
+                        }
+                    }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("Abrir enlace de la cita") }
                 }
 
                 if (cita.motivo.isNotBlank() || cita.notas.isNotBlank()) {
@@ -344,12 +372,10 @@ fun DetalleCitaScreen(
 
                 Spacer(Modifier.height(28.dp))
 
-                val familiar = SesionRepository.familiarActivo
-
-                if (familiar != null) {
+                if (!SesionRepository.puedeGestionar(titularUid)) {
 
                     AvisoSoloLectura(
-                        mensaje = "Esta cita pertenece al perfil de ${familiar.descripcionConParentesco()}. Solo puedes consultarla."
+                        mensaje = "Tienes acceso de consulta. El titular puede autorizar la gestión desde sus personas vinculadas."
                     )
 
                 } else if (esHistorico) {
@@ -376,23 +402,25 @@ fun DetalleCitaScreen(
                         Text("Editar cita")
                     }
 
-                    Spacer(Modifier.height(12.dp))
+                    if (titularUid == SesionRepository.uidActual) {
+                        Spacer(Modifier.height(12.dp))
 
-                    Button(
-                        onClick = { mostrarDialogoEliminar = true },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(52.dp),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = ErrorRed)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Outlined.Delete,
-                            contentDescription = null,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Text("Eliminar cita")
+                        Button(
+                            onClick = { mostrarDialogoEliminar = true },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(52.dp),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = ErrorRed)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Delete,
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text("Eliminar cita")
+                        }
                     }
                 }
 
@@ -419,7 +447,7 @@ fun DetalleCitaScreen(
                         TextButton(
                             enabled = !estadoAcciones.eliminando,
                             onClick = {
-                                acciones.eliminarCita(citaId)
+                                acciones.eliminarCita(citaId, titularUid)
                             }
                         ) {
                             Text("Eliminar", color = ErrorRed)

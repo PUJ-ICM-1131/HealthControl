@@ -15,8 +15,8 @@ class DetalleRegistroViewModel : ViewModel() {
     private val _uiState = MutableStateFlow(DetalleRegistroUiState())
     val uiState = _uiState.asStateFlow()
 
-    fun eliminarCita(id: String) = eliminar { CitaRepository.eliminar(id) }
-    fun eliminarMedicamento(id: String) = eliminar { MedicamentoRepository.eliminar(id) }
+    fun eliminarCita(id: String, uid: String) = eliminar { CitaRepository.eliminar(id, uid) }
+    fun eliminarMedicamento(id: String, uid: String) = eliminar { MedicamentoRepository.eliminar(id, uid) }
     fun consumirEliminado() { _uiState.value = DetalleRegistroUiState() }
 
     private fun eliminar(operacion: suspend () -> Unit) {

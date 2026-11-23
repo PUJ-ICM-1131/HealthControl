@@ -2,7 +2,9 @@
 // perfilesCompartidos/{uid}: salud consentida, sin correo, teléfono ni ajustes.
 // invitaciones/{emisorUid}_{destinatarioUid}: UIDs y nombres, codigoDestino,
 // estado, creadaEn y actualizadaEn (timestamps de servidor).
-// usuarios/{uid}/citas y medicamentos: registros propios; lectura con vínculo.
+// usuarios/{uid}/citas y medicamentos: titular dueño; cuidador autorizado crea/edita.
+// titularGestionUid identifica a quien concedió gestión; vacío en vínculos antiguos.
+// auditoria: autor/fecha de creación inmutables y último editor con fecha de servidor.
 // ubicaciones/{uid}: {punto:latlng, actualizadoEn:timestamp}, opt-in del titular.
 // usuarios/{uid}/tomas/{medicamentoId}_{fechaMillis}_{horario}: confirmaciones diarias;
 // solo el titular confirma/deshace y sus vínculos aceptados pueden consultarlas.
@@ -94,9 +96,21 @@ service cloud.firestore {
       return signedIn() && exists(/databases/$(database)/documents/usuarios/$(uid))
         && (request.auth.uid == uid || aceptada(request.auth.uid,uid) || aceptada(uid,request.auth.uid));
     }
+    function gestionEn(a,b,titular) {
+      let path = /databases/$(database)/documents/invitaciones/$(a + '_' + b);
+      return exists(path) && get(path).data.estado == 'ACEPTADA'
+        && get(path).data.get('titularGestionUid','') == titular;
+    }
+    function puedeGestionar(uid) {
+      return signedIn() && existeTitular(uid)
+        && (owner(uid) || gestionEn(request.auth.uid,uid,uid) || gestionEn(uid,request.auth.uid,uid));
+    }
     function isValidInvitacion(d,id) {
       return d.keys().hasAll(['emisorUid','destinatarioUid','nombreEmisor','nombreDestinatario','codigoDestino','estado','creadaEn','actualizadaEn'])
-        && d.keys().hasOnly(['emisorUid','destinatarioUid','nombreEmisor','nombreDestinatario','codigoDestino','estado','creadaEn','actualizadaEn'])
+        && d.keys().hasOnly(['emisorUid','destinatarioUid','nombreEmisor','nombreDestinatario','codigoDestino','estado','creadaEn','actualizadaEn','solicitaGestion','titularGestionUid'])
+        && (!('solicitaGestion' in d) || d.solicitaGestion is bool)
+        && str(d.get('titularGestionUid',''),128)
+        && d.get('titularGestionUid','') in ['',d.emisorUid,d.destinatarioUid]
         && uidValido(d.emisorUid) && uidValido(d.destinatarioUid)
         && d.emisorUid != d.destinatarioUid && id == d.emisorUid + '_' + d.destinatarioUid
         && str(d.nombreEmisor,150) && str(d.nombreDestinatario,150) && codigoValido(d.codigoDestino)
@@ -114,15 +128,52 @@ service cloud.firestore {
         && cuenta.nombreCompleto == d.nombreEmisor && cuenta.configurado == true;
     }
     function nuevaPendiente(d) {
-      return owner(d.emisorUid) && d.estado == 'PENDIENTE'
+      return owner(d.emisorUid) && d.estado == 'PENDIENTE' && d.get('titularGestionUid','') == ''
         && d.creadaEn == request.time && identidadesValidas(d) && contraparteLibre(d);
     }
     function cambioDeEstado(d,antes) {
-      return d.diff(antes).affectedKeys().hasOnly(['estado','actualizadaEn'])
+      let titular = d.get('titularGestionUid','');
+      return d.diff(antes).affectedKeys().hasOnly(['estado','actualizadaEn','titularGestionUid'])
         && d.creadaEn == antes.creadaEn
-        && ((antes.estado == 'PENDIENTE' && owner(antes.destinatarioUid) && d.estado in ['ACEPTADA','RECHAZADA'])
-          || (antes.estado == 'PENDIENTE' && owner(antes.emisorUid) && d.estado == 'CANCELADA')
-          || (antes.estado == 'ACEPTADA' && participantes(antes) && d.estado == 'REVOCADA'));
+        && ((antes.estado == 'PENDIENTE' && owner(antes.destinatarioUid)
+            && ((d.estado == 'ACEPTADA' && titular == (antes.get('solicitaGestion',false) ? antes.destinatarioUid : ''))
+              || (d.estado == 'RECHAZADA' && titular == '')))
+          || (antes.estado == 'PENDIENTE' && owner(antes.emisorUid) && d.estado == 'CANCELADA' && titular == '')
+          || (antes.estado == 'ACEPTADA' && participantes(antes) && d.estado == 'REVOCADA' && titular == ''));
+    }
+    function cambioPermiso(d,antes) {
+      let previo = antes.get('titularGestionUid','');
+      let nuevo = d.get('titularGestionUid','');
+      return antes.estado == 'ACEPTADA' && d.estado == 'ACEPTADA'
+        && d.diff(antes).affectedKeys().hasOnly(['titularGestionUid','actualizadaEn'])
+        && ((previo == '' && nuevo == request.auth.uid)
+          || (previo == request.auth.uid && nuevo == ''));
+    }
+
+    function auditoriaValida(a) {
+      return a is map && a.keys().hasAll(['creadoPorUid','creadoPorNombre','creadoEn',
+          'actualizadoPorUid','actualizadoPorNombre','actualizadoEn'])
+        && a.keys().hasOnly(['creadoPorUid','creadoPorNombre','creadoEn',
+          'actualizadoPorUid','actualizadoPorNombre','actualizadoEn'])
+        && ((a.creadoPorUid == null && a.creadoPorNombre == null && a.creadoEn == null)
+          || (uidValido(a.creadoPorUid) && str(a.creadoPorNombre,150) && a.creadoEn is timestamp))
+        && uidValido(a.actualizadoPorUid) && a.actualizadoPorUid == request.auth.uid
+        && str(a.actualizadoPorNombre,150)
+        && a.actualizadoPorNombre == get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.nombreCompleto
+        && a.actualizadoEn == request.time;
+    }
+    function auditoriaCreacion(d) {
+      return auditoriaValida(d.auditoria) && d.auditoria.creadoPorUid == request.auth.uid
+        && d.auditoria.creadoPorNombre == d.auditoria.actualizadoPorNombre
+        && d.auditoria.creadoEn == request.time;
+    }
+    function auditoriaEdicion(d,antes) {
+      let previa = antes.get('auditoria',null);
+      let a = d.auditoria;
+      return auditoriaValida(a)
+        && ((previa == null && a.creadoPorUid == null && a.creadoPorNombre == null && a.creadoEn == null)
+          || (previa != null && a.creadoPorUid == previa.creadoPorUid
+            && a.creadoPorNombre == previa.creadoPorNombre && a.creadoEn == previa.creadoEn));
     }
 
     match /usuarios/{uid} {
@@ -138,7 +189,9 @@ service cloud.firestore {
 
       match /citas/{id} {
         allow read: if puedeConsultar(uid);
-        allow create, update: if owner(uid) && existeTitular(uid) && isValidCita(request.resource.data,id);
+        allow create: if puedeGestionar(uid) && isValidCita(request.resource.data,id) && auditoriaCreacion(request.resource.data);
+        allow update: if puedeGestionar(uid) && isValidCita(request.resource.data,id)
+          && lugarCitaCoherente(request.resource.data,resource.data) && auditoriaEdicion(request.resource.data,resource.data);
         allow delete: if owner(uid) && existeTitular(uid);
       }
       match /tomas/{id} {
@@ -150,7 +203,8 @@ service cloud.firestore {
       }
       match /medicamentos/{id} {
         allow read: if puedeConsultar(uid);
-        allow create, update: if owner(uid) && existeTitular(uid) && isValidMedicamento(request.resource.data,id);
+        allow create: if puedeGestionar(uid) && isValidMedicamento(request.resource.data,id) && auditoriaCreacion(request.resource.data);
+        allow update: if puedeGestionar(uid) && isValidMedicamento(request.resource.data,id) && auditoriaEdicion(request.resource.data,resource.data);
         allow delete: if owner(uid) && existeTitular(uid);
       }
     }
@@ -179,6 +233,7 @@ service cloud.firestore {
         && request.resource.data.emisorUid == resource.data.emisorUid
         && request.resource.data.destinatarioUid == resource.data.destinatarioUid
         && (cambioDeEstado(request.resource.data,resource.data)
+          || cambioPermiso(request.resource.data,resource.data)
           || (resource.data.estado in ['RECHAZADA','CANCELADA','REVOCADA'] && nuevaPendiente(request.resource.data)));
       allow delete: if false;
     }
@@ -196,10 +251,23 @@ service cloud.firestore {
       return d.keys().hasAll(['punto','actualizadoEn']) && d.keys().hasOnly(['punto','actualizadoEn'])
         && d.punto is latlng && d.actualizadoEn == request.time;
     }
+    // El lugar confirmado se guarda junto a la cita; editar su texto retira la confirmación.
+    function ubicacionCitaValida(d) {
+      let punto = d.get('ubicacionConfirmada',null);
+      let nombre = d.get('nombreLugarConfirmado',null);
+      return (punto == null && nombre == null)
+        || (d.modalidad == 'PRESENCIAL' && punto is latlng && str(nombre,500) && nombre.trim().size() > 0);
+    }
+    function lugarCitaCoherente(d,antes) {
+      return (d.get('institucion','') == antes.get('institucion','')
+          && d.get('direccion','') == antes.get('direccion','') && d.modalidad == antes.modalidad)
+        || (d.get('ubicacionConfirmada',null) == null && d.get('nombreLugarConfirmado',null) == null);
+    }
     function isValidCita(d,id) {
       return d.keys().hasAll(['id','tipo','motivo','fechaMillis','hora','minuto','modalidad'])
         && d.keys().hasOnly(['id','personaId','tipo','especialidad','motivo','fechaMillis','hora','minuto','modalidad',
-          'institucion','direccion','enlaceVirtual','nombreMedico','notas','nombreSoporte'])
+          'institucion','direccion','enlaceVirtual','nombreMedico','notas','nombreSoporte','auditoria',
+          'ubicacionConfirmada','nombreLugarConfirmado'])
         && d.id == id && str(d.id,128) && d.id.size() > 0 && d.get('personaId',null) == null
         && d.tipo in ['MEDICINA_GENERAL','ESPECIALISTA','ODONTOLOGIA','EXAMENES']
         && d.modalidad in ['PRESENCIAL','VIRTUAL'] && str(d.motivo,2000) && d.motivo.size() > 0
@@ -208,35 +276,15 @@ service cloud.firestore {
         && textoOpcional(d,'especialidad',200) && textoOpcional(d,'institucion',200)
         && textoOpcional(d,'direccion',500) && enlaceValido(d)
         && textoOpcional(d,'nombreMedico',200) && textoOpcional(d,'notas',4000)
-        && textoNulo(d,'nombreSoporte',255);
+        && textoNulo(d,'nombreSoporte',255) && ubicacionCitaValida(d);
     }
     function horariosValidos(h) {
-      let n = h.size();
-      return h is list && n > 0 && n <= 24
-        && (n <= 0 || (h[0] is string && h[0].size() > 0 && h[0].size() <= 20))
-        && (n <= 1 || (h[1] is string && h[1].size() > 0 && h[1].size() <= 20))
-        && (n <= 2 || (h[2] is string && h[2].size() > 0 && h[2].size() <= 20))
-        && (n <= 3 || (h[3] is string && h[3].size() > 0 && h[3].size() <= 20))
-        && (n <= 4 || (h[4] is string && h[4].size() > 0 && h[4].size() <= 20))
-        && (n <= 5 || (h[5] is string && h[5].size() > 0 && h[5].size() <= 20))
-        && (n <= 6 || (h[6] is string && h[6].size() > 0 && h[6].size() <= 20))
-        && (n <= 7 || (h[7] is string && h[7].size() > 0 && h[7].size() <= 20))
-        && (n <= 8 || (h[8] is string && h[8].size() > 0 && h[8].size() <= 20))
-        && (n <= 9 || (h[9] is string && h[9].size() > 0 && h[9].size() <= 20))
-        && (n <= 10 || (h[10] is string && h[10].size() > 0 && h[10].size() <= 20))
-        && (n <= 11 || (h[11] is string && h[11].size() > 0 && h[11].size() <= 20))
-        && (n <= 12 || (h[12] is string && h[12].size() > 0 && h[12].size() <= 20))
-        && (n <= 13 || (h[13] is string && h[13].size() > 0 && h[13].size() <= 20))
-        && (n <= 14 || (h[14] is string && h[14].size() > 0 && h[14].size() <= 20))
-        && (n <= 15 || (h[15] is string && h[15].size() > 0 && h[15].size() <= 20))
-        && (n <= 16 || (h[16] is string && h[16].size() > 0 && h[16].size() <= 20))
-        && (n <= 17 || (h[17] is string && h[17].size() > 0 && h[17].size() <= 20))
-        && (n <= 18 || (h[18] is string && h[18].size() > 0 && h[18].size() <= 20))
-        && (n <= 19 || (h[19] is string && h[19].size() > 0 && h[19].size() <= 20))
-        && (n <= 20 || (h[20] is string && h[20].size() > 0 && h[20].size() <= 20))
-        && (n <= 21 || (h[21] is string && h[21].size() > 0 && h[21].size() <= 20))
-        && (n <= 22 || (h[22] is string && h[22].size() > 0 && h[22].size() <= 20))
-        && (n <= 23 || (h[23] is string && h[23].size() > 0 && h[23].size() <= 20));
+      // La ida y vuelta verifica tipos y evita separadores dentro de un horario.
+      // El patrón limita cada elemento a 20 caracteres sin agotar las expresiones con 24 horarios.
+      let unidos = h.join('|');
+      return h is list && h.size() > 0 && h.size() <= 24 && unidos.size() <= 503
+        && unidos.split('[|]') == h
+        && unidos.matches('^[^|]{1,20}([|][^|]{1,20}){0,23}$');
     }
     // El día se codifica a medianoche UTC como en los DatePicker de la app.
     // La ventana cubre el día local actual en las zonas UTC-12 a UTC+14.
@@ -260,7 +308,7 @@ service cloud.firestore {
     function isValidMedicamento(d,id) {
       return d.keys().hasAll(['id','nombre','forma','dosis','unidad','cantidadPorToma','horarios','fechaInicioMillis','tratamientoPermanente'])
         && d.keys().hasOnly(['id','personaId','nombre','forma','dosis','unidad','cantidadPorToma','horarios','fechaInicioMillis',
-          'fechaFinMillis','tratamientoPermanente','indicaciones','nombreOrdenMedica'])
+          'fechaFinMillis','tratamientoPermanente','indicaciones','nombreOrdenMedica','auditoria'])
         && d.id == id && str(d.id,128) && d.id.size() > 0 && d.get('personaId',null) == null
         && str(d.nombre,150) && d.nombre.size() > 0 && d.forma in ['PASTILLA','JARABE','GOTAS','INYECCION']
         && str(d.dosis,40) && d.dosis.size() > 0 && str(d.unidad,30) && d.unidad.size() > 0

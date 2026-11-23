@@ -164,7 +164,9 @@ class PerfilViewModel : ViewModel() {
                 nombre = perfil?.nombreCompleto ?: invitacion.nombreDelOtro(miUid),
                 relacion = "Persona vinculada",
                 codigo = perfil?.codigoVinculacion.orEmpty(),
-                uid = otro
+                uid = otro,
+                puedeGestionar = invitacion.permiteGestionar(miUid, otro),
+                gestionaMiSalud = invitacion.permiteGestionar(otro, miUid)
             )
         }
         SesionRepository.perfil = SesionRepository.perfil?.copy(acompanantes = personas)
@@ -179,12 +181,19 @@ class PerfilViewModel : ViewModel() {
 
     fun enviar(codigo: String) = ejecutar {
         VinculacionRepository.enviar(checkNotNull(uid), codigo)
-        _uiState.update { it.copy(mensaje = "Solicitud enviada. La otra persona debe aceptarla.", solicitudEnviada = true) }
+        _uiState.update { it.copy(mensaje = "Solicitud enviada. La otra persona debe autorizarte para gestionar su salud.", solicitudEnviada = true) }
     }
 
     fun responder(invitacion: Invitacion, aceptar: Boolean) = ejecutar {
         VinculacionRepository.responder(checkNotNull(uid), invitacion, aceptar)
         _uiState.update { it.copy(mensaje = if (aceptar) "Vínculo aceptado." else "Solicitud rechazada.") }
+    }
+
+    fun permitirGestion(invitacion: Invitacion, permitir: Boolean) = ejecutar {
+        VinculacionRepository.permitirGestion(checkNotNull(uid), invitacion, permitir)
+        _uiState.update { it.copy(mensaje = if (permitir)
+            "Permiso concedido para gestionar tus citas y medicamentos."
+            else "Permiso retirado. El vínculo conserva acceso de consulta.") }
     }
 
     fun cancelar(invitacion: Invitacion) = ejecutar {

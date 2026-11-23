@@ -85,7 +85,7 @@ fun EstadoToma(toma: TomaProgramada, hoy: Long, viewModel: TomasViewModel, estad
             ) {
                 Icon(Icons.Outlined.Schedule, contentDescription = null, tint = TextSecondary, modifier = Modifier.size(16.dp))
                 Text(
-                    if (toma.fechaMillis > hoy) "Programada" else "Sin confirmar",
+                    if (toma.fechaMillis > hoy) "Programada" else "Pendiente de confirmar",
                     color = TextSecondary,
                     style = MaterialTheme.typography.bodySmall
                 )

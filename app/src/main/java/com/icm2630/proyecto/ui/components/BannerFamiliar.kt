@@ -35,7 +35,7 @@ fun PersonaVinculada.descripcionConParentesco(): String =
 
 /**
  * Aviso de que se está consultando el HealthControl de un familiar
- * en solo lectura. Si llega [onVolverAMiPerfil] se muestra el botón
+ * con su permiso de consulta o gestión. Si llega [onVolverAMiPerfil] se muestra el botón
  * para regresar al perfil propio.
  */
 @Composable
@@ -60,13 +60,13 @@ fun BannerFamiliar(
                 Spacer(Modifier.width(10.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Estás viendo el perfil de ${persona.descripcionConParentesco()}",
+                        text = if (persona.puedeGestionar) "Gestionando la salud de ${persona.nombre}" else "Consultando la salud de ${persona.nombre}",
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.SemiBold,
                         color = Blue700
                     )
                     Text(
-                        text = "Solo lectura: no puedes modificar su información",
+                        text = if (persona.puedeGestionar) "Puedes crear y editar sus citas y medicamentos. Las tomas las confirma su titular." else "Acceso de consulta a sus datos compartidos",
                         style = MaterialTheme.typography.bodySmall,
                         color = TextSecondary
                     )

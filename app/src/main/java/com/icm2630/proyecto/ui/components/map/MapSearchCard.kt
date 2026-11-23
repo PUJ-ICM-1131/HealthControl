@@ -68,6 +68,37 @@ fun MapSearchCard(
                 }
             }
         )
+        if (!origen) state.cita?.let { cita ->
+            FlowRow(
+                modifier = Modifier.padding(top = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                val nombre = cita.institucion.trim()
+                val direccion = cita.direccion.trim()
+                if (nombre.isNotBlank()) {
+                    FilterChip(
+                        selected = state.consulta.trim() == nombre,
+                        onClick = { onConsulta(nombre); onBuscar() },
+                        label = { Text("Por nombre") },
+                        colors = FilterChipDefaults.filterChipColors(
+                            containerColor = MaterialTheme.colorScheme.surface
+                        ),
+                        modifier = Modifier.heightIn(min = 48.dp)
+                    )
+                }
+                if (direccion.isNotBlank()) {
+                    FilterChip(
+                        selected = state.consulta.trim() == direccion,
+                        onClick = { onConsulta(direccion); onBuscar() },
+                        label = { Text("Por dirección") },
+                        colors = FilterChipDefaults.filterChipColors(
+                            containerColor = MaterialTheme.colorScheme.surface
+                        ),
+                        modifier = Modifier.heightIn(min = 48.dp)
+                    )
+                }
+            }
+        }
         if (onCentrosSalud != null) {
             AssistChip(
                 onClick = onCentrosSalud,

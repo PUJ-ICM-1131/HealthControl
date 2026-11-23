@@ -49,7 +49,9 @@ import com.icm2630.proyecto.ui.theme.TextSecondary
 fun RegisterOptionsScreen(
     onNavigate: (Routes) -> Unit,
     onRegisterAppointment: () -> Unit,
-    onRegisterMedication: () -> Unit
+    onRegisterMedication: () -> Unit,
+    nombrePersona: String = "mi perfil",
+    puedeGestionar: Boolean = true
 ) {
 
     Scaffold(
@@ -97,7 +99,7 @@ fun RegisterOptionsScreen(
 
 
             Text(
-                text = "¿Qué deseas registrar?",
+                text = "Registrar para ${nombrePersona.ifBlank { "mi perfil" }}",
                 color = Blue700,
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.SemiBold
@@ -120,33 +122,42 @@ fun RegisterOptionsScreen(
                 modifier = Modifier.height(28.dp)
             )
 
-            // CITA MÉDICA
-            RegisterOptionCard(
-                icon = Icons.Outlined.CalendarMonth,
-                title = "Cita médica",
-                description = "Registra una consulta, examen o cita con un especialista.",
-                actionText = "Registrar cita",
-                onClick = onRegisterAppointment
-            )
+            if (puedeGestionar) {
+                // CITA MÉDICA
+                RegisterOptionCard(
+                    icon = Icons.Outlined.CalendarMonth,
+                    title = "Cita médica",
+                    description = "Registra una consulta, examen o cita con un especialista.",
+                    actionText = "Registrar cita",
+                    onClick = onRegisterAppointment
+                )
 
 
-            Spacer(
-                modifier = Modifier.height(16.dp)
-            )
+                Spacer(
+                    modifier = Modifier.height(16.dp)
+                )
 
-            // MEDICAMENTO
-            RegisterOptionCard(
-                icon = Icons.Outlined.Medication,
-                title = "Medicamento",
-                description = "Agrega un medicamento, dosis, horarios y duración del tratamiento.",
-                actionText = "Registrar medicamento",
-                onClick = onRegisterMedication
-            )
+                // MEDICAMENTO
+                RegisterOptionCard(
+                    icon = Icons.Outlined.Medication,
+                    title = "Medicamento",
+                    description = "Agrega un medicamento, dosis, horarios y duración del tratamiento.",
+                    actionText = "Registrar medicamento",
+                    onClick = onRegisterMedication
+                )
 
 
-            Spacer(
-                modifier = Modifier.height(24.dp)
-            )
+                Spacer(
+                    modifier = Modifier.height(24.dp)
+                )
+
+            } else {
+                Text("Tienes acceso de consulta. Esta persona puede autorizarte para gestionar sus citas y medicamentos desde sus personas vinculadas.",
+                    color = TextSecondary, style = MaterialTheme.typography.bodyLarge)
+                androidx.compose.material3.TextButton(onClick = { onNavigate(Routes.Home) }) {
+                    Text("Elegir otra persona")
+                }
+            }
 
             // MENSAJE DE AYUDA
             Surface(

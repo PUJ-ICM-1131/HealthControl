@@ -68,6 +68,7 @@ data class AppointmentRegisterUiState(
 
     // ESTADO DE LA OPERACIÓN
     val guardando: Boolean = false,
+    val registroDisponible: Boolean = true,
     val guardadoExitoso: Boolean = false,
     val mensajeError: String? = null
 
@@ -166,7 +167,7 @@ data class AppointmentRegisterUiState(
     val formularioValido: Boolean
         get() {
 
-            return personaValida &&
+            return registroDisponible && personaValida &&
                     motivo.isNotBlank() &&
                     especialidadValida &&
                     fechaHoraValida &&

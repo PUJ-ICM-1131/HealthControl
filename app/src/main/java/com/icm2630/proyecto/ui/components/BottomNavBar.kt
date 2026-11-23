@@ -14,7 +14,7 @@ import com.icm2630.proyecto.navigation.Routes
 /**
  * [rutaInicio] es a qué destino lleva y qué resalta la pestaña "Inicio".
  * Todas las cuentas comparten el mismo inicio y pueden consultar perfiles invitados.
- * Mientras se ve el perfil de un familiar se oculta "Registrar" (solo lectura).
+ * Registrar requiere ser el titular o contar con su autorización de gestión.
  */
 @Composable
 fun HealthBottomNavigation(
@@ -26,7 +26,7 @@ fun HealthBottomNavigation(
         containerColor = MaterialTheme.colorScheme.surface,
         tonalElevation = 8.dp
     ) {
-        val soloLectura = SesionRepository.familiarActivo != null
+        val soloLectura = SesionRepository.familiarActivo?.let { !it.puedeGestionar } ?: false
         val items = listOfNotNull(
             BottomNavItem("Inicio", Icons.Outlined.Home, rutaInicio),
             BottomNavItem("Pendientes", Icons.Outlined.StickyNote2, Routes.Recordatorios),

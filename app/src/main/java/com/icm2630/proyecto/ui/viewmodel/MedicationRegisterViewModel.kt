@@ -13,6 +13,7 @@ import com.icm2630.proyecto.data.repository.SesionRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import java.util.UUID
 
 
@@ -29,9 +30,13 @@ class MedicationRegisterViewModel : ViewModel() {
 
     private var formularioInicializado = false
 
-    fun prepararFormulario(medicamentoId: String?) {
+    private var titularUid: String? = null
+
+    fun prepararFormulario(medicamentoId: String?, uid: String = SesionRepository.uidConsultado) {
         if (formularioInicializado) return
         formularioInicializado = true
+        titularUid = uid
+        cargarPerfilDesdeSesion()
         if (medicamentoId == null) iniciarNuevoMedicamento()
         else cargarMedicamentoParaEditar(medicamentoId)
     }
@@ -43,18 +48,13 @@ class MedicationRegisterViewModel : ViewModel() {
     // PERFIL DEL USUARIO
     /** Carga el perfil de la sesión al crear el ViewModel de esta entrada. */
     private fun cargarPerfilDesdeSesion() {
-
-        val perfilUsuario = SesionRepository.perfil ?: return
-
-
-        // Los vínculos autorizan consulta. Cada cuenta registra sus propios datos.
-        val personas = emptyList<com.icm2630.proyecto.data.model.PersonaVinculada>()
-
+        val perfil = SesionRepository.perfil ?: return
+        val destino = titularUid ?: SesionRepository.uidConsultado
         _uiState.value = _uiState.value.copy(
-                perfilUsuario = perfilUsuario,
-                personasAsociadas = personas,
-                personaSeleccionadaId = null
-            )
+            perfilUsuario = perfil,
+            personasAsociadas = VinculacionRepository.obtenerPersonasAsociadas(),
+            personaSeleccionadaId = destino.takeUnless { it == SesionRepository.uidActual }
+        )
     }
 
     // PERSONA
@@ -83,30 +83,38 @@ class MedicationRegisterViewModel : ViewModel() {
      * uno desde cero.
      */
     fun cargarMedicamentoParaEditar(medicamentoId: String) {
-
-        val medicamento =
-            MedicamentoRepository.obtenerPorId(
-                medicamentoId
-            ) ?: return
-
-
-        _uiState.value =
-            _uiState.value.copy(
-                medicamentoId = medicamento.id,
-                personaSeleccionadaId = medicamento.personaId,
-                nombre = medicamento.nombre,
-                forma = medicamento.forma,
-                dosis = medicamento.dosis,
-                unidad = medicamento.unidad,
-                cantidadPorToma = medicamento.cantidadPorToma,
-                horarios = medicamento.horarios,
-                fechaInicioMillis = medicamento.fechaInicioMillis,
-                fechaFinMillis = medicamento.fechaFinMillis,
-                tratamientoPermanente = medicamento.tratamientoPermanente,
-                indicaciones = medicamento.indicaciones,
-                ordenMedicaUri = medicamento.ordenMedicaUri,
-                nombreOrdenMedica = medicamento.nombreOrdenMedica
-            )
+        val uid = titularUid ?: return
+        _uiState.value = _uiState.value.copy(medicamentoId = medicamentoId, registroDisponible = false)
+        viewModelScope.launch {
+            try {
+                val medicamento = MedicamentoRepository.obtenerPorId(medicamentoId, uid)
+                    ?: MedicamentoRepository.observar(uid).first().find { it.id == medicamentoId }
+                    ?: error("El registro ya no está disponible.")
+                _uiState.value =
+                    _uiState.value.copy(
+                        medicamentoId = medicamento.id,
+                        registroDisponible = true,
+                        personaSeleccionadaId = titularUid?.takeUnless { it == SesionRepository.uidActual },
+                        nombre = medicamento.nombre,
+                        forma = medicamento.forma,
+                        dosis = medicamento.dosis,
+                        unidad = medicamento.unidad,
+                        cantidadPorToma = medicamento.cantidadPorToma,
+                        horarios = medicamento.horarios,
+                        fechaInicioMillis = medicamento.fechaInicioMillis,
+                        fechaFinMillis = medicamento.fechaFinMillis,
+                        tratamientoPermanente = medicamento.tratamientoPermanente,
+                        indicaciones = medicamento.indicaciones,
+                        ordenMedicaUri = medicamento.ordenMedicaUri,
+                        nombreOrdenMedica = medicamento.nombreOrdenMedica
+                    )
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(mensajeError =
+                    "No se pudo cargar el registro. Vuelve a abrirlo cuando termine la sincronización.")
+            }
+        }
     }
 
     /**
@@ -121,7 +129,8 @@ class MedicationRegisterViewModel : ViewModel() {
 
         _uiState.value = MedicationRegisterUiState(
                 perfilUsuario = estadoActual.perfilUsuario,
-                personasAsociadas = estadoActual.personasAsociadas
+                personasAsociadas = estadoActual.personasAsociadas,
+                personaSeleccionadaId = titularUid?.takeUnless { it == SesionRepository.uidActual }
             )
     }
 
@@ -284,7 +293,12 @@ class MedicationRegisterViewModel : ViewModel() {
         val estado = _uiState.value
 
         if (estado.guardando || estado.guardadoExitoso) return
-        if (SesionRepository.familiarActivo != null || !estado.formularioValido) {
+        val uid = titularUid ?: return
+        if (!SesionRepository.puedeGestionar(uid)) {
+            _uiState.value = estado.copy(mensajeError = "Ya no tienes permiso para gestionar los registros de esta persona.")
+            return
+        }
+        if (!estado.formularioValido) {
             _uiState.value =
                 estado.copy(
                     mensajeError =
@@ -305,12 +319,8 @@ class MedicationRegisterViewModel : ViewModel() {
                             .randomUUID()
                             .toString(),
 
-                /*
-                 * null = propio usuario
-                 *
-                 * id de Persona = persona asociada
-                 */
-                personaId = estado.personaSeleccionadaId,
+                // El repositorio guarda bajo el UID del titular fijado al abrir el formulario.
+                personaId = null,
 
                 nombre = estado.nombre.trim(),
                 forma = estado.forma,
@@ -336,7 +346,7 @@ class MedicationRegisterViewModel : ViewModel() {
         _uiState.value = _uiState.value.copy(medicamentoId = medicamento.id)
         viewModelScope.launch {
             try {
-                MedicamentoRepository.registrar(medicamento)
+                MedicamentoRepository.registrar(medicamento, uid)
                 _uiState.value = _uiState.value.copy(guardando = false, guardadoExitoso = true)
             } catch (e: CancellationException) {
                 throw e

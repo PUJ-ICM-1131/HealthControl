@@ -29,6 +29,8 @@ sealed interface Routes : NavKey {
     @Serializable
     data object Mapa : Routes
     @Serializable
+    data class MapaCita(val citaId: String, val titularUid: String) : Routes
+    @Serializable
     data object Perfil : Routes
 
     /**
@@ -38,13 +40,13 @@ sealed interface Routes : NavKey {
      * el mismo registro en vez de crear uno nuevo.
      */
     @Serializable
-    data class RegistrarMedicamento(val medicamentoId: String? = null) : Routes
+    data class RegistrarMedicamento(val medicamentoId: String? = null, val titularUid: String? = null) : Routes
     @Serializable
-    data class RegistrarCita(val citaId: String? = null) : Routes
+    data class RegistrarCita(val citaId: String? = null, val titularUid: String? = null) : Routes
 
     // Detalle de un pendiente (HU-21): ver, editar o eliminar.
     @Serializable
-    data class DetalleCita(val citaId: String) : Routes
+    data class DetalleCita(val citaId: String, val titularUid: String? = null) : Routes
     @Serializable
-    data class DetalleMedicamento(val medicamentoId: String) : Routes
+    data class DetalleMedicamento(val medicamentoId: String, val titularUid: String? = null) : Routes
 }

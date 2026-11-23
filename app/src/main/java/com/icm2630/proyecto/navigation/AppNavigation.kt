@@ -172,6 +172,7 @@ fun AppNavigation() {
             onResponder = { invitacion, aceptar -> perfilViewModel?.responder(invitacion, aceptar) },
             onCancelarSolicitud = { perfilViewModel?.cancelar(it) },
             onDesvincular = { perfilViewModel?.desvincular(it) },
+            onPermitirGestion = { invitacion, permitir -> perfilViewModel?.permitirGestion(invitacion, permitir) },
             onConsumirMensaje = { perfilViewModel?.consumirMensaje() },
             onConsumirEnvio = { perfilViewModel?.consumirEnvio() },
 
@@ -339,6 +340,16 @@ fun AppNavigation() {
                 )
             }
 
+            entry<Routes.MapaCita> { key ->
+                MapScreen(
+                    perfil = SesionRepository.perfil ?: PerfilUsuario(),
+                    citaId = key.citaId,
+                    titularCitaUid = key.titularUid,
+                    onVolverCita = { if (backStack.size > 1) backStack.removeAt(backStack.lastIndex) },
+                    onNavigate = { route -> navegarATab(backStack, route) }
+                )
+            }
+
             entry<Routes.Recordatorios> {
 
                 RemindersScreen(
@@ -375,6 +386,8 @@ fun AppNavigation() {
             entry<Routes.Registrar> {
 
                 RegisterOptionsScreen(
+                    nombrePersona = SesionRepository.nombreDe(SesionRepository.uidConsultado),
+                    puedeGestionar = SesionRepository.puedeGestionar(SesionRepository.uidConsultado),
 
                     onNavigate = { route ->
 
@@ -388,7 +401,7 @@ fun AppNavigation() {
                     onRegisterAppointment = {
 
                         backStack.add(
-                            Routes.RegistrarCita()
+                            Routes.RegistrarCita(titularUid = SesionRepository.uidConsultado)
                         )
                     },
 
@@ -396,7 +409,7 @@ fun AppNavigation() {
                     onRegisterMedication = {
 
                         backStack.add(
-                            Routes.RegistrarMedicamento()
+                            Routes.RegistrarMedicamento(titularUid = SesionRepository.uidConsultado)
                         )
                     }
                 )
@@ -407,6 +420,7 @@ fun AppNavigation() {
                 MedicationRegisterScreen(
 
                     medicamentoId = key.medicamentoId,
+                    titularUid = key.titularUid ?: SesionRepository.uidConsultado,
 
                     onBack = {
 
@@ -433,6 +447,7 @@ fun AppNavigation() {
                 AppointmentRegisterScreen(
 
                     citaId = key.citaId,
+                    titularUid = key.titularUid ?: SesionRepository.uidConsultado,
 
                     onBack = {
 
@@ -459,6 +474,8 @@ fun AppNavigation() {
                 DetalleCitaScreen(
 
                     citaId = key.citaId,
+                    titularUid = key.titularUid ?: SesionRepository.uidConsultado,
+                    onVerMapa = { backStack.add(Routes.MapaCita(key.citaId, key.titularUid ?: SesionRepository.uidConsultado)) },
 
                     onBack = {
 
@@ -475,7 +492,8 @@ fun AppNavigation() {
 
                         backStack.add(
                             Routes.RegistrarCita(
-                                citaId = key.citaId
+                                citaId = key.citaId,
+                                titularUid = key.titularUid ?: SesionRepository.uidConsultado
                             )
                         )
                     },
@@ -501,6 +519,7 @@ fun AppNavigation() {
                     estadoTomas = estadoTomas,
 
                     medicamentoId = key.medicamentoId,
+                    titularUid = key.titularUid ?: SesionRepository.uidConsultado,
 
                     onBack = {
 
@@ -517,7 +536,8 @@ fun AppNavigation() {
 
                         backStack.add(
                             Routes.RegistrarMedicamento(
-                                medicamentoId = key.medicamentoId
+                                medicamentoId = key.medicamentoId,
+                                titularUid = key.titularUid ?: SesionRepository.uidConsultado
                             )
                         )
                     },
@@ -576,7 +596,12 @@ private fun navegarATab(
 
         val tabs = setOf(Routes.Home, Routes.Recordatorios, Routes.Registrar, Routes.Historial, Routes.Mapa, Routes.Perfil)
         if (destino in tabs) backStack.clear()
-        backStack.add(destino)
+        val conTitular = when (destino) {
+            is Routes.RegistrarCita -> destino.copy(titularUid = destino.titularUid ?: SesionRepository.uidConsultado)
+            is Routes.RegistrarMedicamento -> destino.copy(titularUid = destino.titularUid ?: SesionRepository.uidConsultado)
+            else -> destino
+        }
+        backStack.add(conTitular)
     }
 }
 

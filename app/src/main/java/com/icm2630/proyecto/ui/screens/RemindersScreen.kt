@@ -49,6 +49,7 @@ import com.icm2630.proyecto.data.repository.SesionRepository
 import com.icm2630.proyecto.ui.components.BannerFamiliar
 import com.icm2630.proyecto.ui.components.HealthBottomNavigation
 import com.icm2630.proyecto.navigation.Routes
+import com.icm2630.proyecto.data.model.Cita
 import com.icm2630.proyecto.ui.theme.*
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -91,7 +92,8 @@ private data class Recordatorio(
     val icono: ImageVector,
     val titulo: String,
     val subtitulo: String,
-    val toma: TomaProgramada? = null
+    val toma: TomaProgramada? = null,
+    val cita: Cita? = null
 )
 
 private data class GrupoRecordatorios(
@@ -137,9 +139,9 @@ fun RemindersScreen(
     var filtroSeleccionado by remember { mutableStateOf(if (filtroInicialMedicamentos) FiltroTipo.MEDICAMENTOS else FiltroTipo.TODOS) }
 
 
-    var pacienteSeleccionado by remember { mutableStateOf<String?>(null) }
+    var pacienteSeleccionado by remember(SesionRepository.familiarActivo?.uid) { mutableStateOf<String?>(null) }
 
-    // Viendo el perfil de un familiar: solo sus pendientes y sin registrar nada.
+    // El permiso del titular determina si además de consultar se pueden registrar datos.
     val familiar = SesionRepository.familiarActivo
 
     val hoyMillis = rememberHoyUtcMillis()
@@ -180,8 +182,13 @@ fun RemindersScreen(
                     color = Blue700
                 )
 
-                if (familiar == null) {
-                    BotonAgregar(onClick = { onNavigate(Routes.Registrar) })
+                if (SesionRepository.puedeGestionar(pacienteSeleccionado ?: SesionRepository.uidConsultado)) {
+                    BotonAgregar(onClick = {
+                        pacienteSeleccionado?.let { id ->
+                            VinculacionRepository.obtenerPorId(id)?.let(SesionRepository::verFamiliar)
+                        }
+                        onNavigate(Routes.Registrar)
+                    })
                 }
             }
 
@@ -245,9 +252,6 @@ fun RemindersScreen(
                     GrupoRecordatoriosSeccion(
                         grupo = grupo,
                         onVerDetalle = { destino ->
-                            pacienteSeleccionado?.let { id ->
-                                VinculacionRepository.obtenerPorId(id)?.let(SesionRepository::verFamiliar)
-                            }
                             onVerDetalle(destino)
                         },
                         hoy = hoyMillis,
@@ -359,13 +363,18 @@ private fun GrupoRecordatoriosSeccion(
                 colorPrioridad = grupo.urgencia.color,
                 onClick = {
                     val destino = if (item.tipo == TipoRecordatorio.CITA) {
-                        Routes.DetalleCita(citaId = item.id)
+                        Routes.DetalleCita(citaId = item.id, titularUid = uid)
                     } else {
-                        Routes.DetalleMedicamento(medicamentoId = item.id)
+                        Routes.DetalleMedicamento(medicamentoId = item.id, titularUid = uid)
                     }
                     onVerDetalle(destino)
                 }
             )
+            item.cita?.let { cita ->
+                com.icm2630.proyecto.ui.components.VerLugarCitaButton(cita,
+                    onClick = { onVerDetalle(Routes.MapaCita(cita.id, uid ?: SesionRepository.uidConsultado)) },
+                    modifier = Modifier.align(Alignment.End))
+            }
             item.toma?.let { toma ->
                 EstadoToma(toma, hoy, tomasViewModel, estadoTomas, uid)
             }
@@ -618,7 +627,8 @@ private fun construirRecordatorios(
                     } else {
                         cita.tipo.titulo
                     },
-                    subtitulo = subtitulo
+                    subtitulo = subtitulo,
+                    cita = cita
                 )
             )
         }

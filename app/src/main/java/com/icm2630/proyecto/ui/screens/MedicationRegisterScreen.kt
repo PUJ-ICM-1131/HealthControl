@@ -95,6 +95,7 @@ import java.util.TimeZone
 @Composable
 fun MedicationRegisterScreen(
     medicamentoId: String? = null,
+    titularUid: String = com.icm2630.proyecto.data.repository.SesionRepository.uidConsultado,
     onBack: () -> Unit,
     viewModel: MedicationRegisterViewModel = viewModel()
 ) {
@@ -136,8 +137,8 @@ fun MedicationRegisterScreen(
     }
 
     // Inicializa una sola vez por entrada; conserva el formulario al rotar.
-    LaunchedEffect(medicamentoId) {
-        viewModel.prepararFormulario(medicamentoId)
+    LaunchedEffect(medicamentoId, titularUid) {
+        viewModel.prepararFormulario(medicamentoId, titularUid)
     }
 
     LaunchedEffect(state.guardadoExitoso) {
@@ -264,7 +265,7 @@ fun MedicationRegisterScreen(
                     },
 
                     enabled =
-                        state.formularioValido &&
+                        state.formularioValido && com.icm2630.proyecto.data.repository.SesionRepository.puedeGestionar(titularUid) &&
                                 !state.guardando && !state.guardadoExitoso,
 
                     modifier = Modifier
@@ -343,13 +344,22 @@ fun MedicationRegisterScreen(
 
                 personType = tipoPersona,
 
-                // Cada cuenta registra solo sus propios datos; los vinculados son de solo lectura.
+                // El titular viene fijado desde la navegación y se vuelve a autorizar al guardar.
                 canChangePerson = false,
 
                 onChangePerson = {
                     showPersonDialog = true
                 }
             )
+
+            if (!com.icm2630.proyecto.data.repository.SesionRepository.puedeGestionar(titularUid)) {
+                Text("El titular no ha autorizado la gestión o retiró tu permiso. Vuelve a Inicio para elegir otra persona.",
+                    color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
+            }
+            if (!state.registroDisponible) {
+                Text("El registro debe terminar de cargar antes de editarlo.",
+                    color = TextSecondary, style = MaterialTheme.typography.bodySmall)
+            }
 
             // 1. MEDICAMENTO
             MedicationSectionCard(

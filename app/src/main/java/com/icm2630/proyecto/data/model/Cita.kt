@@ -4,8 +4,8 @@ package com.icm2630.proyecto.data.model
 data class Cita(
     val id: String = "",
 
-     //null = cita del propio usuario.
-     //Si tiene valor, corresponde al id de una Persona asociada
+    // Compatibilidad con registros anteriores. El titular lo determina usuarios/{uid}/citas.
+    // Los nuevos registros conservan personaId = null.
     val personaId: String? = null,
 
     val tipo: TipoCita = TipoCita.MEDICINA_GENERAL,
@@ -29,7 +29,10 @@ data class Cita(
     //URI de una orden, autorización o soporte
     @get:com.google.firebase.firestore.Exclude
     val soporteUri: String? = null,
-    val nombreSoporte: String? = null
+    val nombreSoporte: String? = null,
+    val auditoria: AuditoriaRegistro? = null,
+    val ubicacionConfirmada: com.google.firebase.firestore.GeoPoint? = null,
+    val nombreLugarConfirmado: String? = null
 )
 
 enum class TipoCita(

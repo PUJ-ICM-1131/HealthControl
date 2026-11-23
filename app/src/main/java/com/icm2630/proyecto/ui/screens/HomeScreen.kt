@@ -45,6 +45,7 @@ import com.icm2630.proyecto.data.repository.CitaRepository
 import com.icm2630.proyecto.data.repository.MedicamentoRepository
 import com.icm2630.proyecto.data.repository.VinculacionRepository
 import com.icm2630.proyecto.navigation.Routes
+import com.icm2630.proyecto.data.repository.SesionRepository
 import com.icm2630.proyecto.ui.components.BannerFamiliar
 import com.icm2630.proyecto.ui.components.HealthBottomNavigation
 import com.icm2630.proyecto.ui.theme.*
@@ -64,7 +65,7 @@ private data class QuickAction(
 
 /**
  * Home del Titular (HU-02). Si llega [familiar], se está consultando el
- * HealthControl de esa persona: se muestra su información en solo lectura.
+ * HealthControl de esa persona, con las acciones que su titular autorizó.
  */
 @Composable
 fun HomeScreen(
@@ -72,6 +73,7 @@ fun HomeScreen(
     familiar: PersonaVinculada? = null,
     onNavigate: (Routes) -> Unit = {},
     onVolverAMiPerfil: () -> Unit = {},
+    onSeleccionarPersona: (PersonaVinculada) -> Unit = SesionRepository::verFamiliar,
     tomasViewModel: TomasViewModel = androidx.lifecycle.viewmodel.compose.viewModel(),
     estadoTomas: TomasUiState = TomasUiState()
 ) {
@@ -82,7 +84,7 @@ fun HomeScreen(
             QuickAction("dosis", "Registrar toma", "Dosis de hoy", Icons.Outlined.Medication, Routes.Tomas),
             QuickAction("cita", "Nueva cita", "Agendar visita", Icons.Outlined.AddBox, Routes.RegistrarCita()),
             QuickAction("pendientes", "Pendientes", "Citas y tomas", Icons.Outlined.StickyNote2, Routes.Recordatorios),
-            QuickAction("cuidador", "Compartir", "Añadir cuidador", Icons.Outlined.Group, Routes.Compartir),
+            QuickAction("cuidador", "Vincular persona", "Ayudar con su salud", Icons.Outlined.Group, Routes.Compartir),
             QuickAction("medicamento", "Medicamento", "Nuevo tratamiento", Icons.Outlined.Add, Routes.RegistrarMedicamento()),
             // Opciones extra para personalizar
             QuickAction("historial", "Ver Historial", "Tus registros", Icons.Outlined.History, Routes.Historial),
@@ -90,14 +92,19 @@ fun HomeScreen(
         )
     }
 
-    // En solo lectura solo se ofrecen acciones de consulta.
-    val accionesFamiliar = remember {
-        listOf(
-            QuickAction("pendientes", "Pendientes", "Sus recordatorios", Icons.Outlined.StickyNote2, Routes.Recordatorios),
+    val accionesFamiliar = remember(familiar?.uid, familiar?.puedeGestionar) {
+        val consulta = listOf(
+            QuickAction("pendientes", "Pendientes", "Sus citas y tomas", Icons.Outlined.StickyNote2, Routes.Recordatorios),
             QuickAction("historial", "Historial", "Sus registros", Icons.Outlined.History, Routes.Historial),
-            QuickAction("perfil", "Su Perfil", "Datos de salud", Icons.Outlined.Person, Routes.Perfil),
-            QuickAction("mapa", "Ver Mapa", "Ubicaciones", Icons.Outlined.Map, Routes.Mapa)
+            QuickAction("perfil", "Su perfil", "Datos de salud", Icons.Outlined.Person, Routes.Perfil),
+            QuickAction("mapa", "Ver mapa", "Ubicaciones", Icons.Outlined.Map, Routes.Mapa)
         )
+        if (familiar?.puedeGestionar == true) listOf(
+            QuickAction("cita", "Nueva cita", "Para ${familiar.nombre.substringBefore(" ")}", Icons.Outlined.AddBox,
+                Routes.RegistrarCita(titularUid = familiar.uid)),
+            QuickAction("medicamento", "Medicamento", "Para ${familiar.nombre.substringBefore(" ")}", Icons.Outlined.Medication,
+                Routes.RegistrarMedicamento(titularUid = familiar.uid))
+        ) + consulta.filter { it.id in setOf("pendientes", "mapa") } else consulta
     }
 
     val uid = TomaRepository.cuentaConsultada()
@@ -176,6 +183,17 @@ fun HomeScreen(
                 color = Blue700
             )
 
+            if (perfil.acompanantes.isNotEmpty()) {
+                Spacer(Modifier.height(16.dp))
+                com.icm2630.proyecto.ui.components.SelectorPersonaSalud(
+                    personas = perfil.acompanantes,
+                    seleccionada = familiar,
+                    onSeleccionar = { persona ->
+                        if (persona == null) onVolverAMiPerfil() else onSeleccionarPersona(persona)
+                    }
+                )
+            }
+
             if (familiar != null) {
                 Spacer(Modifier.height(16.dp))
                 BannerFamiliar(
@@ -184,7 +202,7 @@ fun HomeScreen(
                 )
             }
 
-            perfil.acompanantes.takeIf { it.isNotEmpty() && !soloLectura }?.let { acompanantes ->
+            perfil.acompanantes.filter { it.gestionaMiSalud }.takeIf { it.isNotEmpty() && !soloLectura }?.let { acompanantes ->
                 Spacer(Modifier.height(12.dp))
                 Surface(
                     color = Blue100.copy(alpha = 0.3f),

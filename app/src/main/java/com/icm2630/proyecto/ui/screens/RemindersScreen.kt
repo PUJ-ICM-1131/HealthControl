@@ -49,6 +49,7 @@ import com.icm2630.proyecto.data.repository.SesionRepository
 import com.icm2630.proyecto.ui.components.BannerFamiliar
 import com.icm2630.proyecto.ui.components.HealthBottomNavigation
 import com.icm2630.proyecto.navigation.Routes
+import com.icm2630.proyecto.data.model.Cita
 import com.icm2630.proyecto.ui.theme.*
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -91,7 +92,8 @@ private data class Recordatorio(
     val icono: ImageVector,
     val titulo: String,
     val subtitulo: String,
-    val toma: TomaProgramada? = null
+    val toma: TomaProgramada? = null,
+    val cita: Cita? = null
 )
 
 private data class GrupoRecordatorios(
@@ -368,6 +370,11 @@ private fun GrupoRecordatoriosSeccion(
                     onVerDetalle(destino)
                 }
             )
+            item.cita?.let { cita ->
+                com.icm2630.proyecto.ui.components.VerLugarCitaButton(cita,
+                    onClick = { onVerDetalle(Routes.MapaCita(cita.id, uid ?: SesionRepository.uidConsultado)) },
+                    modifier = Modifier.align(Alignment.End))
+            }
             item.toma?.let { toma ->
                 EstadoToma(toma, hoy, tomasViewModel, estadoTomas, uid)
             }
@@ -620,7 +627,8 @@ private fun construirRecordatorios(
                     } else {
                         cita.tipo.titulo
                     },
-                    subtitulo = subtitulo
+                    subtitulo = subtitulo,
+                    cita = cita
                 )
             )
         }

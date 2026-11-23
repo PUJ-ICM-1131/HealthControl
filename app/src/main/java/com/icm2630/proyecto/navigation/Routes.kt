@@ -29,6 +29,8 @@ sealed interface Routes : NavKey {
     @Serializable
     data object Mapa : Routes
     @Serializable
+    data class MapaCita(val citaId: String, val titularUid: String) : Routes
+    @Serializable
     data object Perfil : Routes
 
     /**

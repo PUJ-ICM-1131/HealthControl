@@ -20,6 +20,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Call
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Close
@@ -72,6 +73,7 @@ import com.icm2630.proyecto.ui.util.usarMapaOscuro
 import com.icm2630.proyecto.ui.theme.HealthControlMapTheme
 import com.icm2630.proyecto.ui.theme.Blue100
 import com.icm2630.proyecto.ui.viewmodel.MapViewModel
+import com.icm2630.proyecto.ui.viewmodel.SeleccionMapa
 import com.mapbox.geojson.LineString
 import com.mapbox.geojson.Point
 import com.mapbox.maps.EdgeInsets
@@ -106,7 +108,10 @@ fun MapScreen(
     perfil: PerfilUsuario = PerfilUsuario(),
     onNavigate: (Routes) -> Unit = {},
     familiar: PersonaVinculada? = null,
-    onVolverAMiPerfil: () -> Unit = {}
+    onVolverAMiPerfil: () -> Unit = {},
+    citaId: String? = null,
+    titularCitaUid: String? = null,
+    onVolverCita: () -> Unit = {}
 ) {
     val oscuroSistema = isSystemInDarkTheme()
     val iluminacion = rememberMapLight()
@@ -114,7 +119,8 @@ fun MapScreen(
     // El cambio de luz abarca el mapa, los paneles y la navegación de esta pantalla.
     HealthControlMapTheme(darkTheme = oscuro) {
         MapSystemBarsEffect(oscuro)
-        MapScreenContent(perfil, onNavigate, familiar, onVolverAMiPerfil, oscuro, oscuroSistema, iluminacion)
+        MapScreenContent(perfil, onNavigate, familiar, onVolverAMiPerfil, oscuro, oscuroSistema, iluminacion,
+            citaId, titularCitaUid, onVolverCita)
     }
 }
 
@@ -126,13 +132,16 @@ private fun MapScreenContent(
     onVolverAMiPerfil: () -> Unit,
     oscuro: Boolean,
     oscuroSistema: Boolean,
-    iluminacion: IluminacionMapa
+    iluminacion: IluminacionMapa,
+    citaId: String?,
+    titularCitaUid: String?,
+    onVolverCita: () -> Unit
 ) {
     val context = LocalContext.current
 
     val personasVinculadas = perfil.acompanantes
     val model: MapViewModel = viewModel(
-        key = "mapa:${perfil.codigoVinculacion}"
+        key = "mapa:${perfil.codigoVinculacion}:${titularCitaUid.orEmpty()}:${citaId.orEmpty()}"
     )
     val token = stringResource(R.string.mapbox_access_token).trim()
     val snackbar = remember { SnackbarHostState() }
@@ -141,9 +150,14 @@ private fun MapScreenContent(
         .find { it.persona.uid == state.personaSeleccionadaUid }?.persona
     val telefonoAcompanado = personaConsultada?.telefono?.takeIf { it.isNotBlank() }
 
-    LaunchedEffect(model, personasVinculadas) {
-        model.observarPersonas(personasVinculadas)
-        familiar?.uid?.let(model::seleccionarPersona)
+    LaunchedEffect(model, citaId, titularCitaUid) {
+        if (citaId != null && titularCitaUid != null) model.observarCita(titularCitaUid, citaId)
+    }
+    LaunchedEffect(model, personasVinculadas, familiar?.uid, citaId) {
+        if (citaId == null) {
+            model.observarPersonas(personasVinculadas)
+            familiar?.uid?.let(model::seleccionarPersona)
+        }
     }
 
     LaunchedEffect(model, state.mensajeError) {
@@ -171,14 +185,19 @@ private fun MapScreenContent(
                 Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Mi mapa", Modifier.weight(1f), style = MaterialTheme.typography.titleLarge,
+                if (citaId != null) {
+                    IconButton(onClick = onVolverCita) {
+                        Icon(androidx.compose.material.icons.Icons.AutoMirrored.Outlined.ArrowBack, "Volver a la cita")
+                    }
+                }
+                Text(if (citaId != null) "Ubicación de la cita" else "Mi mapa", Modifier.weight(1f), style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                 Icon(
                     if (oscuro) Icons.Outlined.DarkMode else Icons.Outlined.LightMode,
                     contentDescription = if (oscuro) "Tema oscuro automático" else "Tema claro automático",
                     modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                if (familiar != null) {
+                if (familiar != null && citaId == null) {
                     TextButton(onClick = onVolverAMiPerfil) { Text("Mi perfil") }
                 }
                 if (telefonoAcompanado != null) {
@@ -197,7 +216,7 @@ private fun MapScreenContent(
                 }
             } else {
                 key(model) {
-                    MapContent(model, token, permisoInicial = perfil.permisoUbicacion, oscuro = oscuro)
+                    MapContent(model, token, permisoInicial = perfil.permisoUbicacion, oscuro = oscuro, enCita = citaId != null)
                 }
             }
         }
@@ -206,7 +225,7 @@ private fun MapScreenContent(
 
 @OptIn(MapboxExperimental::class)
 @Composable
-private fun MapContent(model: MapViewModel, token: String, permisoInicial: Boolean, oscuro: Boolean) {
+private fun MapContent(model: MapViewModel, token: String, permisoInicial: Boolean, oscuro: Boolean, enCita: Boolean = false) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val keyboard = LocalSoftwareKeyboardController.current
@@ -262,6 +281,22 @@ private fun MapContent(model: MapViewModel, token: String, permisoInicial: Boole
             expandido = true
         }
     }
+    LaunchedEffect(state.cita?.id, state.cita?.institucion, state.cita?.direccion, state.cita?.modalidad) {
+        val cita = state.cita
+        if (enCita && cita != null) {
+            seccion = 0
+            expandido = true
+            mostrarBusqueda = cita.modalidad == com.icm2630.proyecto.data.model.ModalidadCita.PRESENCIAL &&
+                com.icm2630.proyecto.data.model.UbicacionCitas.punto(cita) == null
+            if (mostrarBusqueda && state.consulta.trim().length >= 3) model.buscarDireccion()
+        }
+    }
+    LaunchedEffect(state.ruta) {
+        if (enCita && state.ruta != null) {
+            expandido = false
+            mostrarBusqueda = false
+        }
+    }
     var centradoInicial by rememberSaveable { mutableStateOf(false) }
     var altoBusqueda by remember { mutableIntStateOf(0) }
     var altoControles by remember { mutableIntStateOf(0) }
@@ -270,6 +305,7 @@ private fun MapContent(model: MapViewModel, token: String, permisoInicial: Boole
         preciso = tienePermiso(Manifest.permission.ACCESS_FINE_LOCATION)
         permitido = concedido
         permisoRechazado = !concedido
+        if (!concedido) model.cancelarRutaCitaPendiente()
         usarUbicacion = concedido
     }
     DisposableEffect(lifecycleOwner) {
@@ -339,6 +375,16 @@ private fun MapContent(model: MapViewModel, token: String, permisoInicial: Boole
     val mapState = rememberMapState()
     LaunchedEffect(mapState) { mapState.mapLoadingErrorEvents.collect { errorMapa = true } }
     LaunchedEffect(mapState) { mapState.mapLoadedEvents.collect { errorMapa = false } }
+    LaunchedEffect(state.destino, altoControles, altoBusqueda) {
+        if (enCita && state.ruta == null) state.destino?.let {
+            viewport.setCameraOptions {
+                center(it.aMapbox())
+                padding(EdgeInsets(altoBusqueda.toDouble() + 24, 24.0, altoControles.toDouble() + 24, 24.0))
+                zoom(16.0)
+            }
+            centradoInicial = true
+        }
+    }
     LaunchedEffect(state.ubicacionActual) {
         if (!centradoInicial && state.ruta == null && state.destino == null && state.origenDesdeUbicacion) {
             state.ubicacionActual?.let {
@@ -355,18 +401,26 @@ private fun MapContent(model: MapViewModel, token: String, permisoInicial: Boole
             val ruta = state.ruta ?: return
             val puntos = ruta.puntos.map { it.aMapbox() } +
                     listOfNotNull(state.origen?.aMapbox(), state.destino?.aMapbox())
+            // Reserva espacio para las etiquetas de los marcadores y los paneles reales.
+            val superior = altoBusqueda + margen * 3
+            val inferior = altoControles + margen
+            val factor = ((altoMapaPx - margen * 2).coerceAtLeast(1.0) / (superior + inferior))
+                .coerceAtMost(1.0)
             viewport.transitionToOverviewState(
                 OverviewViewportStateOptions.Builder()
                     .geometry(LineString.fromLngLats(puntos))
-                    .padding(EdgeInsets(
+                    .padding(if (enCita) EdgeInsets(0.0, 0.0, 0.0, 0.0) else EdgeInsets(
                         min(altoBusqueda + margen, altoMapaPx * 0.35), margen,
-                        min(altoControles + margen, altoMapaPx * 0.45), margen
-                    ))
+                        min(altoControles + margen, altoMapaPx * 0.45), margen))
+                    .geometryPadding(if (enCita) EdgeInsets(superior * factor, margen, inferior * factor, margen)
+                        else EdgeInsets(0.0, 0.0, 0.0, 0.0))
                     .maxZoom(16.0)
                     .build()
             )
         }
-        LaunchedEffect(state.ruta) { if (state.ruta != null) verRutaCompleta() }
+        LaunchedEffect(state.ruta, if (enCita) altoControles else 0, if (enCita) altoBusqueda else 0) {
+            if (state.ruta != null) verRutaCompleta()
+        }
 
         MapboxMap(
             modifier = Modifier.fillMaxSize(),
@@ -387,7 +441,7 @@ private fun MapContent(model: MapViewModel, token: String, permisoInicial: Boole
                 keyboard?.hide()
                 centradoInicial = true
                 model.seleccionarPunto(PuntoMapa(point.latitude(), point.longitude()))
-                seccion = 1
+                seccion = if (enCita && state.seleccion == SeleccionMapa.DESTINO) 0 else 1
                 expandido = true
                 mostrarBusqueda = false
                 true
@@ -477,13 +531,13 @@ private fun MapContent(model: MapViewModel, token: String, permisoInicial: Boole
                 MapSearchCard(
                     state = state, onConsulta = model::cambiarConsulta,
                     onBuscar = { keyboard?.hide(); model.buscarDireccion() },
-                    onCentrosSalud = { keyboard?.hide(); model.buscarCentrosSalud(token) },
+                    onCentrosSalud = if (enCita) null else { { keyboard?.hide(); model.buscarCentrosSalud(token) } },
                     onElegir = {
                         keyboard?.hide()
                         mostrarBusqueda = false
                         centradoInicial = true
                         model.seleccionarPunto(it)
-                        seccion = 1
+                        seccion = if (enCita && state.seleccion == SeleccionMapa.DESTINO) 0 else 1
                         expandido = true
                         viewport.setCameraOptions { center(it.aMapbox()); zoom(15.0) }
                     }
@@ -507,7 +561,7 @@ private fun MapContent(model: MapViewModel, token: String, permisoInicial: Boole
             Column {
                 Row(Modifier.fillMaxWidth().padding(start = 8.dp, end = 4.dp),
                     verticalAlignment = Alignment.CenterVertically) {
-                    listOf("Personas", "Ruta", "Mi posición").forEachIndexed { indice, titulo ->
+                    listOf(if (enCita) "Cita" else "Personas", "Ruta", "Mi posición").forEachIndexed { indice, titulo ->
                         TextButton(onClick = {
                             seccion = indice
                             expandido = true
@@ -530,6 +584,7 @@ private fun MapContent(model: MapViewModel, token: String, permisoInicial: Boole
                     Text(
                         if (state.calculandoRuta) "Calculando el recorrido…"
                         else if (state.ruta != null) "Ruta trazada · abre Ruta para ver el recorrido"
+                        else if (enCita) state.cita?.institucion?.ifBlank { "Lugar de la cita" } ?: "Consultando cita…"
                         else "${state.personasEnMapa.size} ${if (state.personasEnMapa.size == 1) "persona vinculada" else "personas vinculadas"} · $visibles con ubicación",
                         Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
                         style = MaterialTheme.typography.bodySmall,
@@ -539,7 +594,26 @@ private fun MapContent(model: MapViewModel, token: String, permisoInicial: Boole
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                     Column(Modifier.verticalScroll(rememberScrollState()).padding(bottom = 8.dp)) {
                         when (seccion) {
-                            0 -> {
+                            0 -> if (enCita) {
+                                com.icm2630.proyecto.ui.components.map.UbicacionCitaCard(
+                                    state = state,
+                                    onBuscar = {
+                                        model.seleccionarObjetivo(SeleccionMapa.DESTINO)
+                                        state.cita?.let { model.cambiarConsulta(com.icm2630.proyecto.data.model.UbicacionCitas.consulta(it)) }
+                                        mostrarBusqueda = true
+                                        expandido = false
+                                    },
+                                    onGuardar = model::confirmarLugarCita,
+                                    onRuta = {
+                                        activarUbicacion()
+                                        model.rutaHaciaCita(token)
+                                        seccion = 1
+                                        expandido = true
+                                        mostrarBusqueda = false
+                                        keyboard?.hide()
+                                    }
+                                )
+                            } else {
                                 if (state.personasEnMapa.isEmpty()) {
                                     Text("Tus personas vinculadas aparecerán aquí cuando acepten la invitación.",
                                         Modifier.padding(16.dp), style = MaterialTheme.typography.bodyMedium)
@@ -640,7 +714,7 @@ private fun MapContent(model: MapViewModel, token: String, permisoInicial: Boole
                                     expandido = false
                                 },
                                 onVerRuta = { verRutaCompleta(); expandido = false },
-                                onLimpiar = model::limpiarRuta
+                                onLimpiar = { if (enCita) model.restaurarDestinoCita() else model.limpiarRuta() }
                             )
                             2 -> {
             Surface(

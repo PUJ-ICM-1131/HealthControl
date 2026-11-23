@@ -19,7 +19,8 @@ class SerializacionRegistrosTest {
             setOf(
                 "id", "personaId", "tipo", "especialidad", "motivo", "fechaMillis",
                 "hora", "minuto", "modalidad", "institucion", "direccion",
-                "enlaceVirtual", "nombreMedico", "notas", "nombreSoporte", "auditoria"
+                "enlaceVirtual", "nombreMedico", "notas", "nombreSoporte", "auditoria",
+                "ubicacionConfirmada", "nombreLugarConfirmado"
             ),
             datos.keys
         )

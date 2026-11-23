@@ -190,7 +190,8 @@ service cloud.firestore {
       match /citas/{id} {
         allow read: if puedeConsultar(uid);
         allow create: if puedeGestionar(uid) && isValidCita(request.resource.data,id) && auditoriaCreacion(request.resource.data);
-        allow update: if puedeGestionar(uid) && isValidCita(request.resource.data,id) && auditoriaEdicion(request.resource.data,resource.data);
+        allow update: if puedeGestionar(uid) && isValidCita(request.resource.data,id)
+          && lugarCitaCoherente(request.resource.data,resource.data) && auditoriaEdicion(request.resource.data,resource.data);
         allow delete: if owner(uid) && existeTitular(uid);
       }
       match /tomas/{id} {
@@ -250,10 +251,23 @@ service cloud.firestore {
       return d.keys().hasAll(['punto','actualizadoEn']) && d.keys().hasOnly(['punto','actualizadoEn'])
         && d.punto is latlng && d.actualizadoEn == request.time;
     }
+    // El lugar confirmado se guarda junto a la cita; editar su texto retira la confirmación.
+    function ubicacionCitaValida(d) {
+      let punto = d.get('ubicacionConfirmada',null);
+      let nombre = d.get('nombreLugarConfirmado',null);
+      return (punto == null && nombre == null)
+        || (d.modalidad == 'PRESENCIAL' && punto is latlng && str(nombre,500) && nombre.trim().size() > 0);
+    }
+    function lugarCitaCoherente(d,antes) {
+      return (d.get('institucion','') == antes.get('institucion','')
+          && d.get('direccion','') == antes.get('direccion','') && d.modalidad == antes.modalidad)
+        || (d.get('ubicacionConfirmada',null) == null && d.get('nombreLugarConfirmado',null) == null);
+    }
     function isValidCita(d,id) {
       return d.keys().hasAll(['id','tipo','motivo','fechaMillis','hora','minuto','modalidad'])
         && d.keys().hasOnly(['id','personaId','tipo','especialidad','motivo','fechaMillis','hora','minuto','modalidad',
-          'institucion','direccion','enlaceVirtual','nombreMedico','notas','nombreSoporte','auditoria'])
+          'institucion','direccion','enlaceVirtual','nombreMedico','notas','nombreSoporte','auditoria',
+          'ubicacionConfirmada','nombreLugarConfirmado'])
         && d.id == id && str(d.id,128) && d.id.size() > 0 && d.get('personaId',null) == null
         && d.tipo in ['MEDICINA_GENERAL','ESPECIALISTA','ODONTOLOGIA','EXAMENES']
         && d.modalidad in ['PRESENCIAL','VIRTUAL'] && str(d.motivo,2000) && d.motivo.size() > 0
@@ -262,7 +276,7 @@ service cloud.firestore {
         && textoOpcional(d,'especialidad',200) && textoOpcional(d,'institucion',200)
         && textoOpcional(d,'direccion',500) && enlaceValido(d)
         && textoOpcional(d,'nombreMedico',200) && textoOpcional(d,'notas',4000)
-        && textoNulo(d,'nombreSoporte',255);
+        && textoNulo(d,'nombreSoporte',255) && ubicacionCitaValida(d);
     }
     function horariosValidos(h) {
       // La ida y vuelta verifica tipos y evita separadores dentro de un horario.

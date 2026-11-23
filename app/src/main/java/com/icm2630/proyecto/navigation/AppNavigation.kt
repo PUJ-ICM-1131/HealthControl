@@ -340,6 +340,16 @@ fun AppNavigation() {
                 )
             }
 
+            entry<Routes.MapaCita> { key ->
+                MapScreen(
+                    perfil = SesionRepository.perfil ?: PerfilUsuario(),
+                    citaId = key.citaId,
+                    titularCitaUid = key.titularUid,
+                    onVolverCita = { if (backStack.size > 1) backStack.removeAt(backStack.lastIndex) },
+                    onNavigate = { route -> navegarATab(backStack, route) }
+                )
+            }
+
             entry<Routes.Recordatorios> {
 
                 RemindersScreen(
@@ -465,6 +475,7 @@ fun AppNavigation() {
 
                     citaId = key.citaId,
                     titularUid = key.titularUid ?: SesionRepository.uidConsultado,
+                    onVerMapa = { backStack.add(Routes.MapaCita(key.citaId, key.titularUid ?: SesionRepository.uidConsultado)) },
 
                     onBack = {
 

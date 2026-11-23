@@ -3,7 +3,7 @@ import { after, before, beforeEach, test } from "node:test";
 import { strict as assert } from "node:assert";
 import { initializeTestEnvironment, assertFails, assertSucceeds } from "@firebase/rules-unit-testing";
 import { doc, collection, getDoc, getDocs, setDoc, deleteDoc, updateDoc, runTransaction,
-    serverTimestamp, Timestamp, onSnapshot } from "firebase/firestore";
+    serverTimestamp, Timestamp, GeoPoint, onSnapshot, deleteField } from "firebase/firestore";
 
 let env;
 const DIA = 86400000;
@@ -313,6 +313,104 @@ test("admite crear y editar medicamentos con el máximo de 24 horarios", async (
 test("el SDK rechaza arrays anidados antes de enviarlos a las reglas", () => {
     assert.throws(() => setDoc(registro(db("cuidador"), "medicamentos"),
         medicamento({ horarios: [["8:00 AM"]] })), { code: "invalid-argument" });
+});
+
+test("el cuidador guarda el lugar de una cita y el titular consulta las mismas coordenadas", async () => {
+    await autorizar();
+    await setDoc(registro(db("cuidador")), cita({ institucion: "Hospital", direccion: "Bogotá" }));
+    await assertSucceeds(updateDoc(registro(db("cuidador")), {
+        ubicacionConfirmada: new GeoPoint(4.627, -74.064), nombreLugarConfirmado: "Entrada del hospital",
+        "auditoria.actualizadoEn": serverTimestamp()
+    }));
+    const compartida = (await getDoc(registro(db("abuelo")))).data();
+    assert.equal(compartida.ubicacionConfirmada.latitude, 4.627);
+    assert.equal(compartida.ubicacionConfirmada.longitude, -74.064);
+    assert.equal(compartida.auditoria.creadoPorUid, "cuidador");
+});
+
+test("confirmar una cita antigua elimina cuentaCodigo sin perder sus datos ni inventar su autor", async () => {
+    await autorizar();
+    for (const [uid, nombre] of [["abuelo", "Abuelo"], ["cuidador", "Cuidador"]]) {
+        // Documento de versiones anteriores: propiedad calculada serializada y sin auditoría.
+        await env.withSecurityRulesDisabled(ctx => setDoc(registro(ctx.firestore()), cita({
+            cuentaCodigo: "ABCDEF", auditoria: null, institucion: "Hospital",
+            direccion: "Calle 50", especialidad: "General", nombreMedico: "Doctora",
+            notas: "Llevar orden", nombreSoporte: "orden.pdf", enlaceVirtual: "",
+            ubicacionConfirmada: null, nombreLugarConfirmado: null
+        })));
+        const database = db(uid);
+        const ref = registro(database);
+        const cambios = {
+            ubicacionConfirmada: new GeoPoint(4.627, -74.064),
+            nombreLugarConfirmado: "Entrada del hospital",
+            auditoria: { creadoPorUid: null, creadoPorNombre: null, creadoEn: null,
+                actualizadoPorUid: uid, actualizadoPorNombre: nombre, actualizadoEn: serverTimestamp() }
+        };
+        // El update antiguo conservaba el campo obsoleto y las reglas rechazaban el documento.
+        await assertFails(updateDoc(ref, cambios));
+        await assertSucceeds(runTransaction(database, async tx => {
+            await tx.get(ref);
+            tx.update(ref, { ...cambios, cuentaCodigo: deleteField() });
+        }));
+        const guardada = (await getDoc(registro(db("abuelo")))).data();
+        assert.equal("cuentaCodigo" in guardada, false);
+        assert.equal(guardada.ubicacionConfirmada.latitude, 4.627);
+        assert.equal(guardada.motivo, "Control");
+        assert.equal(guardada.institucion, "Hospital");
+        assert.equal(guardada.direccion, "Calle 50");
+        assert.equal(guardada.notas, "Llevar orden");
+        assert.equal(guardada.nombreSoporte, "orden.pdf");
+        assert.equal(guardada.auditoria.creadoPorUid, null);
+        assert.equal(guardada.auditoria.actualizadoPorUid, uid);
+    }
+});
+
+test("modificar dirección, institución o modalidad exige retirar las coordenadas anteriores", async () => {
+    await autorizar();
+    const ref = registro(db("cuidador"));
+    for (const cambio of [{ direccion: "Otra dirección" }, { institucion: "Otra sede" }, { modalidad: "VIRTUAL" }]) {
+        await env.withSecurityRulesDisabled(ctx => setDoc(registro(ctx.firestore()),
+            cita({ institucion: "Hospital", direccion: "Bogotá", ubicacionConfirmada: new GeoPoint(4.627, -74.064),
+                nombreLugarConfirmado: "Hospital" })));
+        await assertFails(updateDoc(ref, { ...cambio, "auditoria.actualizadoEn": serverTimestamp() }));
+        await assertSucceeds(updateDoc(ref, { ...cambio, ubicacionConfirmada: null,
+            nombreLugarConfirmado: null, "auditoria.actualizadoEn": serverTimestamp() }));
+    }
+});
+
+test("ubicaciones confirmadas rechazan tipos incorrectos, campos incompletos, nombres vacíos y citas virtuales", async () => {
+    await autorizar();
+    for (const datos of [
+        { ubicacionConfirmada: "4,-74", nombreLugarConfirmado: "Hospital" },
+        { ubicacionConfirmada: { latitude: 4, longitude: -74 }, nombreLugarConfirmado: "Hospital" },
+        { ubicacionConfirmada: new GeoPoint(4, -74) },
+        { nombreLugarConfirmado: "Hospital" },
+        { ubicacionConfirmada: new GeoPoint(4, -74), nombreLugarConfirmado: " " },
+        { ubicacionConfirmada: new GeoPoint(4, -74), nombreLugarConfirmado: "x".repeat(501) },
+        { modalidad: "VIRTUAL", ubicacionConfirmada: new GeoPoint(4, -74), nombreLugarConfirmado: "Hospital" }
+    ]) await assertFails(setDoc(registro(db("cuidador")), cita(datos)));
+});
+
+test("un vínculo de consulta puede leer un lugar pero no confirmarlo ni alterarlo", async () => {
+    await sembrarVinculo({ solicitaGestion: false, titularGestionUid: "" });
+    await env.withSecurityRulesDisabled(ctx => setDoc(registro(ctx.firestore()),
+        cita({ ubicacionConfirmada: new GeoPoint(4, -74), nombreLugarConfirmado: "Hospital" })));
+    await assertSucceeds(getDoc(registro(db("cuidador"))));
+    await assertFails(updateDoc(registro(db("cuidador")), {
+        ubicacionConfirmada: new GeoPoint(5, -75), nombreLugarConfirmado: "Otro",
+        "auditoria.actualizadoEn": serverTimestamp()
+    }));
+});
+
+test("las notas y el horario se pueden editar conservando un lugar confirmado", async () => {
+    await autorizar();
+    await setDoc(registro(db("cuidador")), cita({
+        ubicacionConfirmada: new GeoPoint(4, -74), nombreLugarConfirmado: "Hospital"
+    }));
+    await assertSucceeds(updateDoc(registro(db("cuidador")), {
+        hora: 15, notas: "Llevar orden", "auditoria.actualizadoEn": serverTimestamp()
+    }));
+    assert.equal((await getDoc(registro(db("abuelo")))).data().ubicacionConfirmada.latitude, 4);
 });
 
 test("no hay acceso a subcolecciones huérfanas ni listados públicos", async () => {

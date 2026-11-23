@@ -21,16 +21,27 @@ object CitaRepository {
             else {
                 if (result?.metadata?.hasPendingWrites() == true) return@addSnapshotListener
                 try {
-                    trySend(result?.documents.orEmpty().mapNotNull { doc ->
-                        doc.toObject(Cita::class.java)?.copy(id = doc.id,
-                            soporteUri = if (SesionRepository.haySesionGuardada && SesionRepository.puedeGestionar(uid))
-                                AdjuntosLocales.obtener(uid, "cita", doc.id) else null)
-                    })
+                    trySend(result?.documents.orEmpty().mapNotNull { doc -> doc.aCita(uid) })
                 } catch (e: Exception) { close(e) }
             }
         }
         awaitClose { listener.remove() }
     }
+
+    fun observarPorId(uid: String, id: String) = callbackFlow<Cita?> {
+        val listener = coleccion(uid).document(id).addSnapshotListener(com.google.firebase.firestore.MetadataChanges.INCLUDE) { doc, error ->
+            if (error != null) close(error)
+            else if (doc?.metadata?.hasPendingWrites() != true) {
+                try { trySend(doc?.aCita(uid)) } catch (e: Exception) { close(e) }
+            }
+        }
+        awaitClose { listener.remove() }
+    }
+
+    private fun com.google.firebase.firestore.DocumentSnapshot.aCita(uid: String): Cita? =
+        toObject(Cita::class.java)?.copy(id = id,
+            soporteUri = if (SesionRepository.haySesionGuardada && SesionRepository.puedeGestionar(uid))
+                AdjuntosLocales.obtener(uid, "cita", id) else null)
 
     internal fun actualizarCache(uid: String, citas: List<Cita>) { porCuenta = porCuenta + (uid to citas) }
     internal fun conservarCuentas(uids: Set<String>) { porCuenta = porCuenta.filterKeys { it in uids } }
@@ -49,13 +60,34 @@ object CitaRepository {
             FirebaseDb.firestore.runTransaction { tx ->
                 val anterior = tx.get(ref)
                 val auditoria = AuditoriaRegistros.paraGuardar(anterior)
-                tx.set(ref, cita)
+                val paraGuardar = com.icm2630.proyecto.data.model.UbicacionCitas.conservar(
+                    cita, anterior.toObject(Cita::class.java))
+                tx.set(ref, paraGuardar)
                 tx.update(ref, "auditoria", auditoria)
             }.await()
         } catch (e: Exception) {
             AdjuntosLocales.guardar(uid, "cita", cita.id, anterior)
             throw e
         }
+    }
+
+    suspend fun confirmarUbicacion(uid: String, esperada: Cita, punto: com.icm2630.proyecto.data.model.PuntoMapa) {
+        check(SesionRepository.puedeGestionar(uid)) { "Solo el titular o un cuidador autorizado puede guardar el lugar." }
+        val ref = coleccion(uid).document(esperada.id)
+        FirebaseDb.firestore.runTransaction { tx ->
+            val doc = tx.get(ref)
+            val actual = checkNotNull(doc.toObject(Cita::class.java)) { "La cita ya no está disponible." }
+            check(com.icm2630.proyecto.data.model.UbicacionCitas.mismoLugar(actual, esperada)) {
+                "La dirección de la cita cambió. Revisa el lugar y confírmalo de nuevo."
+            }
+            tx.update(ref, mapOf(
+                "ubicacionConfirmada" to com.google.firebase.firestore.GeoPoint(punto.latitud, punto.longitud),
+                "nombreLugarConfirmado" to punto.nombre.trim().ifBlank { "Lugar confirmado" }.take(500),
+                "auditoria" to AuditoriaRegistros.paraGuardar(doc),
+                // Las versiones antiguas serializaban esta propiedad calculada, ajena al esquema actual.
+                "cuentaCodigo" to com.google.firebase.firestore.FieldValue.delete()
+            ))
+        }.await()
     }
 
     fun obtenerTodas(): List<Cita> = porCuenta[uidConsultado()].orEmpty()

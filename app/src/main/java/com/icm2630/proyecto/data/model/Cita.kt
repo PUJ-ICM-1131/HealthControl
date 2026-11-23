@@ -30,7 +30,9 @@ data class Cita(
     @get:com.google.firebase.firestore.Exclude
     val soporteUri: String? = null,
     val nombreSoporte: String? = null,
-    val auditoria: AuditoriaRegistro? = null
+    val auditoria: AuditoriaRegistro? = null,
+    val ubicacionConfirmada: com.google.firebase.firestore.GeoPoint? = null,
+    val nombreLugarConfirmado: String? = null
 )
 
 enum class TipoCita(

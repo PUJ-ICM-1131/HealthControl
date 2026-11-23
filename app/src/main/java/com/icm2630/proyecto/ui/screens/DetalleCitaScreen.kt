@@ -60,7 +60,8 @@ fun DetalleCitaScreen(
     titularUid: String = SesionRepository.uidConsultado,
     onBack: () -> Unit,
     onEditar: () -> Unit,
-    onEliminar: () -> Unit
+    onEliminar: () -> Unit,
+    onVerMapa: () -> Unit = {}
 ) {
 
 
@@ -248,6 +249,27 @@ fun DetalleCitaScreen(
                                 ?: "Familiar"
                         )
                     }
+                }
+
+                Spacer(Modifier.height(12.dp))
+                if (cita.modalidad == ModalidadCita.PRESENCIAL) {
+                    OutlinedButton(onClick = onVerMapa, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+                        Icon(Icons.Outlined.Map, null, modifier = Modifier.size(20.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("Ver ubicación en el mapa")
+                    }
+                } else if (cita.enlaceVirtual.isNotBlank()) {
+                    val contextoEnlace = androidx.compose.ui.platform.LocalContext.current
+                    OutlinedButton(onClick = {
+                        try {
+                            val uri = android.net.Uri.parse(cita.enlaceVirtual)
+                            if (uri.scheme?.lowercase() in listOf("http", "https")) {
+                                contextoEnlace.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, uri))
+                            } else android.widget.Toast.makeText(contextoEnlace, "Revisa el enlace de la cita.", android.widget.Toast.LENGTH_SHORT).show()
+                        } catch (_: android.content.ActivityNotFoundException) {
+                            android.widget.Toast.makeText(contextoEnlace, "No hay una aplicación para abrir el enlace.", android.widget.Toast.LENGTH_SHORT).show()
+                        }
+                    }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("Abrir enlace de la cita") }
                 }
 
                 if (cita.motivo.isNotBlank() || cita.notas.isNotBlank()) {

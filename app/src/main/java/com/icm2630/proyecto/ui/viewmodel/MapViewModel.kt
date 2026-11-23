@@ -1,6 +1,8 @@
 package com.icm2630.proyecto.ui.viewmodel
 
 import android.app.Application
+import android.util.Log
+import com.google.firebase.firestore.FirebaseFirestoreException
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.icm2630.proyecto.data.model.ModoRuta
@@ -40,6 +42,92 @@ class MapViewModel(application: Application) : AndroidViewModel(application) {
     private var revisionBusqueda = 0
 
     private var escuchaFamiliar: Job? = null
+    private var escuchaCita: Job? = null
+    private var tokenRutaCitaPendiente: String? = null
+
+    fun observarCita(uid: String, id: String) {
+        escuchaCita?.cancel()
+        _uiState.update { it.copy(titularCitaUid = uid, cita = null, cargandoCita = true) }
+        escuchaCita = viewModelScope.launch {
+            com.icm2630.proyecto.data.repository.CitaRepository.observarPorId(uid, id).catch {
+                limpiarRuta()
+                _uiState.update { actual -> actual.copy(cita = null, cargandoCita = false,
+                    mensajeError = "No se pudo consultar la cita. Revisa la conexión y el permiso de acceso.") }
+            }.collect { cita ->
+                val previa = _uiState.value.cita
+                val lugar = cita?.let(com.icm2630.proyecto.data.model.UbicacionCitas::punto)
+                val cambioLugar = previa == null || cita == null ||
+                    !com.icm2630.proyecto.data.model.UbicacionCitas.mismoLugar(cita, previa) ||
+                    cita.ubicacionConfirmada != previa.ubicacionConfirmada ||
+                    cita.nombreLugarConfirmado != previa.nombreLugarConfirmado
+                if (cambioLugar) {
+                    tokenRutaCitaPendiente = null
+                    invalidarRuta()
+                    cancelarBusqueda()
+                }
+                _uiState.update { actual -> actual.copy(
+                    cita = cita, cargandoCita = false,
+                    destino = if (cambioLugar) lugar else actual.destino,
+                    seleccion = if (cambioLugar) SeleccionMapa.DESTINO else actual.seleccion,
+                    consulta = if (cambioLugar) cita?.let(com.icm2630.proyecto.data.model.UbicacionCitas::consulta).orEmpty()
+                        else actual.consulta,
+                    resultadosBusqueda = if (cambioLugar) emptyList() else actual.resultadosBusqueda,
+                    mensajeLugar = if (cambioLugar) null else actual.mensajeLugar,
+                    mensajeError = if (cita == null) "La cita ya no está disponible." else actual.mensajeError
+                ) }
+            }
+        }
+    }
+
+    fun confirmarLugarCita() {
+        val estado = _uiState.value
+        val uid = estado.titularCitaUid ?: return
+        val cita = estado.cita ?: return
+        val punto = estado.destino ?: return
+        if (estado.guardandoLugar) return
+        _uiState.update { it.copy(guardandoLugar = true, mensajeLugar = null, mensajeError = null) }
+        viewModelScope.launch {
+            try {
+                com.icm2630.proyecto.data.repository.CitaRepository.confirmarUbicacion(uid, cita, punto)
+                _uiState.update { it.copy(guardandoLugar = false, mensajeLugar = "Lugar guardado en la cita.") }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e("MapViewModel", "No se pudo confirmar el lugar de la cita", e)
+                val mensaje = when {
+                    e is IllegalStateException -> e.message ?: "No se pudo guardar el lugar."
+                    e is FirebaseFirestoreException -> when (e.code) {
+                        FirebaseFirestoreException.Code.UNAVAILABLE,
+                        FirebaseFirestoreException.Code.DEADLINE_EXCEEDED ->
+                            "No se pudo conectar para guardar el lugar. Revisa tu conexión e inténtalo de nuevo."
+                        FirebaseFirestoreException.Code.PERMISSION_DENIED ->
+                            "No se autorizó el guardado. Si es una cita de otra persona, revisa que te haya permitido gestionar su salud."
+                        FirebaseFirestoreException.Code.UNAUTHENTICATED ->
+                            "Tu sesión ya no es válida. Vuelve a iniciar sesión para guardar el lugar."
+                        else -> "No se pudo guardar el lugar. Inténtalo de nuevo."
+                    }
+                    else -> "No se pudo guardar el lugar. Inténtalo de nuevo."
+                }
+                _uiState.update { it.copy(guardandoLugar = false, mensajeError = mensaje) }
+            }
+        }
+    }
+
+    fun rutaHaciaCita(token: String) {
+        if (_uiState.value.cita == null || _uiState.value.destino == null) return
+        val reciente = (_uiState.value.momentoUbicacionMillis ?: 0L) >= System.currentTimeMillis() - 90_000L
+        if (!reciente || _uiState.value.ubicacionActual == null) {
+            tokenRutaCitaPendiente = token
+            _uiState.update { it.copy(mensajeError = "Esperando tu ubicación para calcular el recorrido.") }
+            return
+        }
+        tokenRutaCitaPendiente = null
+        usarMiUbicacionComoOrigen()
+        calcularRuta(token)
+    }
+
+    fun cancelarRutaCitaPendiente() { tokenRutaCitaPendiente = null }
+
 
     /** Cada vínculo autorizado aporta su propio documento de ubicación. */
     fun observarPersonas(personas: List<PersonaVinculada>) {
@@ -129,14 +217,23 @@ class MapViewModel(application: Application) : AndroidViewModel(application) {
                 } else actual.origen
             )
         }
+        tokenRutaCitaPendiente?.let { rutaHaciaCita(it) }
+    }
+
+    fun restaurarDestinoCita() {
+        limpiarRuta()
+        _uiState.update { it.copy(destino = it.cita?.let(com.icm2630.proyecto.data.model.UbicacionCitas::punto),
+            seleccion = SeleccionMapa.DESTINO, origenDesdeUbicacion = true) }
     }
 
     fun seleccionarObjetivo(seleccion: SeleccionMapa) {
+        tokenRutaCitaPendiente = null
         cancelarBusqueda()
         _uiState.update { it.copy(seleccion = seleccion, resultadosBusqueda = emptyList()) }
     }
 
     fun seleccionarPunto(punto: PuntoMapa) {
+        tokenRutaCitaPendiente = null
         invalidarRuta()
         cancelarBusqueda()
         _uiState.update {
@@ -288,6 +385,7 @@ class MapViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
     fun limpiarRuta() {
+        tokenRutaCitaPendiente = null
         invalidarRuta()
         cancelarBusqueda()
         _uiState.update {
@@ -305,6 +403,9 @@ class MapViewModel(application: Application) : AndroidViewModel(application) {
     fun limpiarError() = _uiState.update { it.copy(mensajeError = null) }
 
     fun cancelarOperaciones() {
+        escuchaCita?.cancel()
+        escuchaCita = null
+        tokenRutaCitaPendiente = null
         escuchaFamiliar?.cancel()
         escuchaFamiliar = null
         _uiState.update { it.copy(personasEnMapa = emptyList(), personaSeleccionadaUid = null,
